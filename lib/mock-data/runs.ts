@@ -4,7 +4,7 @@ export const initialRuns: Run[] = [
   {
     id: "run_8f2c",
     strategy: "atlas_momentum.py",
-    datasetVersion: "Equities US v13",
+    datasetVersion: "Акции США v13",
     period: "2018-01-01 -> 2024-12-31",
     timeframe: "1D",
     params: {
@@ -28,9 +28,9 @@ export const initialRuns: Run[] = [
     },
     status: "done",
     artifacts: [
-      { id: "log_8f2c", label: "Execution log", type: "log", size: "2.4 MB" },
-      { id: "rep_8f2c", label: "Run report", type: "report", size: "1.1 MB" },
-      { id: "exp_8f2c", label: "Export bundle", type: "export", size: "4.8 MB" },
+      { id: "log_8f2c", label: "Лог выполнения", type: "log", size: "2.4 MB" },
+      { id: "rep_8f2c", label: "Отчет запуска", type: "report", size: "1.1 MB" },
+      { id: "exp_8f2c", label: "Пакет экспорта", type: "export", size: "4.8 MB" },
     ],
     createdAt: "2025-01-17 18:42",
     commit: "a7c9e2d",
@@ -41,7 +41,7 @@ export const initialRuns: Run[] = [
   {
     id: "run_7a21",
     strategy: "atlas_momentum.py",
-    datasetVersion: "Equities US v12",
+    datasetVersion: "Акции США v12",
     period: "2016-01-01 -> 2023-12-31",
     timeframe: "1D",
     params: {
@@ -65,8 +65,8 @@ export const initialRuns: Run[] = [
     },
     status: "done",
     artifacts: [
-      { id: "log_7a21", label: "Execution log", type: "log", size: "1.9 MB" },
-      { id: "rep_7a21", label: "Run report", type: "report", size: "1.0 MB" },
+      { id: "log_7a21", label: "Лог выполнения", type: "log", size: "1.9 MB" },
+      { id: "rep_7a21", label: "Отчет запуска", type: "report", size: "1.0 MB" },
     ],
     createdAt: "2025-01-17 16:03",
     commit: "a1c4f0b",
@@ -77,7 +77,7 @@ export const initialRuns: Run[] = [
   {
     id: "run_6b90",
     strategy: "atlas_momentum.py",
-    datasetVersion: "Equities US v13",
+    datasetVersion: "Акции США v13",
     period: "2018-01-01 -> 2024-12-31",
     timeframe: "1D",
     params: {
@@ -101,7 +101,7 @@ export const initialRuns: Run[] = [
     },
     status: "running",
     artifacts: [
-      { id: "log_6b90", label: "Execution log", type: "log", size: "1.2 MB" },
+      { id: "log_6b90", label: "Лог выполнения", type: "log", size: "1.2 MB" },
     ],
     createdAt: "2025-01-17 19:10",
     commit: "b2d8c5a",
@@ -112,7 +112,7 @@ export const initialRuns: Run[] = [
   {
     id: "run_51aa",
     strategy: "orbit_reversion.py",
-    datasetVersion: "ETFs Intraday v21",
+    datasetVersion: "ETF внутри дня v21",
     period: "2022-01-01 -> 2024-12-31",
     timeframe: "15m",
     params: {
@@ -145,7 +145,7 @@ export const initialRuns: Run[] = [
   {
     id: "run_3bce",
     strategy: "ridge_carry.py",
-    datasetVersion: "FX Daily v09",
+    datasetVersion: "FX дневной v09",
     period: "2015-01-01 -> 2024-12-31",
     timeframe: "1D",
     params: {
@@ -169,8 +169,8 @@ export const initialRuns: Run[] = [
     },
     status: "done",
     artifacts: [
-      { id: "log_3bce", label: "Execution log", type: "log", size: "1.3 MB" },
-      { id: "rep_3bce", label: "Run report", type: "report", size: "900 KB" },
+      { id: "log_3bce", label: "Лог выполнения", type: "log", size: "1.3 MB" },
+      { id: "rep_3bce", label: "Отчет запуска", type: "report", size: "900 KB" },
     ],
     createdAt: "2025-01-16 09:05",
     commit: "0fa71d2",
@@ -181,7 +181,7 @@ export const initialRuns: Run[] = [
   {
     id: "run_2b11",
     strategy: "ridge_carry.py",
-    datasetVersion: "FX Daily v08",
+    datasetVersion: "FX дневной v08",
     period: "2012-01-01 -> 2023-12-31",
     timeframe: "1D",
     params: {
@@ -205,7 +205,7 @@ export const initialRuns: Run[] = [
     },
     status: "failed",
     artifacts: [
-      { id: "log_2b11", label: "Execution log", type: "log", size: "600 KB" },
+      { id: "log_2b11", label: "Лог выполнения", type: "log", size: "600 KB" },
     ],
     createdAt: "2025-01-16 08:12",
     commit: "0fa71d2",

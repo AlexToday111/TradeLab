@@ -18,23 +18,23 @@ export default function WorkspacePage() {
     <div className="flex h-full flex-col gap-4">
       <div className="flex items-center justify-between">
         <div>
-          <div className="text-lg font-semibold text-foreground">Workspace</div>
+          <div className="text-lg font-semibold text-foreground">Рабочая область</div>
           <div className="text-xs text-muted-foreground">
-            Projects, datasets, and recent runs at a glance.
+            Проекты, датасеты и последние запуски в одном месте.
           </div>
         </div>
         <div className="flex items-center gap-2">
           <Button size="sm">
             <Plus className="mr-2 h-4 w-4" />
-            New project
+            Новый проект
           </Button>
           <Button size="sm" variant="secondary">
             <UploadCloud className="mr-2 h-4 w-4" />
-            Import repo
+            Импорт репозитория
           </Button>
           <Button size="sm" variant="secondary">
             <FolderOpen className="mr-2 h-4 w-4" />
-            Open project
+            Открыть проект
           </Button>
         </div>
       </div>
@@ -43,11 +43,11 @@ export default function WorkspacePage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Project</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead>Last dataset</TableHead>
-              <TableHead>Recent runs</TableHead>
-              <TableHead>Last active</TableHead>
+              <TableHead>Проект</TableHead>
+              <TableHead>Описание</TableHead>
+              <TableHead>Последний датасет</TableHead>
+              <TableHead>Последние запуски</TableHead>
+              <TableHead>Последняя активность</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -77,7 +77,7 @@ export default function WorkspacePage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card className="border-border bg-panel p-4">
           <div className="mb-3 text-sm font-semibold text-foreground">
-            Pinned datasets
+            Закрепленные датасеты
           </div>
           <div className="flex flex-col gap-2">
             {datasetVersions.slice(0, 2).map((dataset) => (
@@ -95,14 +95,14 @@ export default function WorkspacePage() {
         </Card>
         <Card className="border-border bg-panel p-4">
           <div className="mb-3 text-sm font-semibold text-foreground">
-            Recent runs
+            Последние запуски
           </div>
           <div className="flex flex-col gap-2">
             {recentRuns.length === 0 ? (
               <EmptyState
-                title="No runs yet"
-                description="Run your first backtest to populate this list."
-                actionLabel="Run backtest"
+                title="Запусков пока нет"
+                description="Запустите первый бэктест, чтобы заполнить этот список."
+                actionLabel="Запустить бэктест"
                 actionHref="/code"
               />
             ) : (

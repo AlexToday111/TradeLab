@@ -116,22 +116,22 @@ export default function CodePage() {
         >
           <div className="flex h-full flex-col border-r border-border bg-panel p-3">
             <div className="mb-3 text-sm font-semibold text-foreground">
-              Project Explorer
+              Навигатор проекта
             </div>
             <div className="relative mb-4">
               <Search className="absolute left-2 top-2 h-4 w-4 text-muted-foreground" />
-              <Input className="h-8 pl-8 text-xs" placeholder="Search files" />
+              <Input className="h-8 pl-8 text-xs" placeholder="Поиск файлов" />
             </div>
             <ScrollArea className="flex-1">
               <div className="mb-4">
                 <div className="mb-2 text-[11px] uppercase tracking-wide text-muted-foreground">
-                  Tree
+                  Дерево
                 </div>
                 <FileTree nodes={fileTree} />
               </div>
               <div className="mb-4">
                 <div className="mb-2 text-[11px] uppercase tracking-wide text-muted-foreground">
-                  Pinned files
+                  Закрепленные файлы
                 </div>
                 <div className="flex flex-col gap-1 text-xs text-muted-foreground">
                   {pinnedFiles.map((file) => (
@@ -143,7 +143,7 @@ export default function CodePage() {
               </div>
               <div>
                 <div className="mb-2 text-[11px] uppercase tracking-wide text-muted-foreground">
-                  Pinned runs
+                  Закрепленные запуски
                 </div>
                 <div className="flex flex-col gap-2 text-xs">
                   {recentRuns.map((run) => (
@@ -220,19 +220,19 @@ export default function CodePage() {
                 <Tabs defaultValue="console" className="flex h-full flex-col">
                   <TabsList className="h-9 rounded-none border-b border-border bg-panel px-3">
                     <TabsTrigger value="console" className="text-xs">
-                      Console
+                      Консоль
                     </TabsTrigger>
                     <TabsTrigger value="logs" className="text-xs">
-                      Logs
+                      Логи
                     </TabsTrigger>
                     <TabsTrigger value="problems" className="text-xs">
-                      Problems
+                      Проблемы
                     </TabsTrigger>
                     <TabsTrigger value="output" className="text-xs">
-                      Backtest Output
+                      Вывод бэктеста
                     </TabsTrigger>
                     <TabsTrigger value="artifacts" className="text-xs">
-                      Artifacts
+                      Артефакты
                     </TabsTrigger>
                   </TabsList>
                   <TabsContent value="console" className="flex-1 p-3">
@@ -251,21 +251,21 @@ export default function CodePage() {
                   </TabsContent>
                   <TabsContent value="problems" className="flex-1 p-3 text-xs">
                     <div className="space-y-2 text-muted-foreground">
-                      <div>2 warnings / 0 errors</div>
+                      <div>2 предупреждения / 0 ошибок</div>
                       <div className="rounded-md border border-border bg-panel-subtle p-2">
-                        Missing field: split_adjusted
+                        Отсутствует поле: split_adjusted
                       </div>
                       <div className="rounded-md border border-border bg-panel-subtle p-2">
-                        Volume spikes above z-score 4.0
+                        Всплески объема выше z-score 4.0
                       </div>
                     </div>
                   </TabsContent>
                   <TabsContent value="output" className="flex-1 p-3 text-xs">
                     <div className="grid grid-cols-2 gap-2 text-muted-foreground">
                       <div>PnL: 18.4%</div>
-                      <div>Sharpe: 1.62</div>
-                      <div>Max DD: -9.7%</div>
-                      <div>Trades: 842</div>
+                      <div>Шарп: 1.62</div>
+                      <div>Макс. просадка: -9.7%</div>
+                      <div>Сделки: 842</div>
                     </div>
                   </TabsContent>
                   <TabsContent value="artifacts" className="flex-1 p-3 text-xs">
@@ -291,11 +291,11 @@ export default function CodePage() {
 
         <ResizablePanel defaultSize={22} minSize={18} maxSize={30}>
           <div className="flex h-full flex-col gap-4 bg-panel p-3">
-            <div className="text-sm font-semibold text-foreground">Run / Params</div>
+            <div className="text-sm font-semibold text-foreground">Запуск / Параметры</div>
 
             <div className="space-y-3">
               <div>
-                <div className="text-xs text-muted-foreground">Strategy entrypoint</div>
+                <div className="text-xs text-muted-foreground">Точка входа стратегии</div>
                 <Select defaultValue="atlas">
                   <SelectTrigger className="h-8 text-xs">
                     <SelectValue />
@@ -308,15 +308,15 @@ export default function CodePage() {
                 </Select>
               </div>
               <div>
-                <div className="text-xs text-muted-foreground">Dataset selector</div>
+                <div className="text-xs text-muted-foreground">Выбор датасета</div>
                 <Select defaultValue="equities">
                   <SelectTrigger className="h-8 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="equities">Equities US v13</SelectItem>
-                    <SelectItem value="etfs">ETFs Intraday v21</SelectItem>
-                    <SelectItem value="fx">FX Daily v09</SelectItem>
+                    <SelectItem value="equities">Акции США v13</SelectItem>
+                    <SelectItem value="etfs">ETF внутри дня v21</SelectItem>
+                    <SelectItem value="fx">FX дневной v09</SelectItem>
                   </SelectContent>
                 </Select>
                 <div className="mt-2 grid grid-cols-2 gap-2">
@@ -325,20 +325,20 @@ export default function CodePage() {
                 </div>
               </div>
               <div>
-                <div className="text-xs text-muted-foreground">Fees / Slippage preset</div>
+                <div className="text-xs text-muted-foreground">Пресет комиссий / проскальзывания</div>
                 <Select defaultValue="base">
                   <SelectTrigger className="h-8 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="base">Base (0.8 / 0.5 bps)</SelectItem>
-                    <SelectItem value="low">Low (0.4 / 0.3 bps)</SelectItem>
-                    <SelectItem value="high">High (1.2 / 0.9 bps)</SelectItem>
+                    <SelectItem value="base">Базовый (0.8 / 0.5 bps)</SelectItem>
+                    <SelectItem value="low">Низкий (0.4 / 0.3 bps)</SelectItem>
+                    <SelectItem value="high">Высокий (1.2 / 0.9 bps)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <div className="text-xs text-muted-foreground">Execution model</div>
+                <div className="text-xs text-muted-foreground">Модель исполнения</div>
                 <Select defaultValue="vwap">
                   <SelectTrigger className="h-8 text-xs">
                     <SelectValue />
@@ -346,15 +346,15 @@ export default function CodePage() {
                   <SelectContent>
                     <SelectItem value="vwap">VWAP</SelectItem>
                     <SelectItem value="twap">TWAP</SelectItem>
-                    <SelectItem value="market">Market</SelectItem>
+                    <SelectItem value="market">Рыночное</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <div className="text-xs text-muted-foreground">Risk model</div>
+                <div className="text-xs text-muted-foreground">Модель риска</div>
                 <div className="grid grid-cols-2 gap-2">
-                  <Input className="h-8 text-xs" defaultValue="0.5%/trade" />
-                  <Input className="h-8 text-xs" defaultValue="25% max" />
+                  <Input className="h-8 text-xs" defaultValue="0.5%/сделку" />
+                  <Input className="h-8 text-xs" defaultValue="макс. 25%" />
                 </div>
               </div>
               <DataContractIndicator />
@@ -364,25 +364,25 @@ export default function CodePage() {
             <div className="mt-auto grid grid-cols-2 gap-2">
               <Button size="sm" onClick={handleBacktest}>
                 <Play className="mr-2 h-4 w-4" />
-                Backtest
+                Бэктест
               </Button>
               <Button size="sm" variant="secondary">
                 <Beaker className="mr-2 h-4 w-4" />
-                Optimize
+                Оптимизация
               </Button>
               <Button size="sm" variant="secondary">
                 <ShieldCheck className="mr-2 h-4 w-4" />
-                Validate
+                Проверка
               </Button>
               <Button size="sm" variant="secondary">
                 <Download className="mr-2 h-4 w-4" />
-                Export
+                Экспорт
               </Button>
             </div>
 
             <div className="rounded-lg border border-border bg-panel-subtle p-2 text-xs text-muted-foreground">
-              Hotkeys: Cmd/Ctrl+Enter (run), Cmd/Ctrl+P (search), Cmd/Ctrl+J
-              (bottom panel)
+              Горячие клавиши: Cmd/Ctrl+Enter (запуск), Cmd/Ctrl+P (поиск),
+              Cmd/Ctrl+J (нижняя панель)
             </div>
           </div>
         </ResizablePanel>

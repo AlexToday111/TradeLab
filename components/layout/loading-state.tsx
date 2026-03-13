@@ -1,7 +1,7 @@
 "use client";
 
 export function LoadingState({
-  label = "Loading data...",
+  label = "Загрузка данных...",
 }: {
   label?: string;
 }) {

@@ -22,7 +22,7 @@ export function ChartCard({
         ) : null}
       </div>
       <div className="h-48">
-        <ClientOnly fallback={<LoadingState label="Rendering chart..." />}>
+        <ClientOnly fallback={<LoadingState label="Отрисовка графика..." />}>
           {children}
         </ClientOnly>
       </div>

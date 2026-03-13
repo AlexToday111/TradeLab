@@ -18,14 +18,14 @@ export type DatasetVersion = {
 export const dataSources: DataSource[] = [
   { id: "src-1", name: "Binance Spot", type: "Exchange", status: "connected" },
   { id: "src-2", name: "Polygon.io", type: "API", status: "connected" },
-  { id: "src-3", name: "Local CSV", type: "CSV", status: "idle" },
-  { id: "src-4", name: "S3 Buckets", type: "S3", status: "connected" },
+  { id: "src-3", name: "Локальный CSV", type: "CSV", status: "idle" },
+  { id: "src-4", name: "S3-бакеты", type: "S3", status: "connected" },
 ];
 
 export const datasetVersions: DatasetVersion[] = [
   {
     id: "v13",
-    name: "Equities US v13",
+    name: "Акции США v13",
     period: "2018-01-01 -> 2024-12-31",
     timeframe: "1D",
     symbols: ["SPY", "QQQ", "IWM", "EFA", "EEM"],
@@ -34,7 +34,7 @@ export const datasetVersions: DatasetVersion[] = [
   },
   {
     id: "v12",
-    name: "Equities US v12",
+    name: "Акции США v12",
     period: "2016-01-01 -> 2023-12-31",
     timeframe: "1D",
     symbols: ["SPY", "QQQ", "IWM", "EFA", "EEM"],
@@ -43,7 +43,7 @@ export const datasetVersions: DatasetVersion[] = [
   },
   {
     id: "v21",
-    name: "ETFs Intraday v21",
+    name: "ETF внутри дня v21",
     period: "2022-01-01 -> 2024-12-31",
     timeframe: "15m",
     symbols: ["SPY", "QQQ", "TLT", "GLD"],
@@ -53,18 +53,18 @@ export const datasetVersions: DatasetVersion[] = [
 ];
 
 export const pipelineSteps = [
-  "download",
-  "clean",
-  "resample",
-  "features",
-  "store",
+  "загрузка",
+  "очистка",
+  "ресемплинг",
+  "признаки",
+  "сохранение",
 ];
 
 export const dataQuality = [
-  { label: "Coverage", value: "98.7%" },
-  { label: "Gaps", value: "0.6%" },
-  { label: "Duplicates", value: "0.2%" },
-  { label: "Outliers", value: "0.5%" },
+  { label: "Покрытие", value: "98.7%" },
+  { label: "Пропуски", value: "0.6%" },
+  { label: "Дубликаты", value: "0.2%" },
+  { label: "Выбросы", value: "0.5%" },
 ];
 
 export const previewRows = [

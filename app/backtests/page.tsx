@@ -24,19 +24,19 @@ export default function BacktestsPage() {
     <div className="flex h-full flex-col gap-4">
       <div className="flex items-center justify-between">
         <div>
-          <div className="text-lg font-semibold text-foreground">Backtests</div>
+          <div className="text-lg font-semibold text-foreground">Бэктесты</div>
           <div className="text-xs text-muted-foreground">
-            CI-style run queue with metrics and tags.
+            Очередь запусков в стиле CI с метриками и тегами.
           </div>
         </div>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="secondary">
             <Repeat className="mr-2 h-4 w-4" />
-            Re-run
+            Повторный запуск
           </Button>
           <Button size="sm">
             <Download className="mr-2 h-4 w-4" />
-            Bulk export
+            Массовый экспорт
           </Button>
         </div>
       </div>
@@ -44,19 +44,19 @@ export default function BacktestsPage() {
       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-panel p-3">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Filter className="h-4 w-4" />
-          Filters
+          Фильтры
         </div>
-        <Input className="h-8 w-[200px] text-xs" placeholder="Search runs" />
+        <Input className="h-8 w-[200px] text-xs" placeholder="Поиск запусков" />
         <Select defaultValue="all">
           <SelectTrigger className="h-8 w-[160px] text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="queued">Queued</SelectItem>
-            <SelectItem value="running">Running</SelectItem>
-            <SelectItem value="done">Done</SelectItem>
-            <SelectItem value="failed">Failed</SelectItem>
+            <SelectItem value="all">Все статусы</SelectItem>
+            <SelectItem value="queued">В очереди</SelectItem>
+            <SelectItem value="running">Выполняется</SelectItem>
+            <SelectItem value="done">Завершен</SelectItem>
+            <SelectItem value="failed">Ошибка</SelectItem>
           </SelectContent>
         </Select>
         <Select defaultValue="any">
@@ -64,10 +64,10 @@ export default function BacktestsPage() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="any">Any tag</SelectItem>
-            <SelectItem value="baseline">Baseline</SelectItem>
-            <SelectItem value="candidate">Candidate</SelectItem>
-            <SelectItem value="prod-like">Prod-like</SelectItem>
+            <SelectItem value="any">Любой тег</SelectItem>
+            <SelectItem value="baseline">Базовый</SelectItem>
+            <SelectItem value="candidate">Кандидат</SelectItem>
+            <SelectItem value="prod-like">Как в проде</SelectItem>
           </SelectContent>
         </Select>
       </div>

@@ -12,9 +12,9 @@ const sampleStrategies = [
 ];
 
 const sampleDatasets = [
-  "Equities US v13",
-  "ETFs Intraday v21",
-  "FX Daily v09",
+  "Акции США v13",
+  "ETF внутри дня v21",
+  "FX дневной v09",
 ];
 
 export function createMockRun(): Run {

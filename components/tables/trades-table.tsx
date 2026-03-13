@@ -2,19 +2,20 @@
 
 import { TradeRow } from "@/lib/mock-data/trades";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { getTradeSideLabel } from "@/lib/ui-text";
 
 export function TradesTable({ rows }: { rows: TradeRow[] }) {
   return (
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Trade</TableHead>
-          <TableHead>Symbol</TableHead>
-          <TableHead>Side</TableHead>
-          <TableHead>Entry</TableHead>
-          <TableHead>Exit</TableHead>
+          <TableHead>Сделка</TableHead>
+          <TableHead>Символ</TableHead>
+          <TableHead>Направление</TableHead>
+          <TableHead>Вход</TableHead>
+          <TableHead>Выход</TableHead>
           <TableHead>PnL</TableHead>
-          <TableHead>Duration</TableHead>
+          <TableHead>Длительность</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -27,7 +28,7 @@ export function TradesTable({ rows }: { rows: TradeRow[] }) {
               {trade.symbol}
             </TableCell>
             <TableCell className="text-xs text-muted-foreground">
-              {trade.side}
+              {getTradeSideLabel(trade.side)}
             </TableCell>
             <TableCell className="text-xs text-muted-foreground">
               {trade.entry}

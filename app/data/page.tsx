@@ -14,14 +14,15 @@ import {
 } from "@/lib/mock-data/datasets";
 import { ChartCard } from "@/components/charts/chart-card";
 import { OhlcPreviewChart } from "@/components/charts/run-charts";
+import { getDataSourceStatusLabel, getDataSourceTypeLabel } from "@/lib/ui-text";
 
 export default function DataPage() {
   return (
     <div className="flex h-full flex-col gap-4">
       <div>
-        <div className="text-lg font-semibold text-foreground">Data</div>
+        <div className="text-lg font-semibold text-foreground">Данные</div>
         <div className="text-xs text-muted-foreground">
-          Sources, pipelines, dataset versions, and quality checks.
+          Источники, пайплайны, версии датасетов и проверки качества.
         </div>
       </div>
 
@@ -39,7 +40,9 @@ export default function DataPage() {
                 <div className="text-sm font-medium text-foreground">
                   {source.name}
                 </div>
-                <div className="text-xs text-muted-foreground">{source.type}</div>
+                <div className="text-xs text-muted-foreground">
+                  {getDataSourceTypeLabel(source.type)}
+                </div>
               </div>
             </div>
             <Badge
@@ -49,7 +52,7 @@ export default function DataPage() {
                   : "border border-border bg-secondary text-muted-foreground"
               }
             >
-              {source.status}
+              {getDataSourceStatusLabel(source.status)}
             </Badge>
           </Card>
         ))}
@@ -58,7 +61,7 @@ export default function DataPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="border-border bg-panel p-4 lg:col-span-2">
           <div className="mb-3 text-sm font-semibold text-foreground">
-            Pipeline builder
+            Конструктор пайплайна
           </div>
           <div className="flex flex-wrap gap-2">
             {pipelineSteps.map((step, index) => (
@@ -74,7 +77,7 @@ export default function DataPage() {
         </Card>
         <Card className="border-border bg-panel p-4">
           <div className="mb-3 text-sm font-semibold text-foreground">
-            Data quality
+            Качество данных
           </div>
           <div className="grid grid-cols-2 gap-3 text-xs text-muted-foreground">
             {dataQuality.map((item) => (
@@ -91,26 +94,26 @@ export default function DataPage() {
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <div>
             <div className="text-sm font-semibold text-foreground">
-              Dataset versions
+              Версии датасетов
             </div>
             <div className="text-xs text-muted-foreground">
-              Versioned datasets with pipeline hashes.
+              Версионированные датасеты с хешами пайплайнов.
             </div>
           </div>
           <Button size="sm">
             <PlugZap className="mr-2 h-4 w-4" />
-            Use in backtest
+            Использовать в бэктесте
           </Button>
         </div>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Version</TableHead>
-              <TableHead>Period</TableHead>
-              <TableHead>Timeframe</TableHead>
-              <TableHead>Symbols</TableHead>
-              <TableHead>Size</TableHead>
-              <TableHead>Pipeline hash</TableHead>
+              <TableHead>Версия</TableHead>
+              <TableHead>Период</TableHead>
+              <TableHead>Таймфрейм</TableHead>
+              <TableHead>Символы</TableHead>
+              <TableHead>Размер</TableHead>
+              <TableHead>Хеш пайплайна</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -141,25 +144,25 @@ export default function DataPage() {
       </Card>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <ChartCard title="Table preview" subtitle="Light OHLC + volume signal">
+        <ChartCard title="Предпросмотр таблицы" subtitle="Упрощенный OHLC и объем">
           <OhlcPreviewChart />
         </ChartCard>
         <Card className="border-border bg-panel lg:col-span-2">
           <div className="border-b border-border px-4 py-3">
-            <div className="text-sm font-semibold text-foreground">Preview table</div>
+            <div className="text-sm font-semibold text-foreground">Таблица предпросмотра</div>
             <div className="text-xs text-muted-foreground">
-              First rows from Equities US v13.
+              Первые строки из датасета "Акции США v13".
             </div>
           </div>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Timestamp</TableHead>
-                <TableHead>Open</TableHead>
-                <TableHead>High</TableHead>
-                <TableHead>Low</TableHead>
-                <TableHead>Close</TableHead>
-                <TableHead>Volume</TableHead>
+                <TableHead>Временная метка</TableHead>
+                <TableHead>Открытие</TableHead>
+                <TableHead>Макс.</TableHead>
+                <TableHead>Мин.</TableHead>
+                <TableHead>Закрытие</TableHead>
+                <TableHead>Объем</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

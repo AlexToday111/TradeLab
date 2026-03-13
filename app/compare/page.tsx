@@ -55,14 +55,14 @@ export default function CompareRunsPage() {
   return (
     <div className="flex h-full flex-col gap-4">
       <div>
-        <div className="text-lg font-semibold text-foreground">Compare runs</div>
+        <div className="text-lg font-semibold text-foreground">Сравнение запусков</div>
         <div className="text-xs text-muted-foreground">
-          Select 2-5 runs to overlay results and inspect diffs.
+          Выберите 2-5 запусков, чтобы наложить результаты и изучить различия.
         </div>
       </div>
 
       <div className="rounded-lg border border-border bg-panel p-3">
-        <div className="mb-2 text-xs text-muted-foreground">Runs</div>
+        <div className="mb-2 text-xs text-muted-foreground">Запуски</div>
         <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
           {runs.map((run) => (
             <label
@@ -86,12 +86,12 @@ export default function CompareRunsPage() {
 
       {selectedRuns.length < 2 ? (
         <EmptyState
-          title="Select at least two runs"
-          description="Overlay charts, compare metrics, and inspect config diffs."
+          title="Выберите как минимум два запуска"
+          description="Наложите графики, сравните метрики и изучите различия конфигов."
         />
       ) : (
         <>
-          <ChartCard title="Overlay equity curves" subtitle="Selected runs">
+          <ChartCard title="Наложение кривых капитала" subtitle="Выбранные запуски">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={overlayData}>
                 <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="4 4" />
@@ -130,17 +130,17 @@ export default function CompareRunsPage() {
 
           <div className="rounded-lg border border-border bg-panel">
             <div className="border-b border-border px-4 py-3">
-              <div className="text-sm font-semibold text-foreground">Metrics</div>
-              <div className="text-xs text-muted-foreground">Delta by run.</div>
+              <div className="text-sm font-semibold text-foreground">Метрики</div>
+              <div className="text-xs text-muted-foreground">Дельта по каждому запуску.</div>
             </div>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Run</TableHead>
+                  <TableHead>Запуск</TableHead>
                   <TableHead>PnL</TableHead>
-                  <TableHead>Sharpe</TableHead>
-                  <TableHead>Max DD</TableHead>
-                  <TableHead>Trades</TableHead>
+                  <TableHead>Шарп</TableHead>
+                  <TableHead>Макс. просадка</TableHead>
+                  <TableHead>Сделки</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -170,8 +170,8 @@ export default function CompareRunsPage() {
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <div className="rounded-lg border border-border bg-panel">
               <div className="border-b border-border px-4 py-3">
-                <div className="text-sm font-semibold text-foreground">Config diff</div>
-                <div className="text-xs text-muted-foreground">Side-by-side parameters.</div>
+                <div className="text-sm font-semibold text-foreground">Различия конфигов</div>
+                <div className="text-xs text-muted-foreground">Параметры бок о бок.</div>
               </div>
               <div className="grid grid-cols-2 gap-3 p-4 text-xs">
                 <div className="rounded-md border border-border bg-panel-subtle p-3">
@@ -195,24 +195,24 @@ export default function CompareRunsPage() {
 
             <div className="rounded-lg border border-border bg-panel">
               <div className="border-b border-border px-4 py-3">
-                <div className="text-sm font-semibold text-foreground">Dataset diff</div>
-                <div className="text-xs text-muted-foreground">Versions + quality.</div>
+                <div className="text-sm font-semibold text-foreground">Различия датасетов</div>
+                <div className="text-xs text-muted-foreground">Версии и качество.</div>
               </div>
               <div className="space-y-3 p-4 text-xs text-muted-foreground">
                 <div className="rounded-md border border-border bg-panel-subtle p-3">
-                  <div className="text-[11px] uppercase">Left</div>
+                  <div className="text-[11px] uppercase">Слева</div>
                   <div className="text-foreground">{configLeft?.datasetVersion}</div>
-                  <div>Coverage 98.7% / Gaps 0.6%</div>
+                  <div>Покрытие 98.7% / Пропуски 0.6%</div>
                 </div>
                 <div className="rounded-md border border-border bg-panel-subtle p-3">
-                  <div className="text-[11px] uppercase">Right</div>
+                  <div className="text-[11px] uppercase">Справа</div>
                   <div className="text-foreground">{configRight?.datasetVersion}</div>
-                  <div>Coverage 97.9% / Gaps 0.9%</div>
+                  <div>Покрытие 97.9% / Пропуски 0.9%</div>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Badge variant="secondary">pipeline hash diff</Badge>
-                  <Badge variant="secondary">outlier spikes</Badge>
-                  <Badge variant="secondary">coverage delta</Badge>
+                  <Badge variant="secondary">разница хешей пайплайна</Badge>
+                  <Badge variant="secondary">всплески выбросов</Badge>
+                  <Badge variant="secondary">дельта покрытия</Badge>
                 </div>
               </div>
             </div>
@@ -220,12 +220,12 @@ export default function CompareRunsPage() {
 
           <div className="rounded-lg border border-border bg-panel p-4 text-xs text-muted-foreground">
             <div className="mb-2 text-sm font-semibold text-foreground">
-              Stability hints
+              Подсказки по стабильности
             </div>
             <ul className="list-disc space-y-1 pl-4">
-              <li>Dataset v13 adds post-2022 volatility spikes.</li>
-              <li>Config differs in slippage and execution model.</li>
-              <li>Trades count increased with shorter lookback.</li>
+              <li>Датасет v13 добавляет всплески волатильности после 2022 года.</li>
+              <li>Конфиг отличается по проскальзыванию и модели исполнения.</li>
+              <li>Число сделок выросло при более коротком окне истории.</li>
             </ul>
           </div>
         </>

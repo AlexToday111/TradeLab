@@ -29,9 +29,9 @@ export default function RunDetailsPage() {
   if (!run) {
     return (
       <EmptyState
-        title="Run not found"
-        description="Select a run from Backtests to inspect details."
-        actionLabel="Go to Backtests"
+        title="Запуск не найден"
+        description="Выберите запуск в разделе бэктестов, чтобы посмотреть детали."
+        actionLabel="Перейти к бэктестам"
         actionHref="/backtests"
       />
     );
@@ -57,32 +57,32 @@ export default function RunDetailsPage() {
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
         <MetricCard label="PnL" value={`${run.metrics.pnl.toFixed(1)}%`} tone="profit" />
-        <MetricCard label="Sharpe" value={run.metrics.sharpe.toFixed(2)} />
-        <MetricCard label="Max DD" value={`${run.metrics.maxDrawdown.toFixed(1)}%`} tone="loss" />
-        <MetricCard label="Winrate" value={`${run.metrics.winrate.toFixed(1)}%`} />
-        <MetricCard label="Trades" value={`${run.metrics.trades}`} />
-        <MetricCard label="Fees impact" value={`${run.metrics.feesImpact.toFixed(1)}%`} />
+        <MetricCard label="Шарп" value={run.metrics.sharpe.toFixed(2)} />
+        <MetricCard label="Макс. просадка" value={`${run.metrics.maxDrawdown.toFixed(1)}%`} tone="loss" />
+        <MetricCard label="Винрейт" value={`${run.metrics.winrate.toFixed(1)}%`} />
+        <MetricCard label="Сделки" value={`${run.metrics.trades}`} />
+        <MetricCard label="Влияние комиссий" value={`${run.metrics.feesImpact.toFixed(1)}%`} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <ChartCard title="Equity curve" subtitle="Portfolio growth over time">
+        <ChartCard title="Кривая капитала" subtitle="Рост портфеля во времени">
           <EquityChart />
         </ChartCard>
-        <ChartCard title="Drawdown" subtitle="Peak-to-trough decline">
+        <ChartCard title="Просадка" subtitle="Снижение от пика до минимума">
           <DrawdownChart />
         </ChartCard>
-        <ChartCard title="Underwater" subtitle="Distance from peak equity">
+        <ChartCard title="Отставание от пика" subtitle="Отклонение от максимума капитала">
           <UnderwaterChart />
         </ChartCard>
-        <ChartCard title="Returns histogram" subtitle="Distribution of returns">
+        <ChartCard title="Гистограмма доходности" subtitle="Распределение доходностей">
           <ReturnsHistogramChart />
         </ChartCard>
       </div>
 
       <div className="rounded-lg border border-border bg-panel">
         <div className="border-b border-border px-4 py-3">
-          <div className="text-sm font-semibold text-foreground">Trades</div>
-          <div className="text-xs text-muted-foreground">Filtered by run selection.</div>
+          <div className="text-sm font-semibold text-foreground">Сделки</div>
+          <div className="text-xs text-muted-foreground">Отфильтровано по выбранному запуску.</div>
         </div>
         <TradesTable rows={trades} />
       </div>
@@ -92,10 +92,10 @@ export default function RunDetailsPage() {
           <Tabs defaultValue="logs" className="flex h-full flex-col">
             <TabsList className="h-9 rounded-none border-b border-border bg-panel px-3">
               <TabsTrigger value="logs" className="text-xs">
-                Logs
+                Логи
               </TabsTrigger>
               <TabsTrigger value="artifacts" className="text-xs">
-                Artifacts
+                Артефакты
               </TabsTrigger>
             </TabsList>
             <TabsContent value="logs" className="flex-1 p-3">
@@ -109,10 +109,10 @@ export default function RunDetailsPage() {
               <div className="space-y-2 text-xs text-muted-foreground">
                 {run.artifacts.length === 0 ? (
                   run.status === "running" || run.status === "queued" ? (
-                    <LoadingState label="Artifacts are being generated..." />
+                    <LoadingState label="Артефакты формируются..." />
                   ) : (
                     <div className="rounded-md border border-border bg-panel-subtle p-2">
-                      No artifacts yet.
+                      Артефактов пока нет.
                     </div>
                   )
                 ) : (
@@ -133,19 +133,19 @@ export default function RunDetailsPage() {
 
         <div className="rounded-lg border border-border bg-panel">
           <div className="border-b border-border px-4 py-3">
-            <div className="text-sm font-semibold text-foreground">Reproducibility</div>
+            <div className="text-sm font-semibold text-foreground">Воспроизводимость</div>
             <div className="text-xs text-muted-foreground">
-              Commit, dataset version, and raw config.
+              Коммит, версия датасета и исходный конфиг.
             </div>
           </div>
           <div className="p-4 text-xs text-muted-foreground">
             <div className="mb-3 grid grid-cols-2 gap-3">
               <div className="rounded-md border border-border bg-panel-subtle p-2">
-                <div className="text-[11px] uppercase">Commit</div>
+                <div className="text-[11px] uppercase">Коммит</div>
                 <div className="font-mono text-foreground">{run.commit}</div>
               </div>
               <div className="rounded-md border border-border bg-panel-subtle p-2">
-                <div className="text-[11px] uppercase">Dataset</div>
+                <div className="text-[11px] uppercase">Датасет</div>
                 <div className="text-foreground">{run.datasetVersion}</div>
               </div>
             </div>

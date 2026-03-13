@@ -5,9 +5,9 @@ import { EmptyState } from "@/components/layout/empty-state";
 export default function ResearchPage() {
   return (
     <EmptyState
-      title="Research workspace"
-      description="Advanced notebooks and strategy research live here."
-      actionLabel="Create notebook"
+      title="Пространство исследований"
+      description="Здесь будут жить продвинутые ноутбуки и исследование стратегий."
+      actionLabel="Создать ноутбук"
     />
   );
 }

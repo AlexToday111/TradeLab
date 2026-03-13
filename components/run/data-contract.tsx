@@ -12,15 +12,15 @@ export function DataContractIndicator() {
     <div className="rounded-lg border border-border bg-panel-subtle p-3 text-xs">
       <div className="mb-2 flex items-center justify-between">
         <div className="text-xs font-semibold text-foreground">
-          Data contract
+          Контракт данных
         </div>
         <Badge className="border border-status-warning/40 bg-status-warning/20 text-status-warning">
-          2 mismatches
+          2 несовпадения
         </Badge>
       </div>
       <div className="mb-2">
         <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-          Strategy expects
+          Стратегия ожидает
         </div>
         <div className="mt-1 flex flex-wrap gap-1">
           {expectedFields.map((field) => (
@@ -35,7 +35,7 @@ export function DataContractIndicator() {
       </div>
       <div className="mb-2">
         <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-          Dataset provides
+          Датасет предоставляет
         </div>
         <div className="mt-1 flex flex-wrap gap-1">
           {providedFields.map((field) => (
@@ -60,7 +60,7 @@ export function DataContractIndicator() {
         </div>
       </div>
       <div className="text-[11px] text-muted-foreground">
-        Mismatches highlighted before run.
+        Несовпадения подсвечиваются до запуска.
       </div>
     </div>
   );

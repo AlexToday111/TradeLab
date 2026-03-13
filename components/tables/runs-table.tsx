@@ -5,6 +5,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { RunStatusBadge } from "@/components/run/run-badges";
+import { getRunTagLabel } from "@/lib/ui-text";
 
 export function RunsTable({
   runs,
@@ -22,16 +23,16 @@ export function RunsTable({
       <TableHeader>
         <TableRow>
           <TableHead className="w-10"></TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>Run</TableHead>
-          <TableHead>Strategy</TableHead>
-          <TableHead>Dataset</TableHead>
-          <TableHead>Period</TableHead>
+          <TableHead>Статус</TableHead>
+          <TableHead>Запуск</TableHead>
+          <TableHead>Стратегия</TableHead>
+          <TableHead>Датасет</TableHead>
+          <TableHead>Период</TableHead>
           <TableHead>PnL</TableHead>
-          <TableHead>Sharpe</TableHead>
-          <TableHead>Max DD</TableHead>
-          <TableHead>Trades</TableHead>
-          <TableHead>Tags</TableHead>
+          <TableHead>Шарп</TableHead>
+          <TableHead>Макс. просадка</TableHead>
+          <TableHead>Сделки</TableHead>
+          <TableHead>Теги</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -77,7 +78,7 @@ export function RunsTable({
             <TableCell className="flex flex-wrap gap-1">
               {run.tags.map((tag) => (
                 <Badge key={tag} variant="secondary" className="text-[10px]">
-                  {tag}
+                  {getRunTagLabel(tag)}
                 </Badge>
               ))}
             </TableCell>
