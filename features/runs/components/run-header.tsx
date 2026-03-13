@@ -5,10 +5,12 @@ import { RunDiffIndicators, RunStatusBadge } from "@/features/runs/components/ru
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Download, GitCompare, Copy, Repeat2, FileText, Upload } from "lucide-react";
+import { SurfaceCard } from "@/components/shared/surface-card";
 
 export function RunHeader({ run }: { run: Run }) {
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border bg-panel px-4 py-3">
+    <SurfaceCard contentClassName="p-5">
+      <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div>
@@ -68,6 +70,7 @@ export function RunHeader({ run }: { run: Run }) {
           <div className="text-foreground">{run.timeframe}</div>
         </div>
       </div>
-    </div>
+      </div>
+    </SurfaceCard>
   );
 }

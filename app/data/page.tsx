@@ -2,10 +2,11 @@
 
 import { Database, PlugZap } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChartCard } from "@/components/shared/chart-card";
+import { PageHeader } from "@/components/shared/page-header";
+import { SurfaceCard } from "@/components/shared/surface-card";
 import { OhlcPreviewChart } from "@/features/runs/charts/run-charts";
 import {
   dataSources,
@@ -18,22 +19,28 @@ import { getDataSourceStatusLabel, getDataSourceTypeLabel } from "@/lib/ui-text"
 
 export default function DataPage() {
   return (
-    <div className="flex h-full flex-col gap-4">
-      <div>
-        <div className="text-lg font-semibold text-foreground">Данные</div>
-        <div className="text-xs text-muted-foreground">
-          Источники, пайплайны, версии датасетов и проверки качества.
-        </div>
-      </div>
+    <div className="flex h-full flex-col gap-5">
+      <PageHeader
+        eyebrow="Данные"
+        title="Данные"
+        description="Источники, пайплайны, версии датасетов и качество подготовки."
+        actions={
+          <Button size="sm">
+            <PlugZap className="mr-2 h-4 w-4" />
+            Использовать в бэктесте
+          </Button>
+        }
+      />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {dataSources.map((source) => (
-          <Card
+          <SurfaceCard
             key={source.id}
-            className="flex items-center justify-between border-border bg-panel p-4"
+            className="py-0"
+            contentClassName="flex items-center justify-between p-4"
           >
             <div className="flex items-center gap-3">
-              <div className="rounded-md border border-border bg-panel-subtle p-2">
+              <div className="rounded-[14px] border border-border bg-panel-subtle p-2">
                 <Database className="h-4 w-4 text-muted-foreground" />
               </div>
               <div>
@@ -54,15 +61,12 @@ export default function DataPage() {
             >
               {getDataSourceStatusLabel(source.status)}
             </Badge>
-          </Card>
+          </SurfaceCard>
         ))}
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card className="border-border bg-panel p-4 lg:col-span-2">
-          <div className="mb-3 text-sm font-semibold text-foreground">
-            Конструктор пайплайна
-          </div>
+        <SurfaceCard title="Конструктор пайплайна" className="lg:col-span-2">
           <div className="flex flex-wrap gap-2">
             {pipelineSteps.map((step, index) => (
               <div
@@ -74,37 +78,27 @@ export default function DataPage() {
               </div>
             ))}
           </div>
-        </Card>
-        <Card className="border-border bg-panel p-4">
-          <div className="mb-3 text-sm font-semibold text-foreground">
-            Качество данных
-          </div>
+        </SurfaceCard>
+        <SurfaceCard title="Качество данных">
           <div className="grid grid-cols-2 gap-3 text-xs text-muted-foreground">
             {dataQuality.map((item) => (
-              <div key={item.label} className="rounded-md border border-border bg-panel-subtle p-2">
+              <div
+                key={item.label}
+                className="rounded-[18px] border border-border bg-panel-subtle p-3"
+              >
                 <div className="text-[11px] uppercase">{item.label}</div>
                 <div className="text-foreground">{item.value}</div>
               </div>
             ))}
           </div>
-        </Card>
+        </SurfaceCard>
       </div>
 
-      <Card className="border-border bg-panel">
-        <div className="flex items-center justify-between border-b border-border px-4 py-3">
-          <div>
-            <div className="text-sm font-semibold text-foreground">
-              Версии датасетов
-            </div>
-            <div className="text-xs text-muted-foreground">
-              Версионированные датасеты с хешами пайплайнов.
-            </div>
-          </div>
-          <Button size="sm">
-            <PlugZap className="mr-2 h-4 w-4" />
-            Использовать в бэктесте
-          </Button>
-        </div>
+      <SurfaceCard
+        title="Версии датасетов"
+        subtitle="Версионированные датасеты с хешами пайплайнов."
+        contentClassName="p-0"
+      >
         <Table>
           <TableHeader>
             <TableRow>
@@ -141,19 +135,18 @@ export default function DataPage() {
             ))}
           </TableBody>
         </Table>
-      </Card>
+      </SurfaceCard>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <ChartCard title="Предпросмотр таблицы" subtitle="Упрощенный OHLC и объем">
           <OhlcPreviewChart />
         </ChartCard>
-        <Card className="border-border bg-panel lg:col-span-2">
-          <div className="border-b border-border px-4 py-3">
-            <div className="text-sm font-semibold text-foreground">Таблица предпросмотра</div>
-            <div className="text-xs text-muted-foreground">
-              Первые строки из датасета "Акции США v13".
-            </div>
-          </div>
+        <SurfaceCard
+          title="Таблица предпросмотра"
+          subtitle='Первые строки из датасета "Акции США v13".'
+          className="lg:col-span-2"
+          contentClassName="p-0"
+        >
           <Table>
             <TableHeader>
               <TableRow>
@@ -190,7 +183,7 @@ export default function DataPage() {
               ))}
             </TableBody>
           </Table>
-        </Card>
+        </SurfaceCard>
       </div>
     </div>
   );

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutGrid,
-  Code2,
+  BriefcaseBusiness,
   Database,
   Activity,
   Beaker,
@@ -17,8 +17,8 @@ import { LogoPlaceholder } from "@/components/shell/logo-placeholder";
 const SHOW_DEPLOY = false;
 
 const navItems = [
-  { label: "Рабочая область", href: "/workspace", icon: LayoutGrid },
-  { label: "Код", href: "/code", icon: Code2 },
+  { label: "Главное", href: "/workspace", icon: LayoutGrid },
+  { label: "Рабочий стол", href: "/desktop", icon: BriefcaseBusiness },
   { label: "Данные", href: "/data", icon: Database },
   { label: "Бэктесты", href: "/backtests", icon: Activity },
   { label: "Исследования", href: "/research", icon: Beaker },
@@ -30,8 +30,8 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="flex h-full w-48 flex-col border-r border-border bg-panel/70 px-3 py-4">
-      <div className="pb-4">
+    <aside className="flex h-screen w-[220px] shrink-0 flex-col border-r border-border bg-panel/70 px-3 py-4">
+      <div className="flex justify-center pb-4">
         <LogoPlaceholder />
       </div>
       <div className="flex flex-1 items-center">
@@ -40,7 +40,9 @@ export function Sidebar() {
             .filter((item) => (item.gated ? SHOW_DEPLOY : true))
             .map((item) => {
               const Icon = item.icon;
-              const isActive = pathname === item.href;
+              const isActive =
+                pathname === item.href ||
+                (item.href !== "/workspace" && pathname.startsWith(`${item.href}/`));
               return (
                 <Link
                   key={item.href}

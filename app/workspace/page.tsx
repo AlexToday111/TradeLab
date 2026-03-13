@@ -1,10 +1,19 @@
 "use client";
 
-import { FolderOpen, Plus, UploadCloud } from "lucide-react";
+import {
+  Activity,
+  ArrowUpRight,
+  Database,
+  FolderKanban,
+  Plus,
+  Sparkles,
+  UploadCloud,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/shared/empty-state";
+import { PageHeader } from "@/components/shared/page-header";
+import { SurfaceCard } from "@/components/shared/surface-card";
 import { RunStatusBadge } from "@/features/runs/components/run-badges";
 import { useRuns } from "@/features/runs/store/run-store";
 import { datasetVersions } from "@/lib/demo-data/datasets";
@@ -13,107 +22,153 @@ import { projects } from "@/lib/demo-data/projects";
 export default function WorkspacePage() {
   const { runs } = useRuns();
   const recentRuns = runs.slice(0, 5);
+  const runningRuns = runs.filter((run) => run.status === "running").length;
+  const queuedRuns = runs.filter((run) => run.status === "queued").length;
+
+  const summaryCards = [
+    {
+      label: "Проекты",
+      value: projects.length,
+      hint: "активные рабочие пространства",
+      icon: FolderKanban,
+    },
+    {
+      label: "Датасеты",
+      value: datasetVersions.length,
+      hint: "версии, готовые к запуску",
+      icon: Database,
+    },
+    {
+      label: "Запуски",
+      value: runs.length,
+      hint: `${runningRuns} выполняется, ${queuedRuns} в очереди`,
+      icon: Activity,
+    },
+  ];
 
   return (
-    <div className="flex h-full flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="text-lg font-semibold text-foreground">Рабочая область</div>
-          <div className="text-xs text-muted-foreground">
-            Проекты, датасеты и последние запуски в одном месте.
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button size="sm">
-            <Plus className="mr-2 h-4 w-4" />
-            Новый проект
-          </Button>
-          <Button size="sm" variant="secondary">
-            <UploadCloud className="mr-2 h-4 w-4" />
-            Импорт репозитория
-          </Button>
-          <Button size="sm" variant="secondary">
-            <FolderOpen className="mr-2 h-4 w-4" />
-            Открыть проект
-          </Button>
-        </div>
-      </div>
+    <div className="flex h-full flex-col gap-5">
+      <PageHeader
+        eyebrow="Главное"
+        title="Главное"
+        actions={
+          <>
+            <Button size="sm">
+              <Plus className="mr-2 h-4 w-4" />
+              Новый проект
+            </Button>
+            <Button size="sm" variant="secondary">
+              <UploadCloud className="mr-2 h-4 w-4" />
+              Импорт файлов
+            </Button>
+          </>
+        }
+      />
 
-      <Card className="border-border bg-panel">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Проект</TableHead>
-              <TableHead>Описание</TableHead>
-              <TableHead>Последний датасет</TableHead>
-              <TableHead>Последние запуски</TableHead>
-              <TableHead>Последняя активность</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {projects.map((project) => (
-              <TableRow key={project.id}>
-                <TableCell className="font-medium text-foreground">
-                  {project.name}
-                </TableCell>
-                <TableCell className="text-xs text-muted-foreground">
-                  {project.description}
-                </TableCell>
-                <TableCell className="text-xs text-foreground">
-                  {project.lastDataset}
-                </TableCell>
-                <TableCell className="text-xs text-muted-foreground">
-                  {project.recentRuns.join(", ")}
-                </TableCell>
-                <TableCell className="text-xs text-muted-foreground">
-                  {project.lastActive}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Card>
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card className="border-border bg-panel p-4">
-          <div className="mb-3 text-sm font-semibold text-foreground">
-            Закрепленные датасеты
-          </div>
-          <div className="flex flex-col gap-2">
-            {datasetVersions.slice(0, 2).map((dataset) => (
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.8fr)_340px]">
+        <SurfaceCard
+          title="Активные проекты"
+          subtitle="Короткий обзор текущих направлений"
+        >
+          <div className="grid gap-4 lg:grid-cols-2">
+            {projects.map((project, index) => (
               <div
-                key={dataset.id}
-                className="rounded-md border border-border bg-panel-subtle p-3 text-xs"
+                key={project.id}
+                className="group overflow-hidden rounded-[22px] border border-border bg-panel-subtle"
               >
-                <div className="font-medium text-foreground">{dataset.name}</div>
-                <div className="text-muted-foreground">
-                  {dataset.period} / {dataset.timeframe} / {dataset.symbols.join(", ")}
+                <div className="border-b border-border/80 bg-[linear-gradient(135deg,rgba(106,161,255,0.14),rgba(20,24,35,0)_72%)] px-4 py-4">
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-lg font-semibold text-foreground">
+                        {project.name}
+                      </div>
+                      <div className="mt-1 text-sm text-muted-foreground">
+                        {project.description}
+                      </div>
+                    </div>
+                    <Badge variant="secondary">
+                      #{(index + 1).toString().padStart(2, "0")}
+                    </Badge>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="secondary">{project.lastDataset}</Badge>
+                    <Badge variant="secondary">{project.lastRunId}</Badge>
+                  </div>
+                </div>
+                <div className="space-y-4 px-4 py-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-xl border border-border bg-panel px-3 py-3 text-xs">
+                      <div className="mb-1 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                        Последняя активность
+                      </div>
+                      <div className="text-foreground">{project.lastActive}</div>
+                    </div>
+                    <div className="rounded-xl border border-border bg-panel px-3 py-3 text-xs">
+                      <div className="mb-1 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                        Запуски
+                      </div>
+                      <div className="text-foreground">{project.recentRuns.length}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <div>Готов к открытию на рабочем столе</div>
+                    <div className="flex items-center gap-1 text-foreground transition group-hover:text-primary">
+                      Открыть
+                      <ArrowUpRight className="h-3.5 w-3.5" />
+                    </div>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
-        </Card>
-        <Card className="border-border bg-panel p-4">
-          <div className="mb-3 text-sm font-semibold text-foreground">
-            Последние запуски
-          </div>
-          <div className="flex flex-col gap-2">
+        </SurfaceCard>
+
+        <div className="grid gap-4">
+          {summaryCards.map((card) => {
+            const Icon = card.icon;
+            return (
+              <SurfaceCard key={card.label}>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+                      {card.label}
+                    </div>
+                    <div className="mt-3 text-3xl font-semibold text-foreground">
+                      {card.value}
+                    </div>
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      {card.hint}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-border bg-panel-subtle p-2.5">
+                    <Icon className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </div>
+              </SurfaceCard>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
+        <SurfaceCard title="Последние запуски" subtitle="Что происходило последним">
+          <div className="flex flex-col gap-3">
             {recentRuns.length === 0 ? (
               <EmptyState
                 title="Запусков пока нет"
                 description="Запустите первый бэктест, чтобы заполнить этот список."
-                actionLabel="Запустить бэктест"
-                actionHref="/code"
+                actionLabel="Открыть рабочий стол"
+                actionHref="/desktop"
               />
             ) : (
               recentRuns.map((run) => (
                 <div
                   key={run.id}
-                  className="flex items-center justify-between rounded-md border border-border bg-panel-subtle p-3 text-xs"
+                  className="flex items-center justify-between rounded-[18px] border border-border bg-panel-subtle p-4 text-xs"
                 >
                   <div>
                     <div className="font-mono text-foreground">{run.id}</div>
-                    <div className="text-muted-foreground">
+                    <div className="mt-1 text-muted-foreground">
                       {run.strategy} / {run.datasetVersion}
                     </div>
                   </div>
@@ -122,7 +177,34 @@ export default function WorkspacePage() {
               ))
             )}
           </div>
-        </Card>
+        </SurfaceCard>
+
+        <SurfaceCard
+          title="Быстрый доступ к датасетам"
+          subtitle="Версии, которые чаще всего используются в сценариях"
+        >
+          <div className="grid gap-3 md:grid-cols-3">
+            {datasetVersions.map((dataset) => (
+              <div
+                key={dataset.id}
+                className="rounded-[18px] border border-border bg-panel-subtle p-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="font-medium text-foreground">{dataset.name}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {dataset.period}
+                    </div>
+                  </div>
+                  <Badge variant="secondary">{dataset.timeframe}</Badge>
+                </div>
+                <div className="mt-3 text-xs text-muted-foreground">
+                  {dataset.symbols.join(" • ")}
+                </div>
+              </div>
+            ))}
+          </div>
+        </SurfaceCard>
       </div>
     </div>
   );

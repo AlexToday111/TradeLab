@@ -4,6 +4,8 @@ import { useParams } from "next/navigation";
 import { ChartCard } from "@/components/shared/chart-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { LoadingState } from "@/components/shared/loading-state";
+import { PageHeader } from "@/components/shared/page-header";
+import { SurfaceCard } from "@/components/shared/surface-card";
 import {
   EquityChart,
   DrawdownChart,
@@ -52,7 +54,12 @@ export default function RunDetailsPage() {
   );
 
   return (
-    <div className="flex h-full flex-col gap-4">
+    <div className="flex h-full flex-col gap-5">
+      <PageHeader
+        eyebrow="Детали запуска"
+        title={`Запуск ${run.id}`}
+        description="Метрики, графики, артефакты и воспроизводимость выбранного прогона."
+      />
       <RunHeader run={run} />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
@@ -79,16 +86,16 @@ export default function RunDetailsPage() {
         </ChartCard>
       </div>
 
-      <div className="rounded-lg border border-border bg-panel">
-        <div className="border-b border-border px-4 py-3">
-          <div className="text-sm font-semibold text-foreground">Сделки</div>
-          <div className="text-xs text-muted-foreground">Отфильтровано по выбранному запуску.</div>
-        </div>
+      <SurfaceCard
+        title="Сделки"
+        subtitle="Отфильтровано по выбранному запуску."
+        contentClassName="p-0"
+      >
         <TradesTable rows={trades} />
-      </div>
+      </SurfaceCard>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="rounded-lg border border-border bg-panel">
+        <SurfaceCard contentClassName="p-0">
           <Tabs defaultValue="logs" className="flex h-full flex-col">
             <TabsList className="h-9 rounded-none border-b border-border bg-panel px-3">
               <TabsTrigger value="logs" className="text-xs">
@@ -129,15 +136,12 @@ export default function RunDetailsPage() {
               </div>
             </TabsContent>
           </Tabs>
-        </div>
+        </SurfaceCard>
 
-        <div className="rounded-lg border border-border bg-panel">
-          <div className="border-b border-border px-4 py-3">
-            <div className="text-sm font-semibold text-foreground">Воспроизводимость</div>
-            <div className="text-xs text-muted-foreground">
-              Коммит, версия датасета и исходный конфиг.
-            </div>
-          </div>
+        <SurfaceCard
+          title="Воспроизводимость"
+          subtitle="Коммит, версия датасета и исходный конфиг."
+        >
           <div className="p-4 text-xs text-muted-foreground">
             <div className="mb-3 grid grid-cols-2 gap-3">
               <div className="rounded-md border border-border bg-panel-subtle p-2">
@@ -170,7 +174,7 @@ export default function RunDetailsPage() {
               </TabsContent>
             </Tabs>
           </div>
-        </div>
+        </SurfaceCard>
       </div>
     </div>
   );

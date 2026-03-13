@@ -14,11 +14,13 @@ export function MetricCard({
   tone?: "profit" | "loss";
 }) {
   return (
-    <div className="rounded-lg border border-border bg-panel px-4 py-3">
-      <div className="text-xs text-muted-foreground">{label}</div>
+    <div className="rounded-[22px] border border-border bg-panel px-4 py-4">
+      <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+        {label}
+      </div>
       <div
         className={cn(
-          "text-lg font-semibold text-foreground",
+          "mt-2 text-2xl font-semibold text-foreground",
           tone === "profit" && "text-profit",
           tone === "loss" && "text-loss"
         )}
@@ -26,7 +28,7 @@ export function MetricCard({
         {value}
       </div>
       {hint ? (
-        <div className="text-[11px] text-muted-foreground">{hint}</div>
+        <div className="mt-1 text-[11px] text-muted-foreground">{hint}</div>
       ) : null}
     </div>
   );

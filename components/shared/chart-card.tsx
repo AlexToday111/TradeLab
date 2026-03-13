@@ -3,6 +3,7 @@
 import { ReactNode } from "react";
 import { ClientOnly } from "@/components/shared/client-only";
 import { LoadingState } from "@/components/shared/loading-state";
+import { SurfaceCard } from "@/components/shared/surface-card";
 
 export function ChartCard({
   title,
@@ -14,18 +15,12 @@ export function ChartCard({
   children: ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-border bg-panel p-4">
-      <div className="mb-3">
-        <div className="text-sm font-semibold text-foreground">{title}</div>
-        {subtitle ? (
-          <div className="text-xs text-muted-foreground">{subtitle}</div>
-        ) : null}
-      </div>
-      <div className="h-48">
+    <SurfaceCard title={title} subtitle={subtitle} contentClassName="p-5">
+      <div className="h-52">
         <ClientOnly fallback={<LoadingState label="Отрисовка графика..." />}>
           {children}
         </ClientOnly>
       </div>
-    </div>
+    </SurfaceCard>
   );
 }

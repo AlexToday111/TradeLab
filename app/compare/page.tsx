@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import { ChartCard } from "@/components/shared/chart-card";
 import { EmptyState } from "@/components/shared/empty-state";
+import { PageHeader } from "@/components/shared/page-header";
+import { SurfaceCard } from "@/components/shared/surface-card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -53,21 +55,20 @@ export default function CompareRunsPage() {
   const configRight = selectedRuns[1];
 
   return (
-    <div className="flex h-full flex-col gap-4">
-      <div>
-        <div className="text-lg font-semibold text-foreground">Сравнение запусков</div>
-        <div className="text-xs text-muted-foreground">
-          Выберите 2-5 запусков, чтобы наложить результаты и изучить различия.
-        </div>
-      </div>
+    <div className="flex h-full flex-col gap-5">
+      <PageHeader
+        eyebrow="Сравнение"
+        title="Сравнение запусков"
+        description="Выберите несколько прогонов и проверьте, как отличаются результаты, конфиги и датасеты."
+      />
 
-      <div className="rounded-lg border border-border bg-panel p-3">
+      <SurfaceCard title="Выбор запусков" subtitle="Можно выбрать от двух до пяти">
         <div className="mb-2 text-xs text-muted-foreground">Запуски</div>
         <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
           {runs.map((run) => (
             <label
               key={run.id}
-              className="flex cursor-pointer items-center justify-between rounded-md border border-border bg-panel-subtle p-2 text-xs"
+              className="flex cursor-pointer items-center justify-between rounded-[18px] border border-border bg-panel-subtle p-3 text-xs"
             >
               <div>
                 <div className="font-mono text-foreground">{run.id}</div>
@@ -82,7 +83,7 @@ export default function CompareRunsPage() {
             </label>
           ))}
         </div>
-      </div>
+      </SurfaceCard>
 
       {selectedRuns.length < 2 ? (
         <EmptyState
@@ -128,11 +129,7 @@ export default function CompareRunsPage() {
             </ResponsiveContainer>
           </ChartCard>
 
-          <div className="rounded-lg border border-border bg-panel">
-            <div className="border-b border-border px-4 py-3">
-              <div className="text-sm font-semibold text-foreground">Метрики</div>
-              <div className="text-xs text-muted-foreground">Дельта по каждому запуску.</div>
-            </div>
+          <SurfaceCard title="Метрики" subtitle="Дельта по каждому запуску." contentClassName="p-0">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -165,16 +162,12 @@ export default function CompareRunsPage() {
                 ))}
               </TableBody>
             </Table>
-          </div>
+          </SurfaceCard>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <div className="rounded-lg border border-border bg-panel">
-              <div className="border-b border-border px-4 py-3">
-                <div className="text-sm font-semibold text-foreground">Различия конфигов</div>
-                <div className="text-xs text-muted-foreground">Параметры бок о бок.</div>
-              </div>
+            <SurfaceCard title="Различия конфигов" subtitle="Параметры бок о бок.">
               <div className="grid grid-cols-2 gap-3 p-4 text-xs">
-                <div className="rounded-md border border-border bg-panel-subtle p-3">
+                <div className="rounded-[18px] border border-border bg-panel-subtle p-3">
                   <div className="mb-2 text-[11px] uppercase text-muted-foreground">
                     {configLeft?.id}
                   </div>
@@ -182,7 +175,7 @@ export default function CompareRunsPage() {
 {configLeft?.config}
                   </pre>
                 </div>
-                <div className="rounded-md border border-border bg-panel-subtle p-3">
+                <div className="rounded-[18px] border border-border bg-panel-subtle p-3">
                   <div className="mb-2 text-[11px] uppercase text-muted-foreground">
                     {configRight?.id}
                   </div>
@@ -191,20 +184,16 @@ export default function CompareRunsPage() {
                   </pre>
                 </div>
               </div>
-            </div>
+            </SurfaceCard>
 
-            <div className="rounded-lg border border-border bg-panel">
-              <div className="border-b border-border px-4 py-3">
-                <div className="text-sm font-semibold text-foreground">Различия датасетов</div>
-                <div className="text-xs text-muted-foreground">Версии и качество.</div>
-              </div>
+            <SurfaceCard title="Различия датасетов" subtitle="Версии и качество.">
               <div className="space-y-3 p-4 text-xs text-muted-foreground">
-                <div className="rounded-md border border-border bg-panel-subtle p-3">
+                <div className="rounded-[18px] border border-border bg-panel-subtle p-3">
                   <div className="text-[11px] uppercase">Слева</div>
                   <div className="text-foreground">{configLeft?.datasetVersion}</div>
                   <div>Покрытие 98.7% / Пропуски 0.6%</div>
                 </div>
-                <div className="rounded-md border border-border bg-panel-subtle p-3">
+                <div className="rounded-[18px] border border-border bg-panel-subtle p-3">
                   <div className="text-[11px] uppercase">Справа</div>
                   <div className="text-foreground">{configRight?.datasetVersion}</div>
                   <div>Покрытие 97.9% / Пропуски 0.9%</div>
@@ -215,19 +204,16 @@ export default function CompareRunsPage() {
                   <Badge variant="secondary">дельта покрытия</Badge>
                 </div>
               </div>
-            </div>
+            </SurfaceCard>
           </div>
 
-          <div className="rounded-lg border border-border bg-panel p-4 text-xs text-muted-foreground">
-            <div className="mb-2 text-sm font-semibold text-foreground">
-              Подсказки по стабильности
-            </div>
-            <ul className="list-disc space-y-1 pl-4">
+          <SurfaceCard title="Подсказки по стабильности">
+            <ul className="list-disc space-y-1 pl-4 text-xs text-muted-foreground">
               <li>Датасет v13 добавляет всплески волатильности после 2022 года.</li>
               <li>Конфиг отличается по проскальзыванию и модели исполнения.</li>
               <li>Число сделок выросло при более коротком окне истории.</li>
             </ul>
-          </div>
+          </SurfaceCard>
         </>
       )}
     </div>

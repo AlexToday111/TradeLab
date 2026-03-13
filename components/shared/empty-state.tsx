@@ -18,7 +18,7 @@ export function EmptyState({
   icon?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-start gap-3 rounded-lg border border-dashed border-border bg-panel-subtle p-6">
+    <div className="flex flex-col items-start gap-3 rounded-[22px] border border-dashed border-border bg-panel-subtle p-6">
       {icon ? <div className="text-muted-foreground">{icon}</div> : null}
       <div>
         <div className="text-sm font-semibold text-foreground">{title}</div>
