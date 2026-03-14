@@ -1,15 +1,40 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { navItems } from "@/components/shell/sidebar";
+import { cn } from "@/lib/utils";
 
 export function Topbar() {
+  const pathname = usePathname();
+  const visibleNavItems = navItems.filter((item) => !item.gated);
+
   return (
-    <header className="flex h-14 items-center justify-end border-b border-border bg-panel/80 px-4 backdrop-blur">
-      <div className="flex items-center gap-3">
-        <Badge className="border border-status-running/40 bg-status-running/20 text-status-running">
-          локально
-        </Badge>
-      </div>
+    <header className="border-b border-border bg-panel/80 px-4 py-2 backdrop-blur">
+      <nav className="grid w-full grid-flow-col auto-cols-fr gap-2">
+        {visibleNavItems.map((item) => {
+          const Icon = item.icon;
+          const isActive =
+            pathname === item.href ||
+            (item.href !== "/workspace" && pathname.startsWith(`${item.href}/`));
+
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "flex h-10 items-center justify-center gap-2 rounded-lg px-2 text-sm transition",
+                isActive
+                  ? "bg-secondary/70 text-foreground"
+                  : "text-muted-foreground hover:bg-panel hover:text-foreground"
+              )}
+            >
+              <Icon className="h-4 w-4 shrink-0" />
+              <span className="truncate leading-none">{item.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
     </header>
   );
 }
