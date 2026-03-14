@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { Database, Download, Plus, UploadCloud } from "lucide-react";
@@ -1021,7 +1021,184 @@ export default function DataPage() {
 
   return (
     <div className="flex h-full flex-col gap-5">
-      {createOpen ? (
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        {dataSources.map((source) => (
+          <SurfaceCard
+            key={source.id}
+            className="py-0"
+            contentClassName="flex items-center justify-between p-4"
+          >
+            <div className="flex items-center gap-3">
+              <div className="rounded-[14px] border border-border bg-panel-subtle p-2">
+                <Database className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div>
+                <div className="text-sm font-medium text-foreground">{source.name}</div>
+                <div className="text-xs text-muted-foreground">{getDataSourceTypeLabel(source.type)}</div>
+              </div>
+            </div>
+            <Badge
+              className={
+                source.status === "connected"
+                  ? "border border-status-success/40 bg-status-success/20 text-status-success"
+                  : "border border-border bg-secondary text-muted-foreground"
+              }
+            >
+              {getDataSourceStatusLabel(source.status)}
+            </Badge>
+          </SurfaceCard>
+        ))}
+      </div>
+
+      <SurfaceCard
+        title="Теги и поиск"
+        subtitle="Фильтруйте датасеты по источнику, рынку, таймфрейму и символу."
+        className="bg-[linear-gradient(135deg,rgba(31,46,87,0.28),rgba(20,24,35,1)_70%)]"
+        actions={
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => setShowArchived((value) => !value)}
+          >
+            {showArchived ? "Скрыть архив" : "Показать архив"}
+          </Button>
+        }
+      >
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          <div className="xl:col-span-2">
+            <div className="mb-1 text-xs text-muted-foreground">Поиск</div>
+            <Input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Название, тег, символ"
+            />
+          </div>
+          <div>
+            <div className="mb-1 text-xs text-muted-foreground">Источник</div>
+            <Select
+              value={filterSource}
+              onValueChange={(value) => setFilterSource(value as "all" | DatasetSource)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Все</SelectItem>
+                <SelectItem value="bybit">ByBit</SelectItem>
+                <SelectItem value="local">Локально</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <div className="mb-1 text-xs text-muted-foreground">Рынок</div>
+            <Select
+              value={filterMarket}
+              onValueChange={(value) => setFilterMarket(value as "all" | MarketType)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Все</SelectItem>
+                <SelectItem value="spot">Spot</SelectItem>
+                <SelectItem value="futures">Futures</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <div className="mb-1 text-xs text-muted-foreground">ТФ / Символ</div>
+            <div className="grid grid-cols-2 gap-2">
+              <Select value={filterTimeframe} onValueChange={setFilterTimeframe}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">ТФ: все</SelectItem>
+                  {availableTimeframes.map((item) => (
+                    <SelectItem key={item} value={item}>
+                      {item}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={filterSymbol} onValueChange={setFilterSymbol}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Символ: все</SelectItem>
+                  {availableSymbols.map((item) => (
+                    <SelectItem key={item} value={item}>
+                      {item}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+      </SurfaceCard>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
+        <SurfaceCard
+          title="Список датасетов"
+          subtitle="Выберите датасет, чтобы открыть таблицы с деталями и данными."
+          actions={
+            <Button
+              type="button"
+              size="icon"
+              variant="secondary"
+              onClick={() => setCreateOpen((value) => !value)}
+              className="h-8 w-8 border border-border/80 bg-panel-subtle text-foreground transition hover:border-white hover:bg-white hover:text-black hover:shadow-[0_0_14px_rgba(255,255,255,0.6)]"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          }
+          contentClassName="p-0"
+        >
+          <div className="divide-y divide-border/80">
+            {filteredDatasets.map((dataset) => {
+              const isSelected = dataset.id === selectedDatasetId;
+
+              return (
+                <button
+                  key={dataset.id}
+                  type="button"
+                  onClick={() => setSelectedDatasetId(dataset.id)}
+                  className={cn(
+                    "w-full px-4 py-3 text-left transition",
+                    isSelected ? "bg-secondary/60" : "hover:bg-panel-subtle"
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="text-sm font-medium text-foreground">{dataset.name}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {dataset.timeframe} • {dataset.symbols.join(", ")}
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">{dataset.period}</div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      <Badge className={loadStatusMeta[dataset.loadStatus].className}>
+                        {loadStatusMeta[dataset.loadStatus].label}
+                      </Badge>
+                      {dataset.archived ? <Badge variant="secondary">Архив</Badge> : null}
+                      <Badge variant="secondary">{sourceLabels[dataset.source]}</Badge>
+                      <Badge variant="secondary">{marketTypeLabels[dataset.marketType]}</Badge>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+            {filteredDatasets.length === 0 ? (
+              <div className="p-4 text-xs text-muted-foreground">
+                По текущим фильтрам датасеты не найдены.
+              </div>
+            ) : null}
+          </div>
+        </SurfaceCard>
+
+              {createOpen ? (
         <SurfaceCard
           title="Добавление датасета"
           subtitle="Источник: ByBit или локальные файлы. Для нескольких CSV можно выбрать режим: смёрджить или по отдельности."
@@ -1382,184 +1559,8 @@ export default function DataPage() {
         </SurfaceCard>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {dataSources.map((source) => (
+        {!createOpen ? (
           <SurfaceCard
-            key={source.id}
-            className="py-0"
-            contentClassName="flex items-center justify-between p-4"
-          >
-            <div className="flex items-center gap-3">
-              <div className="rounded-[14px] border border-border bg-panel-subtle p-2">
-                <Database className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <div>
-                <div className="text-sm font-medium text-foreground">{source.name}</div>
-                <div className="text-xs text-muted-foreground">{getDataSourceTypeLabel(source.type)}</div>
-              </div>
-            </div>
-            <Badge
-              className={
-                source.status === "connected"
-                  ? "border border-status-success/40 bg-status-success/20 text-status-success"
-                  : "border border-border bg-secondary text-muted-foreground"
-              }
-            >
-              {getDataSourceStatusLabel(source.status)}
-            </Badge>
-          </SurfaceCard>
-        ))}
-      </div>
-
-      <SurfaceCard
-        title="Теги и поиск"
-        subtitle="Фильтруйте датасеты по источнику, рынку, таймфрейму и символу."
-        className="bg-[linear-gradient(135deg,rgba(31,46,87,0.28),rgba(20,24,35,1)_70%)]"
-        actions={
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => setShowArchived((value) => !value)}
-          >
-            {showArchived ? "Скрыть архив" : "Показать архив"}
-          </Button>
-        }
-      >
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-          <div className="xl:col-span-2">
-            <div className="mb-1 text-xs text-muted-foreground">Поиск</div>
-            <Input
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Название, тег, символ"
-            />
-          </div>
-          <div>
-            <div className="mb-1 text-xs text-muted-foreground">Источник</div>
-            <Select
-              value={filterSource}
-              onValueChange={(value) => setFilterSource(value as "all" | DatasetSource)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Все</SelectItem>
-                <SelectItem value="bybit">ByBit</SelectItem>
-                <SelectItem value="local">Локально</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <div className="mb-1 text-xs text-muted-foreground">Рынок</div>
-            <Select
-              value={filterMarket}
-              onValueChange={(value) => setFilterMarket(value as "all" | MarketType)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Все</SelectItem>
-                <SelectItem value="spot">Spot</SelectItem>
-                <SelectItem value="futures">Futures</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <div className="mb-1 text-xs text-muted-foreground">ТФ / Символ</div>
-            <div className="grid grid-cols-2 gap-2">
-              <Select value={filterTimeframe} onValueChange={setFilterTimeframe}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">ТФ: все</SelectItem>
-                  {availableTimeframes.map((item) => (
-                    <SelectItem key={item} value={item}>
-                      {item}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={filterSymbol} onValueChange={setFilterSymbol}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Символ: все</SelectItem>
-                  {availableSymbols.map((item) => (
-                    <SelectItem key={item} value={item}>
-                      {item}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </div>
-      </SurfaceCard>
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
-        <SurfaceCard
-          title="Список датасетов"
-          subtitle="Выберите датасет, чтобы открыть таблицы с деталями и данными."
-          actions={
-            <Button
-              type="button"
-              size="icon"
-              variant="secondary"
-              onClick={() => setCreateOpen((value) => !value)}
-              className="h-8 w-8 border border-border/80 bg-panel-subtle text-foreground transition hover:border-white hover:bg-white hover:text-black hover:shadow-[0_0_14px_rgba(255,255,255,0.6)]"
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-          }
-          contentClassName="p-0"
-        >
-          <div className="divide-y divide-border/80">
-            {filteredDatasets.map((dataset) => {
-              const isSelected = dataset.id === selectedDatasetId;
-
-              return (
-                <button
-                  key={dataset.id}
-                  type="button"
-                  onClick={() => setSelectedDatasetId(dataset.id)}
-                  className={cn(
-                    "w-full px-4 py-3 text-left transition",
-                    isSelected ? "bg-secondary/60" : "hover:bg-panel-subtle"
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="text-sm font-medium text-foreground">{dataset.name}</div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        {dataset.timeframe} • {dataset.symbols.join(", ")}
-                      </div>
-                      <div className="mt-1 text-xs text-muted-foreground">{dataset.period}</div>
-                    </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <Badge className={loadStatusMeta[dataset.loadStatus].className}>
-                        {loadStatusMeta[dataset.loadStatus].label}
-                      </Badge>
-                      {dataset.archived ? <Badge variant="secondary">Архив</Badge> : null}
-                      <Badge variant="secondary">{sourceLabels[dataset.source]}</Badge>
-                      <Badge variant="secondary">{marketTypeLabels[dataset.marketType]}</Badge>
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-            {filteredDatasets.length === 0 ? (
-              <div className="p-4 text-xs text-muted-foreground">
-                По текущим фильтрам датасеты не найдены.
-              </div>
-            ) : null}
-          </div>
-        </SurfaceCard>
-
-        <SurfaceCard
           title={selectedDataset ? `Таблицы: ${selectedDataset.name}` : "Таблицы датасета"}
           subtitle={
             selectedDataset
@@ -1765,8 +1766,10 @@ export default function DataPage() {
               Выберите датасет слева, чтобы открыть таблицы с параметрами и данными.
             </div>
           )}
-        </SurfaceCard>
+          </SurfaceCard>
+        ) : null}
       </div>
     </div>
   );
 }
+
