@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, useMemo, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { Database, Download, Plus, UploadCloud } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,10 +35,12 @@ import { cn } from "@/lib/utils";
 type DatasetSource = "bybit" | "local";
 type MarketType = "spot" | "futures";
 type LocalCsvMode = "merge" | "separate";
+type DatasetLoadStatus = "queued" | "processing" | "ready" | "error";
 
 type UiDataset = DatasetVersion & {
   source: DatasetSource;
   marketType: MarketType;
+  loadStatus: DatasetLoadStatus;
   rowsHint?: string;
   mergedCsvUrl?: string;
   mergedCsvName?: string;
@@ -64,6 +66,28 @@ const marketTypeLabels: Record<MarketType, string> = {
 
 const bybitTimeframes = ["5M", "1H", "1D"] as const;
 
+const loadStatusMeta: Record<
+  DatasetLoadStatus,
+  { label: string; className: string }
+> = {
+  queued: {
+    label: "В очереди",
+    className: "border border-status-warning/40 bg-status-warning/15 text-status-warning",
+  },
+  processing: {
+    label: "Обрабатывается",
+    className: "border border-status-running/40 bg-status-running/15 text-status-running",
+  },
+  ready: {
+    label: "Готов",
+    className: "border border-status-success/40 bg-status-success/15 text-status-success",
+  },
+  error: {
+    label: "Ошибка",
+    className: "border border-status-failed/40 bg-status-failed/15 text-status-failed",
+  },
+};
+
 function formatBytes(bytes: number) {
   if (!bytes) {
     return "0 B";
@@ -86,6 +110,7 @@ function createInitialDatasets(): UiDataset[] {
     ...dataset,
     source: "local",
     marketType: "spot",
+    loadStatus: "ready",
     rowsHint: "Демо-набор",
   }));
 }
@@ -111,6 +136,41 @@ export default function DataPage() {
     () => datasets.find((dataset) => dataset.id === selectedDatasetId) ?? null,
     [datasets, selectedDatasetId]
   );
+
+  useEffect(() => {
+    const queuedIds = datasets
+      .filter((dataset) => dataset.loadStatus === "queued")
+      .map((dataset) => dataset.id);
+
+    if (queuedIds.length === 0) {
+      return;
+    }
+
+    const toProcessingTimer = setTimeout(() => {
+      setDatasets((prev) =>
+        prev.map((dataset) =>
+          queuedIds.includes(dataset.id)
+            ? { ...dataset, loadStatus: "processing", rowsHint: "Идёт загрузка" }
+            : dataset
+        )
+      );
+    }, 1200);
+
+    const toReadyTimer = setTimeout(() => {
+      setDatasets((prev) =>
+        prev.map((dataset) =>
+          queuedIds.includes(dataset.id)
+            ? { ...dataset, loadStatus: "ready", rowsHint: "Импорт завершён" }
+            : dataset
+        )
+      );
+    }, 2800);
+
+    return () => {
+      clearTimeout(toProcessingTimer);
+      clearTimeout(toReadyTimer);
+    };
+  }, [datasets]);
 
   function resetCreateForm(options?: { preserveMergedCsv?: boolean }) {
     if (!options?.preserveMergedCsv && mergedCsv?.url) {
@@ -248,6 +308,7 @@ export default function DataPage() {
       pipelineHash: isMergeMode ? "csv_merge_local" : "dataset_pending",
       source: datasetSource,
       marketType: isLocal ? "spot" : marketType,
+      loadStatus: datasetSource === "bybit" ? "queued" : "ready",
       rowsHint: isMergeMode && mergedCsv
         ? `${mergedCsv.rows.toLocaleString("ru-RU")} строк (merged)`
         : datasetSource === "bybit"
@@ -566,6 +627,9 @@ export default function DataPage() {
                       <div className="mt-1 text-xs text-muted-foreground">{dataset.period}</div>
                     </div>
                     <div className="flex flex-col items-end gap-1">
+                      <Badge className={loadStatusMeta[dataset.loadStatus].className}>
+                        {loadStatusMeta[dataset.loadStatus].label}
+                      </Badge>
                       <Badge variant="secondary">{sourceLabels[dataset.source]}</Badge>
                       <Badge variant="secondary">{marketTypeLabels[dataset.marketType]}</Badge>
                     </div>
@@ -604,6 +668,14 @@ export default function DataPage() {
                     <TableCell className="text-xs text-muted-foreground">Тип рынка</TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {marketTypeLabels[selectedDataset.marketType]}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="text-xs text-muted-foreground">Статус загрузки</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      <Badge className={loadStatusMeta[selectedDataset.loadStatus].className}>
+                        {loadStatusMeta[selectedDataset.loadStatus].label}
+                      </Badge>
                     </TableCell>
                   </TableRow>
                   <TableRow>
