@@ -37,6 +37,16 @@ type MarketType = "spot" | "futures";
 type LocalCsvMode = "merge" | "separate";
 type DatasetLoadStatus = "queued" | "processing" | "ready" | "error";
 
+type CsvValidation = {
+  isValid: boolean;
+  detectedColumns: string[];
+  missingColumns: string[];
+  duplicateTimestampCount: number;
+  missingValueCount: number;
+  unsortedCount: number;
+  totalRows: number;
+};
+
 type UiDataset = DatasetVersion & {
   source: DatasetSource;
   marketType: MarketType;
@@ -65,6 +75,7 @@ const marketTypeLabels: Record<MarketType, string> = {
 };
 
 const bybitTimeframes = ["5M", "1H", "1D"] as const;
+const requiredCsvColumns = ["timestamp", "open", "high", "low", "close", "volume"];
 
 const loadStatusMeta: Record<
   DatasetLoadStatus,
@@ -105,6 +116,105 @@ function formatBytes(bytes: number) {
   return `${value.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
 }
 
+function parseCsvRow(line: string) {
+  return line.split(",").map((cell) => cell.trim());
+}
+
+function normalizeColumnName(name: string) {
+  return name.trim().toLowerCase().replace(/\s+/g, "_");
+}
+
+async function validateCsvFiles(files: File[]): Promise<CsvValidation | null> {
+  if (files.length === 0) {
+    return null;
+  }
+
+  let headerColumns: string[] = [];
+  const timestampSeen = new Set<string>();
+
+  let duplicateTimestampCount = 0;
+  let missingValueCount = 0;
+  let unsortedCount = 0;
+  let totalRows = 0;
+
+  for (const file of files) {
+    const text = await file.text();
+    const lines = text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+
+    if (lines.length === 0) {
+      continue;
+    }
+
+    const rawHeader = parseCsvRow(lines[0]);
+    const normalizedHeader = rawHeader.map(normalizeColumnName);
+
+    if (headerColumns.length === 0) {
+      headerColumns = normalizedHeader;
+    }
+
+    const timestampIndex = normalizedHeader.indexOf("timestamp");
+
+    let previousTimestamp: number | null = null;
+
+    for (let rowIndex = 1; rowIndex < lines.length; rowIndex += 1) {
+      const cells = parseCsvRow(lines[rowIndex]);
+      totalRows += 1;
+
+      for (const requiredColumn of requiredCsvColumns) {
+        const columnIndex = normalizedHeader.indexOf(requiredColumn);
+        if (columnIndex === -1) {
+          continue;
+        }
+
+        const value = cells[columnIndex];
+        if (value === undefined || value === "") {
+          missingValueCount += 1;
+        }
+      }
+
+      if (timestampIndex !== -1) {
+        const timestampValue = cells[timestampIndex];
+        if (timestampValue) {
+          if (timestampSeen.has(timestampValue)) {
+            duplicateTimestampCount += 1;
+          } else {
+            timestampSeen.add(timestampValue);
+          }
+
+          const asEpoch = Number(new Date(timestampValue));
+          if (!Number.isNaN(asEpoch)) {
+            if (previousTimestamp !== null && asEpoch < previousTimestamp) {
+              unsortedCount += 1;
+            }
+            previousTimestamp = asEpoch;
+          }
+        }
+      }
+    }
+  }
+
+  const missingColumns = requiredCsvColumns.filter(
+    (requiredColumn) => !headerColumns.includes(requiredColumn)
+  );
+
+  return {
+    isValid:
+      missingColumns.length === 0 &&
+      duplicateTimestampCount === 0 &&
+      missingValueCount === 0 &&
+      unsortedCount === 0,
+    detectedColumns: headerColumns,
+    missingColumns,
+    duplicateTimestampCount,
+    missingValueCount,
+    unsortedCount,
+    totalRows,
+  };
+}
+
 function createInitialDatasets(): UiDataset[] {
   return datasetVersions.map((dataset) => ({
     ...dataset,
@@ -128,6 +238,7 @@ export default function DataPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [uploadedCsvFiles, setUploadedCsvFiles] = useState<File[]>([]);
+  const [csvValidation, setCsvValidation] = useState<CsvValidation | null>(null);
   const [localCsvMode, setLocalCsvMode] = useState<LocalCsvMode | null>(null);
   const [mergeError, setMergeError] = useState<string | null>(null);
   const [mergedCsv, setMergedCsv] = useState<MergedCsv | null>(null);
@@ -185,12 +296,13 @@ export default function DataPage() {
     setDateFrom("");
     setDateTo("");
     setUploadedCsvFiles([]);
+    setCsvValidation(null);
     setLocalCsvMode(null);
     setMergeError(null);
     setMergedCsv(null);
   }
 
-  function handleCsvFileChange(event: ChangeEvent<HTMLInputElement>) {
+  async function handleCsvFileChange(event: ChangeEvent<HTMLInputElement>) {
     const files = event.target.files ? Array.from(event.target.files) : [];
 
     if (mergedCsv?.url) {
@@ -201,6 +313,9 @@ export default function DataPage() {
     setUploadedCsvFiles(files);
     setLocalCsvMode(files.length > 1 ? null : "separate");
     setMergeError(null);
+
+    const validation = await validateCsvFiles(files);
+    setCsvValidation(validation);
   }
 
   async function handleMergeCsv() {
@@ -265,6 +380,15 @@ export default function DataPage() {
   }
 
   function handleAddDataset() {
+    if (
+      datasetSource === "local" &&
+      csvValidation &&
+      !csvValidation.isValid
+    ) {
+      setMergeError("Исправьте ошибки CSV перед добавлением датасета.");
+      return;
+    }
+
     if (
       datasetSource === "local" &&
       uploadedCsvFiles.length > 1 &&
@@ -477,6 +601,29 @@ export default function DataPage() {
                   )}
                 </div>
               ) : null}
+            </div>
+          ) : null}
+
+          {datasetSource === "local" && csvValidation ? (
+            <div
+              className={cn(
+                "mt-3 rounded-[16px] border p-4 text-xs",
+                csvValidation.isValid
+                  ? "border-status-success/40 bg-status-success/10 text-status-success"
+                  : "border-status-error/40 bg-status-error/10 text-status-error"
+              )}
+            >
+              <div className="mb-2 flex items-center justify-between gap-2 text-sm font-medium">
+                <span>Валидация CSV</span>
+                <span>{csvValidation.isValid ? "Прошла успешно" : "Есть ошибки"}</span>
+              </div>
+              <div className="grid gap-1 text-xs">
+                <div>Колонки: {csvValidation.detectedColumns.join(", ") || "не определены"}</div>
+                <div>Отсутствуют обязательные: {csvValidation.missingColumns.join(", ") || "нет"}</div>
+                <div>Дубликаты timestamp: {csvValidation.duplicateTimestampCount}</div>
+                <div>Пропуски значений: {csvValidation.missingValueCount}</div>
+                <div>Нарушения сортировки: {csvValidation.unsortedCount}</div>
+              </div>
             </div>
           ) : null}
 
