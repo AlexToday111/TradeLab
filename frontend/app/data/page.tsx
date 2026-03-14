@@ -68,12 +68,19 @@ type DatasetVersionSnapshot = {
   pipelineHash: string;
 };
 
+type BacktestCompatibility = {
+  compatible: boolean;
+  missingFields: string[];
+  notes: string[];
+};
+
 type UiDataset = DatasetVersion & {
   source: DatasetSource;
   marketType: MarketType;
   loadStatus: DatasetLoadStatus;
   archived: boolean;
   profile: DatasetProfile;
+  compatibility: BacktestCompatibility;
   versions: DatasetVersionSnapshot[];
   tags: string[];
   rowsHint?: string;
@@ -203,6 +210,29 @@ function buildDatasetTags(
       ...symbols.map((symbol) => symbol.toLowerCase()),
     ])
   );
+}
+
+function buildBacktestCompatibility(params: {
+  source: DatasetSource;
+  validation: CsvValidation | null;
+}): BacktestCompatibility {
+  if (params.source === "bybit") {
+    return {
+      compatible: true,
+      missingFields: [],
+      notes: ["Формат ожидается от API-коннектора ByBit"],
+    };
+  }
+
+  const missingFields = params.validation?.missingColumns ?? [];
+  return {
+    compatible: missingFields.length === 0,
+    missingFields,
+    notes:
+      missingFields.length === 0
+        ? ["CSV содержит обязательные поля для бэктеста"]
+        : ["Нужно дополнить CSV обязательными колонками"],
+  };
 }
 
 async function validateCsvFiles(files: File[]): Promise<CsvValidation | null> {
@@ -342,6 +372,11 @@ function createInitialDatasets(): UiDataset[] {
       dateRange: demoRange,
       timeStep: dataset.timeframe,
       symbolCoverage: `${dataset.symbols.length} символов`,
+    },
+    compatibility: {
+      compatible: true,
+      missingFields: [],
+      notes: ["Демо-набор совместим"],
     },
     versions: [
       createSnapshot(
@@ -656,6 +691,10 @@ export default function DataPage() {
     const datasetId = `custom-${Date.now()}`;
     const isLocal = datasetSource === "local";
     const isMergeMode = isLocal && localCsvMode === "merge";
+    const compatibility = buildBacktestCompatibility({
+      source: datasetSource,
+      validation: csvValidation,
+    });
     const profile: DatasetProfile =
       isLocal && csvValidation
         ? {
@@ -691,6 +730,7 @@ export default function DataPage() {
       loadStatus: datasetSource === "bybit" ? "queued" : "ready",
       archived: false,
       profile,
+      compatibility,
       versions: [
         createSnapshot(
           datasetId,
@@ -1450,6 +1490,34 @@ export default function DataPage() {
                       ))}
                     </TableBody>
                   </Table>
+                </div>
+              </div>
+
+              <div className="rounded-[18px] border border-border bg-panel-subtle p-4">
+                <div className="mb-2 text-sm font-semibold text-foreground">
+                  Проверка совместимости с бэктестом
+                </div>
+                <div className="mb-3">
+                  <Badge
+                    className={
+                      selectedDataset.compatibility.compatible
+                        ? "border border-status-success/40 bg-status-success/15 text-status-success"
+                        : "border border-status-error/40 bg-status-error/15 text-status-error"
+                    }
+                  >
+                    {selectedDataset.compatibility.compatible
+                      ? "Подходит для бэктеста"
+                      : "Неполный формат"}
+                  </Badge>
+                </div>
+                <div className="space-y-1 text-xs text-muted-foreground">
+                  <div>
+                    Отсутствующие поля:{" "}
+                    {selectedDataset.compatibility.missingFields.join(", ") || "нет"}
+                  </div>
+                  {selectedDataset.compatibility.notes.map((note) => (
+                    <div key={note}>• {note}</div>
+                  ))}
                 </div>
               </div>
 
