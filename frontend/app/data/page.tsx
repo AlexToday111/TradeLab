@@ -72,16 +72,6 @@ type DatasetProfile = {
   symbolCoverage: string;
 };
 
-type DatasetVersionSnapshot = {
-  id: string;
-  label: string;
-  createdAt: string;
-  rowCount: string;
-  dateRange: string;
-  timeStep: string;
-  pipelineHash: string;
-};
-
 type BacktestCompatibility = {
   compatible: boolean;
   missingFields: string[];
@@ -95,7 +85,6 @@ type UiDataset = DatasetVersion & {
   archived: boolean;
   profile: DatasetProfile;
   compatibility: BacktestCompatibility;
-  versions: DatasetVersionSnapshot[];
   tags: string[];
   rowsHint?: string;
   mergedCsvUrl?: string;
@@ -240,33 +229,6 @@ function formatTimeStep(minutes: number | null) {
     return `${minutes / 60}H`;
   }
   return `${minutes}M`;
-}
-
-function createSnapshot(
-  datasetId: string,
-  versionIndex: number,
-  profile: DatasetProfile,
-  pipelineHash: string
-): DatasetVersionSnapshot {
-  return {
-    id: `${datasetId}-v${versionIndex}`,
-    label: `v${versionIndex}`,
-    createdAt: new Date().toISOString(),
-    rowCount: profile.rowCount,
-    dateRange: profile.dateRange,
-    timeStep: profile.timeStep,
-    pipelineHash,
-  };
-}
-
-function formatVersionDate(isoDate: string) {
-  return new Date(isoDate).toLocaleString("ru-RU", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
 
 function buildDatasetTags(
@@ -497,19 +459,6 @@ function createInitialDatasets(): UiDataset[] {
       missingFields: [],
       notes: ["Демо-набор совместим"],
     },
-    versions: [
-      createSnapshot(
-        dataset.id,
-        1,
-        {
-          rowCount: `${previewRows.length} строк`,
-          dateRange: demoRange,
-          timeStep: dataset.timeframe,
-          symbolCoverage: `${dataset.symbols.length} символов`,
-        },
-        dataset.pipelineHash
-      ),
-    ],
     tags: buildDatasetTags("local", "spot", dataset.timeframe, dataset.symbols),
     rowsHint: "Демо-набор",
   }));
@@ -518,8 +467,6 @@ function createInitialDatasets(): UiDataset[] {
 export default function DataPage() {
   const [datasets, setDatasets] = useState<UiDataset[]>(createInitialDatasets);
   const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(null);
-  const [compareVersionFrom, setCompareVersionFrom] = useState("");
-  const [compareVersionTo, setCompareVersionTo] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterSource, setFilterSource] = useState<"all" | DatasetSource>("all");
   const [filterMarket, setFilterMarket] = useState<"all" | MarketType>("all");
@@ -555,19 +502,6 @@ export default function DataPage() {
   useEffect(() => {
     setRenameDraft(selectedDataset?.name ?? "");
   }, [selectedDataset?.id, selectedDataset?.name]);
-
-  const selectedVersionFrom = useMemo(
-    () =>
-      selectedDataset?.versions.find((version) => version.id === compareVersionFrom) ??
-      null,
-    [compareVersionFrom, selectedDataset]
-  );
-
-  const selectedVersionTo = useMemo(
-    () =>
-      selectedDataset?.versions.find((version) => version.id === compareVersionTo) ?? null,
-    [compareVersionTo, selectedDataset]
-  );
 
   const availableTimeframes = useMemo(
     () =>
@@ -615,19 +549,6 @@ export default function DataPage() {
       );
     });
   }, [datasets, filterMarket, filterSource, filterSymbol, filterTimeframe, searchQuery, showArchived]);
-
-  useEffect(() => {
-    if (!selectedDataset) {
-      setCompareVersionFrom("");
-      setCompareVersionTo("");
-      return;
-    }
-    const latest = selectedDataset.versions[selectedDataset.versions.length - 1];
-    const previous =
-      selectedDataset.versions[selectedDataset.versions.length - 2] ?? latest;
-    setCompareVersionFrom(previous.id);
-    setCompareVersionTo(latest.id);
-  }, [selectedDataset?.id, selectedDataset?.versions.length]);
 
   useEffect(() => {
     if (filteredDatasets.length === 0) {
@@ -951,14 +872,6 @@ export default function DataPage() {
       archived: false,
       profile,
       compatibility,
-      versions: [
-        createSnapshot(
-          datasetId,
-          1,
-          profile,
-          isMergeMode ? "csv_merge_local" : "dataset_pending"
-        ),
-      ],
       tags: buildDatasetTags(
         datasetSource,
         isLocal ? "spot" : marketType,
@@ -985,27 +898,6 @@ export default function DataPage() {
     resetCreateForm({ preserveMergedCsv: Boolean(mergedCsv) });
   }
 
-  function handleCreateVersionSnapshot() {
-    if (!selectedDataset) {
-      return;
-    }
-    setDatasets((prev) =>
-      prev.map((dataset) => {
-        if (dataset.id !== selectedDataset.id) {
-          return dataset;
-        }
-        const nextVersionIndex = dataset.versions.length + 1;
-        const snapshot = createSnapshot(
-          dataset.id,
-          nextVersionIndex,
-          dataset.profile,
-          dataset.pipelineHash
-        );
-        return { ...dataset, versions: [...dataset.versions, snapshot] };
-      })
-    );
-  }
-
   function handleRenameDataset() {
     if (!selectedDataset) {
       return;
@@ -1026,16 +918,11 @@ export default function DataPage() {
       return;
     }
     const copyId = `copy-${Date.now()}`;
-    const copiedVersions = selectedDataset.versions.map((version, index) => ({
-      ...version,
-      id: `${copyId}-v${index + 1}`,
-    }));
     const duplicatedDataset: UiDataset = {
       ...selectedDataset,
       id: copyId,
       name: `${selectedDataset.name} (копия)`,
       archived: false,
-      versions: copiedVersions,
       loadStatus: "ready",
     };
     setDatasets((prev) => [duplicatedDataset, ...prev]);
@@ -1729,104 +1616,6 @@ export default function DataPage() {
                   <div className="mt-1 text-sm font-medium text-foreground">
                     {selectedDataset.profile.symbolCoverage}
                   </div>
-                </div>
-              </div>
-
-              <div className="rounded-[18px] border border-border bg-panel-subtle p-4">
-                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                  <div className="text-sm font-semibold text-foreground">Версионирование</div>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={handleCreateVersionSnapshot}
-                  >
-                    Снять snapshot версии
-                  </Button>
-                </div>
-
-                <div className="grid gap-3 lg:grid-cols-2">
-                  <div>
-                    <div className="mb-1 text-xs text-muted-foreground">Версия A</div>
-                    <Select value={compareVersionFrom} onValueChange={setCompareVersionFrom}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {selectedDataset.versions.map((version) => (
-                          <SelectItem key={version.id} value={version.id}>
-                            {version.label} ({formatVersionDate(version.createdAt)})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <div className="mb-1 text-xs text-muted-foreground">Версия B</div>
-                    <Select value={compareVersionTo} onValueChange={setCompareVersionTo}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {selectedDataset.versions.map((version) => (
-                          <SelectItem key={version.id} value={version.id}>
-                            {version.label} ({formatVersionDate(version.createdAt)})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {selectedVersionFrom && selectedVersionTo ? (
-                  <div className="mt-3 grid gap-2 rounded-[14px] border border-border bg-panel p-3 text-xs text-muted-foreground">
-                    <div>
-                      Строки: {selectedVersionFrom.rowCount} → {selectedVersionTo.rowCount}
-                    </div>
-                    <div>
-                      Диапазон: {selectedVersionFrom.dateRange} → {selectedVersionTo.dateRange}
-                    </div>
-                    <div>
-                      Шаг: {selectedVersionFrom.timeStep} → {selectedVersionTo.timeStep}
-                    </div>
-                    <div>
-                      Хэш: {selectedVersionFrom.pipelineHash} → {selectedVersionTo.pipelineHash}
-                    </div>
-                  </div>
-                ) : null}
-
-                <div className="mt-3">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Версия</TableHead>
-                        <TableHead>Дата</TableHead>
-                        <TableHead>Строки</TableHead>
-                        <TableHead>Диапазон</TableHead>
-                        <TableHead>Хэш</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {selectedDataset.versions.map((version) => (
-                        <TableRow key={version.id}>
-                          <TableCell className="text-xs text-muted-foreground">
-                            {version.label}
-                          </TableCell>
-                          <TableCell className="text-xs text-muted-foreground">
-                            {formatVersionDate(version.createdAt)}
-                          </TableCell>
-                          <TableCell className="text-xs text-muted-foreground">
-                            {version.rowCount}
-                          </TableCell>
-                          <TableCell className="text-xs text-muted-foreground">
-                            {version.dateRange}
-                          </TableCell>
-                          <TableCell className="text-xs text-muted-foreground">
-                            {version.pipelineHash}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
                 </div>
               </div>
 
