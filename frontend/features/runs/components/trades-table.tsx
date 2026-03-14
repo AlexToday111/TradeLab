@@ -22,11 +22,10 @@ export function TradesTable({ rows }: { rows: TradeRow[] }) {
         {rows.map((trade) => (
           <TableRow
             key={trade.id}
-            className={
-              trade.pnl >= 0
-                ? "bg-[hsl(var(--tl-success)/0.08)] hover:bg-[hsl(var(--tl-success)/0.14)]"
-                : "bg-[hsl(var(--tl-error)/0.08)] hover:bg-[hsl(var(--tl-error)/0.14)]"
-            }
+            style={{
+              backgroundColor:
+                trade.pnl >= 0 ? "rgba(16, 185, 129, 0.18)" : "rgba(239, 68, 68, 0.16)",
+            }}
           >
             <TableCell className="font-mono text-xs text-foreground">
               {trade.id}
