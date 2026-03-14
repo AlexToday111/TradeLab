@@ -1435,6 +1435,17 @@ export default function DataPage() {
         <SurfaceCard
           title="Список датасетов"
           subtitle="Выберите датасет, чтобы открыть таблицы с деталями и данными."
+          actions={
+            <Button
+              type="button"
+              size="icon"
+              variant="secondary"
+              onClick={() => setCreateOpen((value) => !value)}
+              className="h-8 w-8 border border-border/80 bg-panel-subtle text-foreground transition hover:border-white hover:bg-white hover:text-black hover:shadow-[0_0_14px_rgba(255,255,255,0.6)]"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          }
           contentClassName="p-0"
         >
           <div className="divide-y divide-border/80">
