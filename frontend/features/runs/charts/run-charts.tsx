@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -12,6 +13,10 @@ import {
   BarChart,
   Bar,
   CartesianGrid,
+  ComposedChart,
+  Scatter,
+  Legend,
+  Brush,
 } from "recharts";
 import {
   equityCurve,
@@ -19,7 +24,10 @@ import {
   underwaterSeries,
   returnsHistogram,
   ohlcPreview,
+  buildTradeAnalyzerFromDataset,
+  type DatasetPriceRow,
 } from "@/lib/demo-data/charts";
+import type { TradeRow } from "@/lib/demo-data/trades";
 
 const axisProps = {
   tick: { fill: "hsl(var(--muted-foreground))", fontSize: 11 },
@@ -32,6 +40,23 @@ const tooltipStyle = {
   border: "1px solid hsl(var(--border))",
   color: "hsl(var(--foreground))",
   fontSize: "12px",
+};
+
+const analyzerTooltipFormatter = (
+  value: number | string | undefined,
+  name: string | undefined,
+  payload: any
+) => {
+  const safeValue = value ?? "-";
+  const action = String(payload?.action ?? "");
+  if (action === "entry") {
+    return [`${safeValue}`, "Вход"];
+  }
+  if (action === "exit") {
+    return [`${safeValue}`, "Выход"];
+  }
+  const safeName = name ?? "Значение";
+  return [`${safeValue}`, safeName === "close" ? "Цена" : safeName];
 };
 
 export function EquityChart() {
@@ -135,6 +160,57 @@ export function OhlcPreviewChart() {
           dot={false}
         />
       </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function TradesAnalyzerChart({
+  datasetRows,
+  trades,
+}: {
+  datasetRows: DatasetPriceRow[];
+  trades: TradeRow[];
+}) {
+  const analyzer = useMemo(
+    () => buildTradeAnalyzerFromDataset({ datasetRows, trades }),
+    [datasetRows, trades]
+  );
+
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <ComposedChart data={analyzer.priceSeries}>
+        <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="4 4" />
+        <XAxis dataKey="date" minTickGap={36} {...axisProps} />
+        <YAxis width={52} {...axisProps} />
+        <Tooltip contentStyle={tooltipStyle} formatter={analyzerTooltipFormatter} />
+        <Legend />
+        <Line
+          type="monotone"
+          dataKey="close"
+          name="Цена"
+          stroke="hsl(var(--chart-2))"
+          strokeWidth={2.5}
+          dot={false}
+        />
+        <Scatter
+          name="Входы"
+          data={analyzer.entryMarkers}
+          dataKey="value"
+          fill="hsl(var(--tl-success))"
+        />
+        <Scatter
+          name="Выходы"
+          data={analyzer.exitMarkers}
+          dataKey="value"
+          fill="hsl(var(--tl-error))"
+        />
+        <Brush
+          dataKey="date"
+          height={20}
+          stroke="hsl(var(--chart-2))"
+          travellerWidth={10}
+        />
+      </ComposedChart>
     </ResponsiveContainer>
   );
 }

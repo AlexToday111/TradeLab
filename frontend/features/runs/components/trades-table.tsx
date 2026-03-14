@@ -20,7 +20,14 @@ export function TradesTable({ rows }: { rows: TradeRow[] }) {
       </TableHeader>
       <TableBody>
         {rows.map((trade) => (
-          <TableRow key={trade.id}>
+          <TableRow
+            key={trade.id}
+            className={
+              trade.pnl >= 0
+                ? "bg-[hsl(var(--tl-success)/0.08)] hover:bg-[hsl(var(--tl-success)/0.14)]"
+                : "bg-[hsl(var(--tl-error)/0.08)] hover:bg-[hsl(var(--tl-error)/0.14)]"
+            }
+          >
             <TableCell className="font-mono text-xs text-foreground">
               {trade.id}
             </TableCell>
