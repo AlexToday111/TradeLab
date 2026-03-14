@@ -110,6 +110,18 @@ type MergedCsv = {
   size: number;
 };
 
+type ImportTemplate = {
+  id: string;
+  name: string;
+  source: DatasetSource;
+  marketType: MarketType;
+  symbolsInput: string;
+  timeframe: (typeof bybitTimeframes)[number];
+  dateFrom: string;
+  dateTo: string;
+  localCsvMode: LocalCsvMode;
+};
+
 const sourceLabels: Record<DatasetSource, string> = {
   bybit: "ByBit",
   local: "Локально",
@@ -122,6 +134,41 @@ const marketTypeLabels: Record<MarketType, string> = {
 
 const bybitTimeframes = ["5M", "1H", "1D"] as const;
 const requiredCsvColumns = ["timestamp", "open", "high", "low", "close", "volume"];
+const defaultImportTemplates: ImportTemplate[] = [
+  {
+    id: "tpl-bybit-btc-1h",
+    name: "ByBit BTCUSDT 1H",
+    source: "bybit",
+    marketType: "spot",
+    symbolsInput: "BTCUSDT",
+    timeframe: "1H",
+    dateFrom: "2025-01-01",
+    dateTo: "2025-03-01",
+    localCsvMode: "separate",
+  },
+  {
+    id: "tpl-bybit-futures-5m",
+    name: "ByBit Futures 5M",
+    source: "bybit",
+    marketType: "futures",
+    symbolsInput: "BTCUSDT, ETHUSDT",
+    timeframe: "5M",
+    dateFrom: "2025-02-01",
+    dateTo: "2025-03-01",
+    localCsvMode: "separate",
+  },
+  {
+    id: "tpl-csv-merge",
+    name: "CSV Merge Preset",
+    source: "local",
+    marketType: "spot",
+    symbolsInput: "CSV",
+    timeframe: "1H",
+    dateFrom: "",
+    dateTo: "",
+    localCsvMode: "merge",
+  },
+];
 
 const loadStatusMeta: Record<
   DatasetLoadStatus,
@@ -495,6 +542,10 @@ export default function DataPage() {
   const [localCsvMode, setLocalCsvMode] = useState<LocalCsvMode | null>(null);
   const [mergeError, setMergeError] = useState<string | null>(null);
   const [mergedCsv, setMergedCsv] = useState<MergedCsv | null>(null);
+  const [importTemplates, setImportTemplates] =
+    useState<ImportTemplate[]>(defaultImportTemplates);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("none");
+  const [templateNameDraft, setTemplateNameDraft] = useState("");
 
   const selectedDataset = useMemo(
     () => datasets.find((dataset) => dataset.id === selectedDatasetId) ?? null,
@@ -647,6 +698,72 @@ export default function DataPage() {
     setLocalCsvMode(null);
     setMergeError(null);
     setMergedCsv(null);
+    setSelectedTemplateId("none");
+    setTemplateNameDraft("");
+  }
+
+  function applyImportTemplate(template: ImportTemplate) {
+    setDatasetSource(template.source);
+    setMarketType(template.marketType);
+    setSymbolsInput(template.symbolsInput);
+    setTimeframe(template.timeframe);
+    setDateFrom(template.dateFrom);
+    setDateTo(template.dateTo);
+    setLocalCsvMode(template.source === "local" ? template.localCsvMode : null);
+    setMergeError(null);
+
+    if (template.source === "bybit") {
+      if (mergedCsv?.url) {
+        URL.revokeObjectURL(mergedCsv.url);
+      }
+      setUploadedCsvFiles([]);
+      setCsvValidation(null);
+      setCsvImportIssues([]);
+      setMergedCsv(null);
+    }
+  }
+
+  function handleTemplateSelect(templateId: string) {
+    setSelectedTemplateId(templateId);
+    if (templateId === "none") {
+      return;
+    }
+    const template = importTemplates.find((item) => item.id === templateId);
+    if (!template) {
+      return;
+    }
+    applyImportTemplate(template);
+  }
+
+  function handleSaveImportTemplate() {
+    const normalizedName = templateNameDraft.trim();
+    const template: ImportTemplate = {
+      id: `tpl-custom-${Date.now()}`,
+      name:
+        normalizedName.length > 0
+          ? normalizedName
+          : `${datasetSource === "bybit" ? "ByBit" : "CSV"} preset ${importTemplates.length + 1}`,
+      source: datasetSource,
+      marketType,
+      symbolsInput,
+      timeframe,
+      dateFrom,
+      dateTo,
+      localCsvMode: localCsvMode ?? "separate",
+    };
+    setImportTemplates((prev) => [template, ...prev]);
+    setSelectedTemplateId(template.id);
+    setTemplateNameDraft("");
+  }
+
+  function handleDeleteImportTemplate() {
+    if (selectedTemplateId === "none") {
+      return;
+    }
+    setImportTemplates((prev) =>
+      prev.filter((template) => template.id !== selectedTemplateId)
+    );
+    setSelectedTemplateId("none");
   }
 
   async function handleCsvFileChange(event: ChangeEvent<HTMLInputElement>) {
@@ -979,6 +1096,76 @@ export default function DataPage() {
             </Button>
           }
         >
+          <div className="mb-4 rounded-[20px] border border-border/70 bg-[linear-gradient(135deg,rgba(23,39,78,0.35),rgba(18,25,36,0.92)_68%)] p-4">
+            <div className="mb-3 text-sm font-semibold text-foreground">Шаблоны импорта</div>
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+              <div>
+                <div className="mb-1 text-xs text-muted-foreground">Выбрать пресет</div>
+                <Select value={selectedTemplateId} onValueChange={handleTemplateSelect}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Без шаблона</SelectItem>
+                    {importTemplates.map((template) => (
+                      <SelectItem key={template.id} value={template.id}>
+                        {template.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <div className="mb-1 text-xs text-muted-foreground">Имя нового пресета</div>
+                <Input
+                  value={templateNameDraft}
+                  onChange={(event) => setTemplateNameDraft(event.target.value)}
+                  placeholder="Например: ByBit ETH 1D"
+                />
+              </div>
+              <div className="flex items-end gap-2">
+                <Button type="button" size="sm" variant="secondary" onClick={handleSaveImportTemplate}>
+                  Сохранить пресет
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  disabled={selectedTemplateId === "none"}
+                  onClick={handleDeleteImportTemplate}
+                >
+                  Удалить
+                </Button>
+              </div>
+            </div>
+            {selectedTemplateId !== "none" ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {(() => {
+                  const activeTemplate = importTemplates.find(
+                    (template) => template.id === selectedTemplateId
+                  );
+                  if (!activeTemplate) {
+                    return null;
+                  }
+                  return (
+                    <>
+                      <Badge variant="secondary">
+                        {activeTemplate.source === "bybit" ? "ByBit" : "CSV Upload"}
+                      </Badge>
+                      <Badge variant="secondary">{activeTemplate.marketType}</Badge>
+                      <Badge variant="secondary">{activeTemplate.timeframe}</Badge>
+                      <Badge variant="secondary">
+                        {activeTemplate.dateFrom && activeTemplate.dateTo
+                          ? `${activeTemplate.dateFrom} -> ${activeTemplate.dateTo}`
+                          : "Период не задан"}
+                      </Badge>
+                    </>
+                  );
+                })()}
+              </div>
+            ) : null}
+          </div>
+
           <div
             className={cn(
               "grid gap-4",
