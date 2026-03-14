@@ -45,12 +45,24 @@ type CsvValidation = {
   missingValueCount: number;
   unsortedCount: number;
   totalRows: number;
+  dateRangeStart: string | null;
+  dateRangeEnd: string | null;
+  inferredStep: string;
+  symbolCoverage: string;
+};
+
+type DatasetProfile = {
+  rowCount: string;
+  dateRange: string;
+  timeStep: string;
+  symbolCoverage: string;
 };
 
 type UiDataset = DatasetVersion & {
   source: DatasetSource;
   marketType: MarketType;
   loadStatus: DatasetLoadStatus;
+  profile: DatasetProfile;
   rowsHint?: string;
   mergedCsvUrl?: string;
   mergedCsvName?: string;
@@ -124,6 +136,19 @@ function normalizeColumnName(name: string) {
   return name.trim().toLowerCase().replace(/\s+/g, "_");
 }
 
+function formatTimeStep(minutes: number | null) {
+  if (minutes === null || Number.isNaN(minutes) || minutes <= 0) {
+    return "N/A";
+  }
+  if (minutes % 1440 === 0) {
+    return `${minutes / 1440}D`;
+  }
+  if (minutes % 60 === 0) {
+    return `${minutes / 60}H`;
+  }
+  return `${minutes}M`;
+}
+
 async function validateCsvFiles(files: File[]): Promise<CsvValidation | null> {
   if (files.length === 0) {
     return null;
@@ -136,6 +161,10 @@ async function validateCsvFiles(files: File[]): Promise<CsvValidation | null> {
   let missingValueCount = 0;
   let unsortedCount = 0;
   let totalRows = 0;
+  const distinctSymbols = new Set<string>();
+  const stepSamples: number[] = [];
+  let minTimestampValue: number | null = null;
+  let maxTimestampValue: number | null = null;
 
   for (const file of files) {
     const text = await file.text();
@@ -156,6 +185,7 @@ async function validateCsvFiles(files: File[]): Promise<CsvValidation | null> {
     }
 
     const timestampIndex = normalizedHeader.indexOf("timestamp");
+    const symbolIndex = normalizedHeader.indexOf("symbol");
 
     let previousTimestamp: number | null = null;
 
@@ -186,11 +216,27 @@ async function validateCsvFiles(files: File[]): Promise<CsvValidation | null> {
 
           const asEpoch = Number(new Date(timestampValue));
           if (!Number.isNaN(asEpoch)) {
+            if (minTimestampValue === null || asEpoch < minTimestampValue) {
+              minTimestampValue = asEpoch;
+            }
+            if (maxTimestampValue === null || asEpoch > maxTimestampValue) {
+              maxTimestampValue = asEpoch;
+            }
             if (previousTimestamp !== null && asEpoch < previousTimestamp) {
               unsortedCount += 1;
             }
+            if (previousTimestamp !== null && asEpoch > previousTimestamp) {
+              stepSamples.push((asEpoch - previousTimestamp) / 60000);
+            }
             previousTimestamp = asEpoch;
           }
+        }
+      }
+
+      if (symbolIndex !== -1) {
+        const symbolValue = cells[symbolIndex];
+        if (symbolValue) {
+          distinctSymbols.add(symbolValue);
         }
       }
     }
@@ -199,6 +245,11 @@ async function validateCsvFiles(files: File[]): Promise<CsvValidation | null> {
   const missingColumns = requiredCsvColumns.filter(
     (requiredColumn) => !headerColumns.includes(requiredColumn)
   );
+
+  const averageStep =
+    stepSamples.length > 0
+      ? stepSamples.reduce((sum, value) => sum + value, 0) / stepSamples.length
+      : null;
 
   return {
     isValid:
@@ -212,15 +263,29 @@ async function validateCsvFiles(files: File[]): Promise<CsvValidation | null> {
     missingValueCount,
     unsortedCount,
     totalRows,
+    dateRangeStart: minTimestampValue ? new Date(minTimestampValue).toISOString().slice(0, 10) : null,
+    dateRangeEnd: maxTimestampValue ? new Date(maxTimestampValue).toISOString().slice(0, 10) : null,
+    inferredStep: formatTimeStep(averageStep ? Math.round(averageStep) : null),
+    symbolCoverage:
+      distinctSymbols.size > 0
+        ? `${distinctSymbols.size} символов`
+        : "N/A",
   };
 }
 
 function createInitialDatasets(): UiDataset[] {
+  const demoRange = `${previewRows[0]?.ts ?? "N/A"} -> ${previewRows[previewRows.length - 1]?.ts ?? "N/A"}`;
   return datasetVersions.map((dataset) => ({
     ...dataset,
     source: "local",
     marketType: "spot",
     loadStatus: "ready",
+    profile: {
+      rowCount: `${previewRows.length} строк`,
+      dateRange: demoRange,
+      timeStep: dataset.timeframe,
+      symbolCoverage: `${dataset.symbols.length} символов`,
+    },
     rowsHint: "Демо-набор",
   }));
 }
@@ -418,6 +483,24 @@ export default function DataPage() {
     const datasetId = `custom-${Date.now()}`;
     const isLocal = datasetSource === "local";
     const isMergeMode = isLocal && localCsvMode === "merge";
+    const profile: DatasetProfile =
+      isLocal && csvValidation
+        ? {
+            rowCount: `${csvValidation.totalRows} строк`,
+            dateRange:
+              csvValidation.dateRangeStart && csvValidation.dateRangeEnd
+                ? `${csvValidation.dateRangeStart} -> ${csvValidation.dateRangeEnd}`
+                : "N/A",
+            timeStep: csvValidation.inferredStep,
+            symbolCoverage: csvValidation.symbolCoverage,
+          }
+        : {
+            rowCount: "Ожидается",
+            dateRange:
+              dateFrom && dateTo ? `${dateFrom} -> ${dateTo}` : "Ожидается",
+            timeStep: timeframe,
+            symbolCoverage: `${symbols.length} символов`,
+          };
     const newDataset: UiDataset = {
       id: datasetId,
       name: datasetName.trim() || `Новый датасет ${datasets.length + 1}`,
@@ -433,6 +516,7 @@ export default function DataPage() {
       source: datasetSource,
       marketType: isLocal ? "spot" : marketType,
       loadStatus: datasetSource === "bybit" ? "queued" : "ready",
+      profile,
       rowsHint: isMergeMode && mergedCsv
         ? `${mergedCsv.rows.toLocaleString("ru-RU")} строк (merged)`
         : datasetSource === "bybit"
@@ -851,6 +935,41 @@ export default function DataPage() {
                   </TableRow>
                 </TableBody>
               </Table>
+
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-[16px] border border-border bg-panel-subtle p-3">
+                  <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                    Профиль: строки
+                  </div>
+                  <div className="mt-1 text-sm font-medium text-foreground">
+                    {selectedDataset.profile.rowCount}
+                  </div>
+                </div>
+                <div className="rounded-[16px] border border-border bg-panel-subtle p-3">
+                  <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                    Диапазон дат
+                  </div>
+                  <div className="mt-1 text-sm font-medium text-foreground">
+                    {selectedDataset.profile.dateRange}
+                  </div>
+                </div>
+                <div className="rounded-[16px] border border-border bg-panel-subtle p-3">
+                  <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                    Шаг времени
+                  </div>
+                  <div className="mt-1 text-sm font-medium text-foreground">
+                    {selectedDataset.profile.timeStep}
+                  </div>
+                </div>
+                <div className="rounded-[16px] border border-border bg-panel-subtle p-3">
+                  <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                    Покрытие символов
+                  </div>
+                  <div className="mt-1 text-sm font-medium text-foreground">
+                    {selectedDataset.profile.symbolCoverage}
+                  </div>
+                </div>
+              </div>
 
               {selectedDataset.mergedCsvUrl ? (
                 <div className="flex flex-wrap items-center gap-3 rounded-[14px] border border-border bg-panel-subtle p-3 text-xs">
