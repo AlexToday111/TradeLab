@@ -229,6 +229,75 @@ function formatTimeStep(minutes: number | null) {
   return `${minutes}M`;
 }
 
+function formatCoverage(days: number) {
+  const normalizedDays = Number.isInteger(days) ? String(days) : days.toFixed(2);
+  const months = (days / 30.44).toFixed(1);
+  return `${normalizedDays} дн. (${months} мес.)`;
+}
+
+function parseRangeCoverageDays(range: string) {
+  if (!range.includes("->")) {
+    return null;
+  }
+
+  const [rawStart, rawEnd] = range.split("->").map((value) => value.trim());
+  const start = Date.parse(rawStart);
+  const end = Date.parse(rawEnd);
+  if (Number.isNaN(start) || Number.isNaN(end)) {
+    return null;
+  }
+
+  const diffDays = Math.floor(Math.abs(end - start) / (24 * 60 * 60 * 1000)) + 1;
+  return Math.max(1, diffDays);
+}
+
+function parseRowCount(rowCount: string) {
+  const match = rowCount.match(/\d+/);
+  return match ? Number(match[0]) : null;
+}
+
+function timeframeToMinutes(timeframe: string) {
+  const match = timeframe.trim().match(/^(\d+)\s*([mhd])$/i);
+  if (!match) {
+    return null;
+  }
+
+  const value = Number(match[1]);
+  const unit = match[2].toUpperCase();
+  if (unit === "D") {
+    return value * 1440;
+  }
+  if (unit === "H") {
+    return value * 60;
+  }
+  return value;
+}
+
+function getDatasetCoverageLabel(dataset: UiDataset) {
+  const byPeriod = parseRangeCoverageDays(dataset.period);
+  if (byPeriod !== null) {
+    return formatCoverage(byPeriod);
+  }
+
+  const byProfileRange = parseRangeCoverageDays(dataset.profile.dateRange);
+  if (byProfileRange !== null) {
+    return formatCoverage(byProfileRange);
+  }
+
+  const rows = parseRowCount(dataset.profile.rowCount);
+  const minutesPerStep = timeframeToMinutes(dataset.timeframe);
+  if (!rows || !minutesPerStep) {
+    return "N/A";
+  }
+
+  const days = Number(((rows * minutesPerStep) / 1440).toFixed(2));
+  if (days <= 0) {
+    return "N/A";
+  }
+
+  return formatCoverage(days);
+}
+
 function buildDatasetTags(
   source: DatasetSource,
   market: MarketType,
@@ -1556,6 +1625,12 @@ export default function DataPage() {
                   <TableRow>
                     <TableCell className="text-xs text-muted-foreground">Период</TableCell>
                     <TableCell className="text-xs text-muted-foreground">{selectedDataset.period}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="text-xs text-muted-foreground">Покрытие времени</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {getDatasetCoverageLabel(selectedDataset)}
+                    </TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell className="text-xs text-muted-foreground">Таймфрейм</TableCell>
