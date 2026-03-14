@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
+import { Expand, Minimize2 } from "lucide-react";
 import { ChartCard } from "@/components/shared/chart-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { LoadingState } from "@/components/shared/loading-state";
@@ -18,6 +19,7 @@ import { MetricCard } from "@/features/runs/components/metric-card";
 import { RunHeader } from "@/features/runs/components/run-header";
 import { TradesTable } from "@/features/runs/components/trades-table";
 import { useRuns } from "@/features/runs/store/run-store";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +30,7 @@ import { trades } from "@/lib/demo-data/trades";
 export default function RunDetailsPage() {
   const params = useParams();
   const { getRunById } = useRuns();
+  const [isAnalyzerFullscreen, setIsAnalyzerFullscreen] = useState(false);
   const runId = Array.isArray(params?.id) ? params?.id[0] : params?.id;
   const run = runId ? getRunById(runId) : undefined;
 
@@ -126,7 +129,18 @@ export default function RunDetailsPage() {
       <div className="grid grid-cols-1 gap-3 2xl:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
         <ChartCard
           title="Анализатор сделок"
-          subtitle="График цены по данным датасета с отметками входов и выходов каждой сделки."
+          actions={
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => setIsAnalyzerFullscreen(true)}
+              className="h-8 border border-border/80 bg-panel-subtle text-xs text-foreground transition hover:border-white hover:bg-white hover:text-black hover:shadow-[0_0_14px_rgba(255,255,255,0.6)]"
+            >
+              <Expand className="mr-2 h-4 w-4" />
+              Развернуть на весь экран график цены
+            </Button>
+          }
           chartClassName="h-64 xl:h-72 2xl:h-[420px]"
         >
           <TradesAnalyzerChart datasetRows={previewRows} trades={trades} />
@@ -134,7 +148,6 @@ export default function RunDetailsPage() {
 
         <SurfaceCard
           title="Журнал сделок"
-          subtitle="Подробный журнал по сделкам запуска: вход/выход, направление, длительность и PnL."
           contentClassName="p-0"
         >
           <div className="grid grid-cols-2 gap-3 p-4 text-xs">
@@ -162,6 +175,33 @@ export default function RunDetailsPage() {
           </div>
         </SurfaceCard>
       </div>
+
+      {isAnalyzerFullscreen ? (
+        <div className="fixed inset-0 z-[100] bg-background/88 p-4 backdrop-blur-sm md:p-6">
+          <div className="mx-auto flex h-full w-full max-w-[2000px] flex-col overflow-hidden rounded-[26px] border border-border bg-panel shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
+            <div className="flex items-center justify-between border-b border-border px-5 py-4">
+              <div className="text-sm font-semibold text-foreground">
+                Анализатор сделок - полный экран
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => setIsAnalyzerFullscreen(false)}
+                className="h-8 border border-border/80 bg-panel-subtle text-xs text-foreground transition hover:border-white hover:bg-white hover:text-black hover:shadow-[0_0_14px_rgba(255,255,255,0.6)]"
+              >
+                <Minimize2 className="mr-2 h-4 w-4" />
+                Свернуть
+              </Button>
+            </div>
+            <div className="min-h-0 flex-1 p-3 md:p-5">
+              <div className="h-full rounded-[20px] border border-border bg-panel-subtle p-2 md:p-4">
+                <TradesAnalyzerChart datasetRows={previewRows} trades={trades} />
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
         <SurfaceCard contentClassName="p-0">

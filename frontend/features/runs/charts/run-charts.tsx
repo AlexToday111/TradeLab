@@ -16,6 +16,7 @@ import {
   ComposedChart,
   Scatter,
   Legend,
+  Brush,
 } from "recharts";
 import {
   equityCurve,
@@ -202,6 +203,12 @@ export function TradesAnalyzerChart({
           data={analyzer.exitMarkers}
           dataKey="value"
           fill="hsl(var(--tl-error))"
+        />
+        <Brush
+          dataKey="date"
+          height={20}
+          stroke="hsl(var(--chart-2))"
+          travellerWidth={10}
         />
       </ComposedChart>
     </ResponsiveContainer>
