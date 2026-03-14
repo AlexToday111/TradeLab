@@ -5,14 +5,10 @@ import {
   ArrowUpRight,
   Database,
   FolderKanban,
-  Plus,
   Sparkles,
-  UploadCloud,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/shared/empty-state";
-import { PageHeader } from "@/components/shared/page-header";
 import { SurfaceCard } from "@/components/shared/surface-card";
 import { RunStatusBadge } from "@/features/runs/components/run-badges";
 import { useRuns } from "@/features/runs/store/run-store";
@@ -48,22 +44,6 @@ export default function WorkspacePage() {
 
   return (
     <div className="flex h-full flex-col gap-5">
-      <PageHeader
-        eyebrow="Главное"
-        title="Главное"
-        actions={
-          <>
-            <Button size="sm">
-              <Plus className="mr-2 h-4 w-4" />
-              Новый проект
-            </Button>
-            <Button size="sm" variant="secondary">
-              <UploadCloud className="mr-2 h-4 w-4" />
-              Импорт файлов
-            </Button>
-          </>
-        }
-      />
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.8fr)_340px]">
         <SurfaceCard
@@ -150,7 +130,7 @@ export default function WorkspacePage() {
         </div>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
+      <div className="grid gap-4">
         <SurfaceCard title="Последние запуски" subtitle="Что происходило последним">
           <div className="flex flex-col gap-3">
             {recentRuns.length === 0 ? (
@@ -179,32 +159,6 @@ export default function WorkspacePage() {
           </div>
         </SurfaceCard>
 
-        <SurfaceCard
-          title="Быстрый доступ к датасетам"
-          subtitle="Версии, которые чаще всего используются в сценариях"
-        >
-          <div className="grid gap-3 md:grid-cols-3">
-            {datasetVersions.map((dataset) => (
-              <div
-                key={dataset.id}
-                className="rounded-[18px] border border-border bg-panel-subtle p-4"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="font-medium text-foreground">{dataset.name}</div>
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      {dataset.period}
-                    </div>
-                  </div>
-                  <Badge variant="secondary">{dataset.timeframe}</Badge>
-                </div>
-                <div className="mt-3 text-xs text-muted-foreground">
-                  {dataset.symbols.join(" • ")}
-                </div>
-              </div>
-            ))}
-          </div>
-        </SurfaceCard>
       </div>
     </div>
   );

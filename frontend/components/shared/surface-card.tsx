@@ -8,6 +8,7 @@ export function SurfaceCard({
   subtitle,
   actions,
   children,
+  overflow = "hidden",
   className,
   contentClassName,
 }: {
@@ -15,19 +16,21 @@ export function SurfaceCard({
   subtitle?: string;
   actions?: ReactNode;
   children: ReactNode;
+  overflow?: "hidden" | "visible";
   className?: string;
   contentClassName?: string;
 }) {
   return (
     <section
       className={cn(
-        "overflow-hidden rounded-[24px] border border-border bg-panel shadow-[inset_0_1px_0_rgba(255,255,255,0.02),0_18px_40px_rgba(0,0,0,0.12)]",
+        "rounded-[24px] border border-border bg-panel shadow-[inset_0_1px_0_rgba(255,255,255,0.02),0_18px_40px_rgba(0,0,0,0.12)]",
+        overflow === "visible" ? "overflow-visible" : "overflow-hidden",
         className
       )}
     >
       {title || subtitle || actions ? (
-        <div className="flex items-start justify-between gap-3 border-b border-border/80 px-5 py-4">
-          <div>
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border/80 px-5 py-4">
+          <div className="min-w-0 flex-1">
             {title ? (
               <div className="text-sm font-semibold text-foreground">{title}</div>
             ) : null}

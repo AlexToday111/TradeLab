@@ -17,9 +17,7 @@ export type DatasetVersion = {
 
 export const dataSources: DataSource[] = [
   { id: "src-1", name: "Binance Spot", type: "Exchange", status: "connected" },
-  { id: "src-2", name: "Polygon.io", type: "API", status: "connected" },
   { id: "src-3", name: "Локальный CSV", type: "CSV", status: "idle" },
-  { id: "src-4", name: "S3-бакеты", type: "S3", status: "connected" },
 ];
 
 export const datasetVersions: DatasetVersion[] = [
@@ -31,24 +29,6 @@ export const datasetVersions: DatasetVersion[] = [
     symbols: ["SPY", "QQQ", "IWM", "EFA", "EEM"],
     size: "14.2 GB",
     pipelineHash: "pl_7c91",
-  },
-  {
-    id: "v12",
-    name: "Акции США v12",
-    period: "2016-01-01 -> 2023-12-31",
-    timeframe: "1D",
-    symbols: ["SPY", "QQQ", "IWM", "EFA", "EEM"],
-    size: "12.4 GB",
-    pipelineHash: "pl_5a22",
-  },
-  {
-    id: "v21",
-    name: "ETF внутри дня v21",
-    period: "2022-01-01 -> 2024-12-31",
-    timeframe: "15m",
-    symbols: ["SPY", "QQQ", "TLT", "GLD"],
-    size: "28.8 GB",
-    pipelineHash: "pl_2d11",
   },
 ];
 

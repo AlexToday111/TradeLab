@@ -16,7 +16,7 @@ import { LogoPlaceholder } from "@/components/shell/logo-placeholder";
 
 const SHOW_DEPLOY = false;
 
-const navItems = [
+export const navItems = [
   { label: "Главное", href: "/workspace", icon: LayoutGrid },
   { label: "Рабочий стол", href: "/desktop", icon: BriefcaseBusiness },
   { label: "Данные", href: "/data", icon: Database },

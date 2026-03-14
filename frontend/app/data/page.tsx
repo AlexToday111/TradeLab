@@ -1,0 +1,1775 @@
+﻿"use client";
+
+import { ChangeEvent, useEffect, useMemo, useState } from "react";
+import { Database, Download, Plus, UploadCloud } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { SurfaceCard } from "@/components/shared/surface-card";
+import {
+  dataSources,
+  datasetVersions,
+  previewRows,
+  type DatasetVersion,
+} from "@/lib/demo-data/datasets";
+import { getDataSourceStatusLabel, getDataSourceTypeLabel } from "@/lib/ui-text";
+import { cn } from "@/lib/utils";
+
+type DatasetSource = "bybit" | "local";
+type MarketType = "spot" | "futures";
+type LocalCsvMode = "merge" | "separate";
+type DatasetLoadStatus = "queued" | "processing" | "ready" | "error";
+
+type CsvValidation = {
+  isValid: boolean;
+  detectedColumns: string[];
+  missingColumns: string[];
+  duplicateTimestampCount: number;
+  missingValueCount: number;
+  unsortedCount: number;
+  totalRows: number;
+  dateRangeStart: string | null;
+  dateRangeEnd: string | null;
+  inferredStep: string;
+  symbolCoverage: string;
+};
+
+type CsvImportIssue = {
+  fileName: string;
+  rowNumber: number;
+  timestamp: string;
+  column: string;
+  issue: "missing_column" | "missing_value" | "duplicate_timestamp" | "unsorted_timestamp";
+  value: string;
+};
+
+type CsvValidationResult = {
+  validation: CsvValidation | null;
+  issues: CsvImportIssue[];
+};
+
+type DatasetProfile = {
+  rowCount: string;
+  dateRange: string;
+  timeStep: string;
+  symbolCoverage: string;
+};
+
+type BacktestCompatibility = {
+  compatible: boolean;
+  missingFields: string[];
+  notes: string[];
+};
+
+type UiDataset = DatasetVersion & {
+  source: DatasetSource;
+  marketType: MarketType;
+  loadStatus: DatasetLoadStatus;
+  archived: boolean;
+  profile: DatasetProfile;
+  compatibility: BacktestCompatibility;
+  tags: string[];
+  rowsHint?: string;
+  mergedCsvUrl?: string;
+  mergedCsvName?: string;
+  mergedCsvRows?: number;
+};
+
+type MergedCsv = {
+  url: string;
+  name: string;
+  rows: number;
+  size: number;
+};
+
+type ImportTemplate = {
+  id: string;
+  name: string;
+  source: DatasetSource;
+  marketType: MarketType;
+  symbolsInput: string;
+  timeframe: (typeof bybitTimeframes)[number];
+  dateFrom: string;
+  dateTo: string;
+  localCsvMode: LocalCsvMode;
+};
+
+const sourceLabels: Record<DatasetSource, string> = {
+  bybit: "ByBit",
+  local: "Локально",
+};
+
+const marketTypeLabels: Record<MarketType, string> = {
+  spot: "Spot",
+  futures: "Futures",
+};
+
+const bybitTimeframes = ["5M", "1H", "1D"] as const;
+const requiredCsvColumns = ["timestamp", "open", "high", "low", "close", "volume"];
+const defaultImportTemplates: ImportTemplate[] = [
+  {
+    id: "tpl-bybit-btc-1h",
+    name: "ByBit BTCUSDT 1H",
+    source: "bybit",
+    marketType: "spot",
+    symbolsInput: "BTCUSDT",
+    timeframe: "1H",
+    dateFrom: "2025-01-01",
+    dateTo: "2025-03-01",
+    localCsvMode: "separate",
+  },
+  {
+    id: "tpl-bybit-futures-5m",
+    name: "ByBit Futures 5M",
+    source: "bybit",
+    marketType: "futures",
+    symbolsInput: "BTCUSDT, ETHUSDT",
+    timeframe: "5M",
+    dateFrom: "2025-02-01",
+    dateTo: "2025-03-01",
+    localCsvMode: "separate",
+  },
+  {
+    id: "tpl-csv-merge",
+    name: "CSV Merge Preset",
+    source: "local",
+    marketType: "spot",
+    symbolsInput: "CSV",
+    timeframe: "1H",
+    dateFrom: "",
+    dateTo: "",
+    localCsvMode: "merge",
+  },
+];
+
+const loadStatusMeta: Record<
+  DatasetLoadStatus,
+  { label: string; className: string }
+> = {
+  queued: {
+    label: "В очереди",
+    className: "border border-status-warning/40 bg-status-warning/15 text-status-warning",
+  },
+  processing: {
+    label: "Обрабатывается",
+    className: "border border-status-running/40 bg-status-running/15 text-status-running",
+  },
+  ready: {
+    label: "Готов",
+    className: "border border-status-success/40 bg-status-success/15 text-status-success",
+  },
+  error: {
+    label: "Ошибка",
+    className: "border border-status-failed/40 bg-status-failed/15 text-status-failed",
+  },
+};
+
+const importIssueLabels: Record<CsvImportIssue["issue"], string> = {
+  missing_column: "Отсутствует колонка",
+  missing_value: "Пустое значение",
+  duplicate_timestamp: "Дубликат timestamp",
+  unsorted_timestamp: "Нарушена сортировка",
+};
+
+function formatBytes(bytes: number) {
+  if (!bytes) {
+    return "0 B";
+  }
+
+  const units = ["B", "KB", "MB", "GB"];
+  let value = bytes;
+  let unitIndex = 0;
+
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+
+  return `${value.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+}
+
+function escapeCsvCell(value: string) {
+  const normalized = value.replace(/"/g, "\"\"");
+  return `"${normalized}"`;
+}
+
+function parseCsvRow(line: string) {
+  return line.split(",").map((cell) => cell.trim());
+}
+
+function normalizeColumnName(name: string) {
+  return name.trim().toLowerCase().replace(/\s+/g, "_");
+}
+
+function formatTimeStep(minutes: number | null) {
+  if (minutes === null || Number.isNaN(minutes) || minutes <= 0) {
+    return "N/A";
+  }
+  if (minutes % 1440 === 0) {
+    return `${minutes / 1440}D`;
+  }
+  if (minutes % 60 === 0) {
+    return `${minutes / 60}H`;
+  }
+  return `${minutes}M`;
+}
+
+function formatCoverage(days: number) {
+  const normalizedDays = Number.isInteger(days) ? String(days) : days.toFixed(2);
+  const months = (days / 30.44).toFixed(1);
+  return `${normalizedDays} дн. (${months} мес.)`;
+}
+
+function parseRangeCoverageDays(range: string) {
+  if (!range.includes("->")) {
+    return null;
+  }
+
+  const [rawStart, rawEnd] = range.split("->").map((value) => value.trim());
+  const start = Date.parse(rawStart);
+  const end = Date.parse(rawEnd);
+  if (Number.isNaN(start) || Number.isNaN(end)) {
+    return null;
+  }
+
+  const diffDays = Math.floor(Math.abs(end - start) / (24 * 60 * 60 * 1000)) + 1;
+  return Math.max(1, diffDays);
+}
+
+function parseRowCount(rowCount: string) {
+  const match = rowCount.match(/\d+/);
+  return match ? Number(match[0]) : null;
+}
+
+function timeframeToMinutes(timeframe: string) {
+  const match = timeframe.trim().match(/^(\d+)\s*([mhd])$/i);
+  if (!match) {
+    return null;
+  }
+
+  const value = Number(match[1]);
+  const unit = match[2].toUpperCase();
+  if (unit === "D") {
+    return value * 1440;
+  }
+  if (unit === "H") {
+    return value * 60;
+  }
+  return value;
+}
+
+function getDatasetCoverageLabel(dataset: UiDataset) {
+  const byPeriod = parseRangeCoverageDays(dataset.period);
+  if (byPeriod !== null) {
+    return formatCoverage(byPeriod);
+  }
+
+  const byProfileRange = parseRangeCoverageDays(dataset.profile.dateRange);
+  if (byProfileRange !== null) {
+    return formatCoverage(byProfileRange);
+  }
+
+  const rows = parseRowCount(dataset.profile.rowCount);
+  const minutesPerStep = timeframeToMinutes(dataset.timeframe);
+  if (!rows || !minutesPerStep) {
+    return "N/A";
+  }
+
+  const days = Number(((rows * minutesPerStep) / 1440).toFixed(2));
+  if (days <= 0) {
+    return "N/A";
+  }
+
+  return formatCoverage(days);
+}
+
+function buildDatasetTags(
+  source: DatasetSource,
+  market: MarketType,
+  timeframe: string,
+  symbols: string[]
+) {
+  return Array.from(
+    new Set([
+      source,
+      market,
+      timeframe.toLowerCase(),
+      ...symbols.map((symbol) => symbol.toLowerCase()),
+    ])
+  );
+}
+
+function buildBacktestCompatibility(params: {
+  source: DatasetSource;
+  validation: CsvValidation | null;
+}): BacktestCompatibility {
+  if (params.source === "bybit") {
+    return {
+      compatible: true,
+      missingFields: [],
+      notes: ["Формат ожидается от API-коннектора ByBit"],
+    };
+  }
+
+  const missingFields = params.validation?.missingColumns ?? [];
+  return {
+    compatible: missingFields.length === 0,
+    missingFields,
+    notes:
+      missingFields.length === 0
+        ? ["CSV содержит обязательные поля для бэктеста"]
+        : ["Нужно дополнить CSV обязательными колонками"],
+  };
+}
+
+async function validateCsvFiles(files: File[]): Promise<CsvValidationResult> {
+  if (files.length === 0) {
+    return { validation: null, issues: [] };
+  }
+
+  let headerColumns: string[] = [];
+  const timestampSeen = new Set<string>();
+  const issues: CsvImportIssue[] = [];
+
+  let duplicateTimestampCount = 0;
+  let missingValueCount = 0;
+  let unsortedCount = 0;
+  let totalRows = 0;
+  const distinctSymbols = new Set<string>();
+  const stepSamples: number[] = [];
+  let minTimestampValue: number | null = null;
+  let maxTimestampValue: number | null = null;
+
+  for (const file of files) {
+    const text = await file.text();
+    const lines = text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+
+    if (lines.length === 0) {
+      continue;
+    }
+
+    const rawHeader = parseCsvRow(lines[0]);
+    const normalizedHeader = rawHeader.map(normalizeColumnName);
+
+    if (headerColumns.length === 0) {
+      headerColumns = normalizedHeader;
+    }
+
+    const missingColumnsInFile = requiredCsvColumns.filter(
+      (requiredColumn) => !normalizedHeader.includes(requiredColumn)
+    );
+    missingColumnsInFile.forEach((column) => {
+      issues.push({
+        fileName: file.name,
+        rowNumber: 1,
+        timestamp: "-",
+        column,
+        issue: "missing_column",
+        value: "",
+      });
+    });
+
+    const timestampIndex = normalizedHeader.indexOf("timestamp");
+    const symbolIndex = normalizedHeader.indexOf("symbol");
+
+    let previousTimestamp: number | null = null;
+
+    for (let rowIndex = 1; rowIndex < lines.length; rowIndex += 1) {
+      const cells = parseCsvRow(lines[rowIndex]);
+      totalRows += 1;
+
+      for (const requiredColumn of requiredCsvColumns) {
+        const columnIndex = normalizedHeader.indexOf(requiredColumn);
+        if (columnIndex === -1) {
+          continue;
+        }
+
+        const value = cells[columnIndex];
+        if (value === undefined || value === "") {
+          missingValueCount += 1;
+          issues.push({
+            fileName: file.name,
+            rowNumber: rowIndex + 1,
+            timestamp: timestampIndex !== -1 ? cells[timestampIndex] ?? "-" : "-",
+            column: requiredColumn,
+            issue: "missing_value",
+            value: "",
+          });
+        }
+      }
+
+      if (timestampIndex !== -1) {
+        const timestampValue = cells[timestampIndex];
+        if (timestampValue) {
+          if (timestampSeen.has(timestampValue)) {
+            duplicateTimestampCount += 1;
+            issues.push({
+              fileName: file.name,
+              rowNumber: rowIndex + 1,
+              timestamp: timestampValue,
+              column: "timestamp",
+              issue: "duplicate_timestamp",
+              value: timestampValue,
+            });
+          } else {
+            timestampSeen.add(timestampValue);
+          }
+
+          const asEpoch = Number(new Date(timestampValue));
+          if (!Number.isNaN(asEpoch)) {
+            if (minTimestampValue === null || asEpoch < minTimestampValue) {
+              minTimestampValue = asEpoch;
+            }
+            if (maxTimestampValue === null || asEpoch > maxTimestampValue) {
+              maxTimestampValue = asEpoch;
+            }
+            if (previousTimestamp !== null && asEpoch < previousTimestamp) {
+              unsortedCount += 1;
+              issues.push({
+                fileName: file.name,
+                rowNumber: rowIndex + 1,
+                timestamp: timestampValue,
+                column: "timestamp",
+                issue: "unsorted_timestamp",
+                value: timestampValue,
+              });
+            }
+            if (previousTimestamp !== null && asEpoch > previousTimestamp) {
+              stepSamples.push((asEpoch - previousTimestamp) / 60000);
+            }
+            previousTimestamp = asEpoch;
+          }
+        }
+      }
+
+      if (symbolIndex !== -1) {
+        const symbolValue = cells[symbolIndex];
+        if (symbolValue) {
+          distinctSymbols.add(symbolValue);
+        }
+      }
+    }
+  }
+
+  const missingColumns = requiredCsvColumns.filter(
+    (requiredColumn) => !headerColumns.includes(requiredColumn)
+  );
+
+  const averageStep =
+    stepSamples.length > 0
+      ? stepSamples.reduce((sum, value) => sum + value, 0) / stepSamples.length
+      : null;
+
+  return {
+    validation: {
+      isValid:
+        missingColumns.length === 0 &&
+        duplicateTimestampCount === 0 &&
+        missingValueCount === 0 &&
+        unsortedCount === 0,
+      detectedColumns: headerColumns,
+      missingColumns,
+      duplicateTimestampCount,
+      missingValueCount,
+      unsortedCount,
+      totalRows,
+      dateRangeStart: minTimestampValue
+        ? new Date(minTimestampValue).toISOString().slice(0, 10)
+        : null,
+      dateRangeEnd: maxTimestampValue
+        ? new Date(maxTimestampValue).toISOString().slice(0, 10)
+        : null,
+      inferredStep: formatTimeStep(averageStep ? Math.round(averageStep) : null),
+      symbolCoverage:
+        distinctSymbols.size > 0
+          ? `${distinctSymbols.size} символов`
+          : "N/A",
+    },
+    issues,
+  };
+}
+
+function createInitialDatasets(): UiDataset[] {
+  const demoRange = `${previewRows[0]?.ts ?? "N/A"} -> ${previewRows[previewRows.length - 1]?.ts ?? "N/A"}`;
+  return datasetVersions.map((dataset) => ({
+    ...dataset,
+    source: "local",
+    marketType: "spot",
+    loadStatus: "ready",
+    archived: false,
+    profile: {
+      rowCount: `${previewRows.length} строк`,
+      dateRange: demoRange,
+      timeStep: dataset.timeframe,
+      symbolCoverage: `${dataset.symbols.length} символов`,
+    },
+    compatibility: {
+      compatible: true,
+      missingFields: [],
+      notes: ["Демо-набор совместим"],
+    },
+    tags: buildDatasetTags("local", "spot", dataset.timeframe, dataset.symbols),
+    rowsHint: "Демо-набор",
+  }));
+}
+
+export default function DataPage() {
+  const [datasets, setDatasets] = useState<UiDataset[]>(createInitialDatasets);
+  const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterSource, setFilterSource] = useState<"all" | DatasetSource>("all");
+  const [filterMarket, setFilterMarket] = useState<"all" | MarketType>("all");
+  const [filterTimeframe, setFilterTimeframe] = useState("all");
+  const [filterSymbol, setFilterSymbol] = useState("all");
+  const [showArchived, setShowArchived] = useState(false);
+  const [renameDraft, setRenameDraft] = useState("");
+
+  const [createOpen, setCreateOpen] = useState(false);
+  const [datasetName, setDatasetName] = useState("");
+  const [datasetSource, setDatasetSource] = useState<DatasetSource>("bybit");
+  const [marketType, setMarketType] = useState<MarketType>("spot");
+  const [symbolsInput, setSymbolsInput] = useState("BTCUSDT");
+  const [timeframe, setTimeframe] = useState<(typeof bybitTimeframes)[number]>("1H");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [uploadedCsvFiles, setUploadedCsvFiles] = useState<File[]>([]);
+  const [csvValidation, setCsvValidation] = useState<CsvValidation | null>(null);
+  const [csvImportIssues, setCsvImportIssues] = useState<CsvImportIssue[]>([]);
+  const [localCsvMode, setLocalCsvMode] = useState<LocalCsvMode | null>(null);
+  const [mergeError, setMergeError] = useState<string | null>(null);
+  const [mergedCsv, setMergedCsv] = useState<MergedCsv | null>(null);
+  const [importTemplates, setImportTemplates] =
+    useState<ImportTemplate[]>(defaultImportTemplates);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("none");
+  const [templateNameDraft, setTemplateNameDraft] = useState("");
+
+  const selectedDataset = useMemo(
+    () => datasets.find((dataset) => dataset.id === selectedDatasetId) ?? null,
+    [datasets, selectedDatasetId]
+  );
+
+  useEffect(() => {
+    setRenameDraft(selectedDataset?.name ?? "");
+  }, [selectedDataset?.id, selectedDataset?.name]);
+
+  const availableTimeframes = useMemo(
+    () =>
+      Array.from(new Set(datasets.map((dataset) => dataset.timeframe))).sort(),
+    [datasets]
+  );
+
+  const availableSymbols = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          datasets.flatMap((dataset) =>
+            dataset.symbols.map((symbol) => symbol.toUpperCase())
+          )
+        )
+      ).sort(),
+    [datasets]
+  );
+
+  const filteredDatasets = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+
+    return datasets.filter((dataset) => {
+      const archivedMatch = showArchived ? true : !dataset.archived;
+      const sourceMatch = filterSource === "all" || dataset.source === filterSource;
+      const marketMatch = filterMarket === "all" || dataset.marketType === filterMarket;
+      const timeframeMatch =
+        filterTimeframe === "all" || dataset.timeframe === filterTimeframe;
+      const symbolMatch =
+        filterSymbol === "all" ||
+        dataset.symbols.some((symbol) => symbol.toUpperCase() === filterSymbol);
+      const searchMatch =
+        q.length === 0 ||
+        dataset.name.toLowerCase().includes(q) ||
+        dataset.tags.some((tag) => tag.includes(q));
+
+      return (
+        archivedMatch &&
+        sourceMatch &&
+        marketMatch &&
+        timeframeMatch &&
+        symbolMatch &&
+        searchMatch &&
+        dataset.loadStatus !== "error"
+      );
+    });
+  }, [datasets, filterMarket, filterSource, filterSymbol, filterTimeframe, searchQuery, showArchived]);
+
+  useEffect(() => {
+    if (filteredDatasets.length === 0) {
+      setSelectedDatasetId(null);
+      return;
+    }
+
+    if (!selectedDatasetId) {
+      return;
+    }
+
+    if (!filteredDatasets.some((dataset) => dataset.id === selectedDatasetId)) {
+      setSelectedDatasetId(null);
+    }
+  }, [filteredDatasets, selectedDatasetId]);
+
+  useEffect(() => {
+    const queuedIds = datasets
+      .filter((dataset) => dataset.loadStatus === "queued")
+      .map((dataset) => dataset.id);
+
+    if (queuedIds.length === 0) {
+      return;
+    }
+
+    const toProcessingTimer = setTimeout(() => {
+      setDatasets((prev) =>
+        prev.map((dataset) =>
+          queuedIds.includes(dataset.id)
+            ? { ...dataset, loadStatus: "processing", rowsHint: "Идёт загрузка" }
+            : dataset
+        )
+      );
+    }, 1200);
+
+    const toReadyTimer = setTimeout(() => {
+      setDatasets((prev) =>
+        prev.map((dataset) =>
+          queuedIds.includes(dataset.id)
+            ? { ...dataset, loadStatus: "ready", rowsHint: "Импорт завершён" }
+            : dataset
+        )
+      );
+    }, 2800);
+
+    return () => {
+      clearTimeout(toProcessingTimer);
+      clearTimeout(toReadyTimer);
+    };
+  }, [datasets]);
+
+  function resetCreateForm(options?: { preserveMergedCsv?: boolean }) {
+    if (!options?.preserveMergedCsv && mergedCsv?.url) {
+      URL.revokeObjectURL(mergedCsv.url);
+    }
+
+    setDatasetName("");
+    setDatasetSource("bybit");
+    setMarketType("spot");
+    setSymbolsInput("BTCUSDT");
+    setTimeframe("1H");
+    setDateFrom("");
+    setDateTo("");
+    setUploadedCsvFiles([]);
+    setCsvValidation(null);
+    setCsvImportIssues([]);
+    setLocalCsvMode(null);
+    setMergeError(null);
+    setMergedCsv(null);
+    setSelectedTemplateId("none");
+    setTemplateNameDraft("");
+  }
+
+  function applyImportTemplate(template: ImportTemplate) {
+    setDatasetSource(template.source);
+    setMarketType(template.marketType);
+    setSymbolsInput(template.symbolsInput);
+    setTimeframe(template.timeframe);
+    setDateFrom(template.dateFrom);
+    setDateTo(template.dateTo);
+    setLocalCsvMode(template.source === "local" ? template.localCsvMode : null);
+    setMergeError(null);
+
+    if (template.source === "bybit") {
+      if (mergedCsv?.url) {
+        URL.revokeObjectURL(mergedCsv.url);
+      }
+      setUploadedCsvFiles([]);
+      setCsvValidation(null);
+      setCsvImportIssues([]);
+      setMergedCsv(null);
+    }
+  }
+
+  function handleTemplateSelect(templateId: string) {
+    setSelectedTemplateId(templateId);
+    if (templateId === "none") {
+      return;
+    }
+    const template = importTemplates.find((item) => item.id === templateId);
+    if (!template) {
+      return;
+    }
+    applyImportTemplate(template);
+  }
+
+  function handleSaveImportTemplate() {
+    const normalizedName = templateNameDraft.trim();
+    const template: ImportTemplate = {
+      id: `tpl-custom-${Date.now()}`,
+      name:
+        normalizedName.length > 0
+          ? normalizedName
+          : `${datasetSource === "bybit" ? "ByBit" : "CSV"} preset ${importTemplates.length + 1}`,
+      source: datasetSource,
+      marketType,
+      symbolsInput,
+      timeframe,
+      dateFrom,
+      dateTo,
+      localCsvMode: localCsvMode ?? "separate",
+    };
+    setImportTemplates((prev) => [template, ...prev]);
+    setSelectedTemplateId(template.id);
+    setTemplateNameDraft("");
+  }
+
+  function handleDeleteImportTemplate() {
+    if (selectedTemplateId === "none") {
+      return;
+    }
+    setImportTemplates((prev) =>
+      prev.filter((template) => template.id !== selectedTemplateId)
+    );
+    setSelectedTemplateId("none");
+  }
+
+  async function handleCsvFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const files = event.target.files ? Array.from(event.target.files) : [];
+
+    if (mergedCsv?.url) {
+      URL.revokeObjectURL(mergedCsv.url);
+      setMergedCsv(null);
+    }
+
+    setUploadedCsvFiles(files);
+    setLocalCsvMode(files.length > 1 ? null : "separate");
+    setMergeError(null);
+
+    const validationResult = await validateCsvFiles(files);
+    setCsvValidation(validationResult.validation);
+    setCsvImportIssues(validationResult.issues);
+  }
+
+  async function handleMergeCsv() {
+    if (uploadedCsvFiles.length < 2) {
+      setMergeError("Для склейки фьючерсных контрактов выберите минимум 2 CSV файла.");
+      return;
+    }
+
+    try {
+      let header: string | null = null;
+      const mergedDataRows: string[] = [];
+
+      for (const file of uploadedCsvFiles) {
+        const raw = await file.text();
+        const lines = raw
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter((line) => line.length > 0);
+
+        if (lines.length === 0) {
+          continue;
+        }
+
+        const [fileHeader, ...fileRows] = lines;
+
+        if (!header) {
+          header = fileHeader;
+          mergedDataRows.push(...fileRows);
+          continue;
+        }
+
+        if (fileHeader === header) {
+          mergedDataRows.push(...fileRows);
+        } else {
+          mergedDataRows.push(fileHeader, ...fileRows);
+        }
+      }
+
+      if (!header) {
+        setMergeError("Файлы пустые: не удалось сформировать общий CSV.");
+        return;
+      }
+
+      const mergedPayload = [header, ...mergedDataRows].join("\n");
+      const blob = new Blob([mergedPayload], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+
+      if (mergedCsv?.url) {
+        URL.revokeObjectURL(mergedCsv.url);
+      }
+
+      setMergedCsv({
+        url,
+        name: `futures-merged-${Date.now()}.csv`,
+        rows: mergedDataRows.length,
+        size: blob.size,
+      });
+      setMergeError(null);
+    } catch {
+      setMergeError("Ошибка чтения CSV файлов. Проверьте формат и попробуйте снова.");
+    }
+  }
+
+  function handleExportImportIssues() {
+    if (csvImportIssues.length === 0) {
+      return;
+    }
+
+    const header = ["file", "row", "timestamp", "column", "issue", "value"];
+    const rows = csvImportIssues.map((issue) => [
+      issue.fileName,
+      String(issue.rowNumber),
+      issue.timestamp,
+      issue.column,
+      importIssueLabels[issue.issue],
+      issue.value,
+    ]);
+
+    const payload = [header, ...rows]
+      .map((row) => row.map((cell) => escapeCsvCell(cell)).join(","))
+      .join("\n");
+
+    const blob = new Blob([payload], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `import-issues-${Date.now()}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function handleAddDataset() {
+    if (
+      datasetSource === "local" &&
+      csvValidation &&
+      !csvValidation.isValid
+    ) {
+      setMergeError("Исправьте ошибки CSV перед добавлением датасета.");
+      return;
+    }
+
+    if (
+      datasetSource === "local" &&
+      uploadedCsvFiles.length > 1 &&
+      localCsvMode === null
+    ) {
+      setMergeError("Выберите режим обработки: смёрджить CSV или оставить по отдельности.");
+      return;
+    }
+
+    if (
+      datasetSource === "local" &&
+      uploadedCsvFiles.length > 1 &&
+      localCsvMode === "merge" &&
+      !mergedCsv
+    ) {
+      setMergeError("Нажмите «Склеить CSV», чтобы сформировать объединенный файл.");
+      return;
+    }
+
+    const symbols = symbolsInput
+      .split(/[\s,]+/)
+      .map((symbol) => symbol.trim())
+      .filter(Boolean);
+
+    const uploadedSize = uploadedCsvFiles.reduce((total, file) => total + file.size, 0);
+
+    const datasetId = `custom-${Date.now()}`;
+    const isLocal = datasetSource === "local";
+    const isMergeMode = isLocal && localCsvMode === "merge";
+    const compatibility = buildBacktestCompatibility({
+      source: datasetSource,
+      validation: csvValidation,
+    });
+    const profile: DatasetProfile =
+      isLocal && csvValidation
+        ? {
+            rowCount: `${csvValidation.totalRows} строк`,
+            dateRange:
+              csvValidation.dateRangeStart && csvValidation.dateRangeEnd
+                ? `${csvValidation.dateRangeStart} -> ${csvValidation.dateRangeEnd}`
+                : "N/A",
+            timeStep: csvValidation.inferredStep,
+            symbolCoverage: csvValidation.symbolCoverage,
+          }
+        : {
+            rowCount: "Ожидается",
+            dateRange:
+              dateFrom && dateTo ? `${dateFrom} -> ${dateTo}` : "Ожидается",
+            timeStep: timeframe,
+            symbolCoverage: `${symbols.length} символов`,
+          };
+    const newDataset: UiDataset = {
+      id: datasetId,
+      name: datasetName.trim() || `Новый датасет ${datasets.length + 1}`,
+      period: isLocal
+        ? "Локальный импорт"
+        : dateFrom && dateTo
+          ? `${dateFrom} -> ${dateTo}`
+          : "Импорт из ByBit",
+      timeframe: isLocal ? "N/A" : timeframe,
+      symbols: isLocal ? ["CSV"] : symbols.length > 0 ? symbols : ["N/A"],
+      size: isMergeMode && mergedCsv ? formatBytes(mergedCsv.size) : formatBytes(uploadedSize),
+      pipelineHash: isMergeMode ? "csv_merge_local" : "dataset_pending",
+      source: datasetSource,
+      marketType: isLocal ? "spot" : marketType,
+      loadStatus: datasetSource === "bybit" ? "queued" : "ready",
+      archived: false,
+      profile,
+      compatibility,
+      tags: buildDatasetTags(
+        datasetSource,
+        isLocal ? "spot" : marketType,
+        isLocal ? "N/A" : timeframe,
+        isLocal ? ["CSV"] : symbols.length > 0 ? symbols : ["N/A"]
+      ),
+      rowsHint: isMergeMode && mergedCsv
+        ? `${mergedCsv.rows.toLocaleString("ru-RU")} строк (merged)`
+        : datasetSource === "bybit"
+          ? "Ожидает парсинг"
+          : uploadedCsvFiles.length > 1
+            ? `${uploadedCsvFiles.length} файл(ов) по отдельности`
+            : uploadedCsvFiles.length > 0
+              ? "1 CSV файл"
+            : "Черновик",
+      mergedCsvName: isMergeMode ? mergedCsv?.name : undefined,
+      mergedCsvRows: isMergeMode ? mergedCsv?.rows : undefined,
+      mergedCsvUrl: isMergeMode ? mergedCsv?.url : undefined,
+    };
+
+    setDatasets((prev) => [newDataset, ...prev]);
+    setSelectedDatasetId(datasetId);
+    setCreateOpen(false);
+    resetCreateForm({ preserveMergedCsv: Boolean(mergedCsv) });
+  }
+
+  function handleRenameDataset() {
+    if (!selectedDataset) {
+      return;
+    }
+    const nextName = renameDraft.trim();
+    if (!nextName) {
+      return;
+    }
+    setDatasets((prev) =>
+      prev.map((dataset) =>
+        dataset.id === selectedDataset.id ? { ...dataset, name: nextName } : dataset
+      )
+    );
+  }
+
+  function handleDuplicateDataset() {
+    if (!selectedDataset) {
+      return;
+    }
+    const copyId = `copy-${Date.now()}`;
+    const duplicatedDataset: UiDataset = {
+      ...selectedDataset,
+      id: copyId,
+      name: `${selectedDataset.name} (копия)`,
+      archived: false,
+      loadStatus: "ready",
+    };
+    setDatasets((prev) => [duplicatedDataset, ...prev]);
+    setSelectedDatasetId(copyId);
+  }
+
+  function handleArchiveDataset() {
+    if (!selectedDataset) {
+      return;
+    }
+    setDatasets((prev) =>
+      prev.map((dataset) =>
+        dataset.id === selectedDataset.id ? { ...dataset, archived: true } : dataset
+      )
+    );
+  }
+
+  function handleDeleteDataset() {
+    if (!selectedDataset) {
+      return;
+    }
+    setDatasets((prev) => prev.filter((dataset) => dataset.id !== selectedDataset.id));
+    setSelectedDatasetId(null);
+  }
+
+  const isBybitForm = datasetSource === "bybit";
+  const shouldAskLocalCsvMode =
+    datasetSource === "local" && uploadedCsvFiles.length > 1;
+  const showMergePanel = datasetSource === "local" && localCsvMode === "merge";
+
+  return (
+    <div className="flex h-full flex-col gap-5">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        {dataSources.map((source) => (
+          <SurfaceCard
+            key={source.id}
+            className="py-0"
+            contentClassName="flex items-center justify-between p-4"
+          >
+            <div className="flex items-center gap-3">
+              <div className="rounded-[14px] border border-border bg-panel-subtle p-2">
+                <Database className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div>
+                <div className="text-sm font-medium text-foreground">{source.name}</div>
+                <div className="text-xs text-muted-foreground">{getDataSourceTypeLabel(source.type)}</div>
+              </div>
+            </div>
+            <Badge
+              className={
+                source.status === "connected"
+                  ? "border border-status-success/40 bg-status-success/20 text-status-success"
+                  : "border border-border bg-secondary text-muted-foreground"
+              }
+            >
+              {getDataSourceStatusLabel(source.status)}
+            </Badge>
+          </SurfaceCard>
+        ))}
+      </div>
+
+      <SurfaceCard
+        title="Теги и поиск"
+        subtitle="Фильтруйте датасеты по источнику, рынку, таймфрейму и символу."
+        className="bg-[linear-gradient(135deg,rgba(31,46,87,0.28),rgba(20,24,35,1)_70%)]"
+        actions={
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => setShowArchived((value) => !value)}
+          >
+            {showArchived ? "Скрыть архив" : "Показать архив"}
+          </Button>
+        }
+      >
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          <div className="xl:col-span-2">
+            <div className="mb-1 text-xs text-muted-foreground">Поиск</div>
+            <Input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Название, тег, символ"
+            />
+          </div>
+          <div>
+            <div className="mb-1 text-xs text-muted-foreground">Источник</div>
+            <Select
+              value={filterSource}
+              onValueChange={(value) => setFilterSource(value as "all" | DatasetSource)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Все</SelectItem>
+                <SelectItem value="bybit">ByBit</SelectItem>
+                <SelectItem value="local">Локально</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <div className="mb-1 text-xs text-muted-foreground">Рынок</div>
+            <Select
+              value={filterMarket}
+              onValueChange={(value) => setFilterMarket(value as "all" | MarketType)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Все</SelectItem>
+                <SelectItem value="spot">Spot</SelectItem>
+                <SelectItem value="futures">Futures</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <div className="mb-1 text-xs text-muted-foreground">ТФ / Символ</div>
+            <div className="grid grid-cols-2 gap-2">
+              <Select value={filterTimeframe} onValueChange={setFilterTimeframe}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">ТФ: все</SelectItem>
+                  {availableTimeframes.map((item) => (
+                    <SelectItem key={item} value={item}>
+                      {item}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={filterSymbol} onValueChange={setFilterSymbol}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Символ: все</SelectItem>
+                  {availableSymbols.map((item) => (
+                    <SelectItem key={item} value={item}>
+                      {item}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+      </SurfaceCard>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
+        <SurfaceCard
+          title="Список датасетов"
+          subtitle="Выберите датасет, чтобы открыть таблицы с деталями и данными."
+          actions={
+            <Button
+              type="button"
+              size="icon"
+              variant="secondary"
+              onClick={() => setCreateOpen((value) => !value)}
+              className="h-8 w-8 border border-border/80 bg-panel-subtle text-foreground transition hover:border-white hover:bg-white hover:text-black hover:shadow-[0_0_14px_rgba(255,255,255,0.6)]"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          }
+          contentClassName="p-0"
+        >
+          <div className="divide-y divide-border/80">
+            {filteredDatasets.map((dataset) => {
+              const isSelected = dataset.id === selectedDatasetId;
+
+              return (
+                <button
+                  key={dataset.id}
+                  type="button"
+                  onClick={() => setSelectedDatasetId(dataset.id)}
+                  className={cn(
+                    "w-full px-4 py-3 text-left transition",
+                    isSelected ? "bg-secondary/60" : "hover:bg-panel-subtle"
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="text-sm font-medium text-foreground">{dataset.name}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {dataset.timeframe} • {dataset.symbols.join(", ")}
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">{dataset.period}</div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      <Badge className={loadStatusMeta[dataset.loadStatus].className}>
+                        {loadStatusMeta[dataset.loadStatus].label}
+                      </Badge>
+                      {dataset.archived ? <Badge variant="secondary">Архив</Badge> : null}
+                      <Badge variant="secondary">{sourceLabels[dataset.source]}</Badge>
+                      <Badge variant="secondary">{marketTypeLabels[dataset.marketType]}</Badge>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+            {filteredDatasets.length === 0 ? (
+              <div className="p-4 text-xs text-muted-foreground">
+                По текущим фильтрам датасеты не найдены.
+              </div>
+            ) : null}
+          </div>
+        </SurfaceCard>
+
+              {createOpen ? (
+        <SurfaceCard
+          title="Добавление датасета"
+          subtitle="Источник: ByBit или локальные файлы. Для нескольких CSV можно выбрать режим: смёрджить или по отдельности."
+          overflow="visible"
+          contentClassName="p-5 pb-6"
+          actions={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => resetCreateForm()}
+            >
+              Сбросить
+            </Button>
+          }
+        >
+          <div className="mb-4 rounded-[20px] border border-border/70 bg-[linear-gradient(135deg,rgba(23,39,78,0.35),rgba(18,25,36,0.92)_68%)] p-4">
+            <div className="mb-3 text-sm font-semibold text-foreground">Шаблоны импорта</div>
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+              <div>
+                <div className="mb-1 text-xs text-muted-foreground">Выбрать пресет</div>
+                <Select value={selectedTemplateId} onValueChange={handleTemplateSelect}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Без шаблона</SelectItem>
+                    {importTemplates.map((template) => (
+                      <SelectItem key={template.id} value={template.id}>
+                        {template.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <div className="mb-1 text-xs text-muted-foreground">Имя нового пресета</div>
+                <Input
+                  value={templateNameDraft}
+                  onChange={(event) => setTemplateNameDraft(event.target.value)}
+                  placeholder="Например: ByBit ETH 1D"
+                />
+              </div>
+              <div className="flex items-end gap-2">
+                <Button type="button" size="sm" variant="secondary" onClick={handleSaveImportTemplate}>
+                  Сохранить пресет
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  disabled={selectedTemplateId === "none"}
+                  onClick={handleDeleteImportTemplate}
+                >
+                  Удалить
+                </Button>
+              </div>
+            </div>
+            {selectedTemplateId !== "none" ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {(() => {
+                  const activeTemplate = importTemplates.find(
+                    (template) => template.id === selectedTemplateId
+                  );
+                  if (!activeTemplate) {
+                    return null;
+                  }
+                  return (
+                    <>
+                      <Badge variant="secondary">
+                        {activeTemplate.source === "bybit" ? "ByBit" : "CSV Upload"}
+                      </Badge>
+                      <Badge variant="secondary">{activeTemplate.marketType}</Badge>
+                      <Badge variant="secondary">{activeTemplate.timeframe}</Badge>
+                      <Badge variant="secondary">
+                        {activeTemplate.dateFrom && activeTemplate.dateTo
+                          ? `${activeTemplate.dateFrom} -> ${activeTemplate.dateTo}`
+                          : "Период не задан"}
+                      </Badge>
+                    </>
+                  );
+                })()}
+              </div>
+            ) : null}
+          </div>
+
+          <div
+            className={cn(
+              "grid gap-4",
+              isBybitForm ? "lg:grid-cols-2" : "lg:grid-cols-1"
+            )}
+          >
+            <div className="space-y-3">
+              <div>
+                <div className="mb-1 text-xs text-muted-foreground">Название датасета</div>
+                <Input
+                  value={datasetName}
+                  onChange={(event) => setDatasetName(event.target.value)}
+                  placeholder="Например: ByBit BTCUSDT 1h"
+                />
+              </div>
+
+              <div>
+                <div className="mb-1 text-xs text-muted-foreground">Источник данных</div>
+                <Select
+                  value={datasetSource}
+                  onValueChange={(value) => setDatasetSource(value as DatasetSource)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="bybit">ByBit (парсинг через API)</SelectItem>
+                    <SelectItem value="local">Локально (CSV upload)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {isBybitForm ? (
+              <div className="space-y-3">
+              <div>
+                <div className="mb-1 text-xs text-muted-foreground">Рынок</div>
+                <Select
+                  value={marketType}
+                  onValueChange={(value) => setMarketType(value as MarketType)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="spot">Spot</SelectItem>
+                    <SelectItem value="futures">Futures</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <div className="mb-1 text-xs text-muted-foreground">Символы (через запятую)</div>
+                <Input
+                  value={symbolsInput}
+                  onChange={(event) => setSymbolsInput(event.target.value)}
+                  placeholder="BTCUSDT, ETHUSDT"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <div className="mb-1 text-xs text-muted-foreground">Период от</div>
+                  <Input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(event) => setDateFrom(event.target.value)}
+                  />
+                </div>
+                <div>
+                  <div className="mb-1 text-xs text-muted-foreground">Период до</div>
+                  <Input
+                    type="date"
+                    value={dateTo}
+                    onChange={(event) => setDateTo(event.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="mb-1 text-xs text-muted-foreground">Таймфрейм</div>
+                <Select
+                  value={timeframe}
+                  onValueChange={(value) =>
+                    setTimeframe(value as (typeof bybitTimeframes)[number])
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {bybitTimeframes.map((item) => (
+                      <SelectItem key={item} value={item}>
+                        {item}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              </div>
+            ) : null}
+          </div>
+
+          {datasetSource === "local" ? (
+            <div className="mt-5 space-y-3 rounded-[18px] border border-border bg-panel-subtle p-4">
+              <div className="text-sm font-medium text-foreground">Локальные CSV файлы</div>
+              <Input type="file" accept=".csv,text/csv" multiple onChange={handleCsvFileChange} />
+              {uploadedCsvFiles.length > 0 ? (
+                <div className="text-xs text-muted-foreground">
+                  Выбрано файлов: {uploadedCsvFiles.length}, общий размер: {formatBytes(
+                    uploadedCsvFiles.reduce((total, file) => total + file.size, 0)
+                  )}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {datasetSource === "local" && csvValidation ? (
+            <div
+              className={cn(
+                "mt-3 rounded-[16px] border p-4 text-xs",
+                csvValidation.isValid
+                  ? "border-status-success/40 bg-status-success/10 text-status-success"
+                  : "border-status-error/40 bg-status-error/10 text-status-error"
+              )}
+            >
+              <div className="mb-2 flex items-center justify-between gap-2 text-sm font-medium">
+                <span>Валидация CSV</span>
+                <span>{csvValidation.isValid ? "Прошла успешно" : "Есть ошибки"}</span>
+              </div>
+              <div className="grid gap-1 text-xs">
+                <div>Колонки: {csvValidation.detectedColumns.join(", ") || "не определены"}</div>
+                <div>Отсутствуют обязательные: {csvValidation.missingColumns.join(", ") || "нет"}</div>
+                <div>Дубликаты timestamp: {csvValidation.duplicateTimestampCount}</div>
+                <div>Пропуски значений: {csvValidation.missingValueCount}</div>
+                <div>Нарушения сортировки: {csvValidation.unsortedCount}</div>
+              </div>
+            </div>
+          ) : null}
+
+          {datasetSource === "local" && csvImportIssues.length > 0 ? (
+            <div className="mt-4 rounded-[18px] border border-status-error/40 bg-[linear-gradient(145deg,rgba(120,34,34,0.16),rgba(28,18,18,0.55)_72%)] p-4">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <div className="text-sm font-semibold text-foreground">Превью ошибок импорта</div>
+                  <div className="text-xs text-muted-foreground">
+                    Проблемных строк: {csvImportIssues.length}
+                  </div>
+                </div>
+                <Button type="button" size="sm" variant="secondary" onClick={handleExportImportIssues}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Экспорт отчета
+                </Button>
+              </div>
+
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Файл</TableHead>
+                    <TableHead>Строка</TableHead>
+                    <TableHead>Timestamp</TableHead>
+                    <TableHead>Поле</TableHead>
+                    <TableHead>Ошибка</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {csvImportIssues.slice(0, 25).map((issue, index) => (
+                    <TableRow key={`${issue.fileName}-${issue.rowNumber}-${issue.issue}-${index}`}>
+                      <TableCell className="text-xs text-muted-foreground">{issue.fileName}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{issue.rowNumber}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{issue.timestamp}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{issue.column}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {importIssueLabels[issue.issue]}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              {csvImportIssues.length > 25 ? (
+                <div className="mt-2 text-xs text-muted-foreground">
+                  Показаны первые 25 строк. Полный список выгрузите кнопкой выше.
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {shouldAskLocalCsvMode ? (
+            <div className="mt-4 rounded-[18px] border border-border bg-panel-subtle p-4">
+              <div className="text-sm font-medium text-foreground">
+                Загружено несколько CSV файлов
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                Выберите режим: смёрджить в один датасет или оставить файлы по отдельности.
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={localCsvMode === "merge" ? "default" : "secondary"}
+                  onClick={() => {
+                    setLocalCsvMode("merge");
+                    setMergeError(null);
+                  }}
+                >
+                  Смёрджить
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={localCsvMode === "separate" ? "default" : "secondary"}
+                  onClick={() => {
+                    setLocalCsvMode("separate");
+                    setMergeError(null);
+                    if (mergedCsv?.url) {
+                      URL.revokeObjectURL(mergedCsv.url);
+                    }
+                    setMergedCsv(null);
+                  }}
+                >
+                  По отдельности
+                </Button>
+              </div>
+            </div>
+          ) : null}
+
+          {showMergePanel ? (
+            <div className="mt-4 space-y-3 rounded-[18px] border border-border bg-panel-subtle p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-sm font-medium text-foreground">Склейка CSV</div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    Загрузите несколько CSV, объедините в один файл и используйте его как датасет.
+                  </div>
+                </div>
+                <Button type="button" size="sm" variant="secondary" onClick={handleMergeCsv}>
+                  <UploadCloud className="mr-2 h-4 w-4" />
+                  Склеить CSV
+                </Button>
+              </div>
+
+              {mergedCsv ? (
+                <div className="flex flex-wrap items-center gap-3 text-xs">
+                  <Badge variant="secondary">{mergedCsv.rows.toLocaleString("ru-RU")} строк</Badge>
+                  <Badge variant="secondary">{formatBytes(mergedCsv.size)}</Badge>
+                  <a
+                    href={mergedCsv.url}
+                    download={mergedCsv.name}
+                    className="inline-flex items-center text-primary hover:underline"
+                  >
+                    <Download className="mr-1 h-3.5 w-3.5" />
+                    Скачать merged CSV
+                  </a>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {datasetSource === "local" &&
+          uploadedCsvFiles.length > 1 &&
+          localCsvMode === "separate" ? (
+            <div className="mt-4 rounded-[14px] border border-border bg-panel-subtle p-3 text-xs text-muted-foreground">
+              Файлы будут добавлены по отдельности в рамках одного локального датасета (без merge).
+            </div>
+          ) : null}
+
+          {mergeError ? <div className="mt-3 text-xs text-status-failed">{mergeError}</div> : null}
+
+          <div className="mt-5 flex justify-end">
+            <Button type="button" onClick={handleAddDataset}>
+              Добавить датасет в список
+            </Button>
+          </div>
+        </SurfaceCard>
+      ) : null}
+
+        {!createOpen ? (
+          <SurfaceCard
+          title={selectedDataset ? `Таблицы: ${selectedDataset.name}` : "Таблицы датасета"}
+          subtitle={
+            selectedDataset
+              ? "Метаданные и первые строки выбранного датасета."
+              : "Сначала выберите датасет слева."
+          }
+        >
+          {selectedDataset ? (
+            <div className="space-y-4">
+              <div className="rounded-[18px] border border-border bg-panel-subtle p-4">
+                <div className="mb-3 text-sm font-semibold text-foreground">Действия с датасетом</div>
+                <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
+                  <Input
+                    value={renameDraft}
+                    onChange={(event) => setRenameDraft(event.target.value)}
+                    placeholder="Новое имя датасета"
+                  />
+                  <Button type="button" size="sm" variant="secondary" onClick={handleRenameDataset}>
+                    Переименовать
+                  </Button>
+                  <Button type="button" size="sm" variant="secondary" onClick={handleDuplicateDataset}>
+                    Дублировать
+                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" size="sm" variant="secondary" onClick={handleArchiveDataset}>
+                      Архивировать
+                    </Button>
+                    <Button type="button" size="sm" variant="destructive" onClick={handleDeleteDataset}>
+                      Удалить
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Параметр</TableHead>
+                    <TableHead>Значение</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow>
+                    <TableCell className="text-xs text-muted-foreground">Источник</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {sourceLabels[selectedDataset.source]}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="text-xs text-muted-foreground">Тип рынка</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {marketTypeLabels[selectedDataset.marketType]}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="text-xs text-muted-foreground">Статус загрузки</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      <Badge className={loadStatusMeta[selectedDataset.loadStatus].className}>
+                        {loadStatusMeta[selectedDataset.loadStatus].label}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="text-xs text-muted-foreground">Период</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{selectedDataset.period}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="text-xs text-muted-foreground">Покрытие времени</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {getDatasetCoverageLabel(selectedDataset)}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="text-xs text-muted-foreground">Таймфрейм</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{selectedDataset.timeframe}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="text-xs text-muted-foreground">Символы</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {selectedDataset.symbols.join(", ")}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="text-xs text-muted-foreground">Размер</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{selectedDataset.size}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="text-xs text-muted-foreground">Статус</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {selectedDataset.rowsHint ?? "Готов"}
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-[16px] border border-border bg-panel-subtle p-3">
+                  <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                    Профиль: строки
+                  </div>
+                  <div className="mt-1 text-sm font-medium text-foreground">
+                    {selectedDataset.profile.rowCount}
+                  </div>
+                </div>
+                <div className="rounded-[16px] border border-border bg-panel-subtle p-3">
+                  <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                    Диапазон дат
+                  </div>
+                  <div className="mt-1 text-sm font-medium text-foreground">
+                    {selectedDataset.profile.dateRange}
+                  </div>
+                </div>
+                <div className="rounded-[16px] border border-border bg-panel-subtle p-3">
+                  <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                    Шаг времени
+                  </div>
+                  <div className="mt-1 text-sm font-medium text-foreground">
+                    {selectedDataset.profile.timeStep}
+                  </div>
+                </div>
+                <div className="rounded-[16px] border border-border bg-panel-subtle p-3">
+                  <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                    Покрытие символов
+                  </div>
+                  <div className="mt-1 text-sm font-medium text-foreground">
+                    {selectedDataset.profile.symbolCoverage}
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-[18px] border border-border bg-panel-subtle p-4">
+                <div className="mb-2 text-sm font-semibold text-foreground">
+                  Проверка совместимости с бэктестом
+                </div>
+                <div className="mb-3">
+                  <Badge
+                    className={
+                      selectedDataset.compatibility.compatible
+                        ? "border border-status-success/40 bg-status-success/15 text-status-success"
+                        : "border border-status-error/40 bg-status-error/15 text-status-error"
+                    }
+                  >
+                    {selectedDataset.compatibility.compatible
+                      ? "Подходит для бэктеста"
+                      : "Неполный формат"}
+                  </Badge>
+                </div>
+                <div className="space-y-1 text-xs text-muted-foreground">
+                  <div>
+                    Отсутствующие поля:{" "}
+                    {selectedDataset.compatibility.missingFields.join(", ") || "нет"}
+                  </div>
+                  {selectedDataset.compatibility.notes.map((note) => (
+                    <div key={note}>• {note}</div>
+                  ))}
+                </div>
+              </div>
+
+              {selectedDataset.mergedCsvUrl ? (
+                <div className="flex flex-wrap items-center gap-3 rounded-[14px] border border-border bg-panel-subtle p-3 text-xs">
+                  <Badge variant="secondary">Merged CSV</Badge>
+                  <span className="text-muted-foreground">
+                    {selectedDataset.mergedCsvRows?.toLocaleString("ru-RU") ?? 0} строк
+                  </span>
+                  <a
+                    href={selectedDataset.mergedCsvUrl}
+                    download={selectedDataset.mergedCsvName}
+                    className="inline-flex items-center text-primary hover:underline"
+                  >
+                    <Download className="mr-1 h-3.5 w-3.5" />
+                    Скачать файл
+                  </a>
+                </div>
+              ) : null}
+
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Временная метка</TableHead>
+                    <TableHead>Открытие</TableHead>
+                    <TableHead>Макс.</TableHead>
+                    <TableHead>Мин.</TableHead>
+                    <TableHead>Закрытие</TableHead>
+                    <TableHead>Объем</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {previewRows.map((row) => (
+                    <TableRow key={`${selectedDataset.id}-${row.ts}`}>
+                      <TableCell className="text-xs text-muted-foreground">{row.ts}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{row.open}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{row.high}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{row.low}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{row.close}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{row.volume}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="rounded-[18px] border border-dashed border-border bg-panel-subtle p-6 text-sm text-muted-foreground">
+              Выберите датасет слева, чтобы открыть таблицы с параметрами и данными.
+            </div>
+          )}
+          </SurfaceCard>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
