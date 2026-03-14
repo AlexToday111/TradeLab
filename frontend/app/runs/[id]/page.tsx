@@ -75,7 +75,7 @@ export default function RunDetailsPage() {
   }, []);
 
   return (
-    <div className="flex h-full flex-col gap-5">
+    <div className="flex h-full flex-col gap-4 2xl:gap-3">
       <PageHeader
         eyebrow="Детали запуска"
         title={`Запуск ${run.id}`}
@@ -83,7 +83,7 @@ export default function RunDetailsPage() {
       />
       <RunHeader run={run} />
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
         <MetricCard label="PnL" value={`${run.metrics.pnl.toFixed(1)}%`} tone="profit" />
         <MetricCard label="Шарп" value={run.metrics.sharpe.toFixed(2)} />
         <MetricCard label="Макс. просадка" value={`${run.metrics.maxDrawdown.toFixed(1)}%`} tone="loss" />
@@ -92,56 +92,78 @@ export default function RunDetailsPage() {
         <MetricCard label="Влияние комиссий" value={`${run.metrics.feesImpact.toFixed(1)}%`} />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <ChartCard title="Кривая капитала" subtitle="Рост портфеля во времени">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-4">
+        <ChartCard
+          title="Кривая капитала"
+          subtitle="Рост портфеля во времени"
+          chartClassName="h-56 xl:h-60 2xl:h-64"
+        >
           <EquityChart />
         </ChartCard>
-        <ChartCard title="Просадка" subtitle="Снижение от пика до минимума">
+        <ChartCard
+          title="Просадка"
+          subtitle="Снижение от пика до минимума"
+          chartClassName="h-56 xl:h-60 2xl:h-64"
+        >
           <DrawdownChart />
         </ChartCard>
-        <ChartCard title="Отставание от пика" subtitle="Отклонение от максимума капитала">
+        <ChartCard
+          title="Отставание от пика"
+          subtitle="Отклонение от максимума капитала"
+          chartClassName="h-56 xl:h-60 2xl:h-64"
+        >
           <UnderwaterChart />
         </ChartCard>
-        <ChartCard title="Гистограмма доходности" subtitle="Распределение доходностей">
+        <ChartCard
+          title="Гистограмма доходности"
+          subtitle="Распределение доходностей"
+          chartClassName="h-56 xl:h-60 2xl:h-64"
+        >
           <ReturnsHistogramChart />
         </ChartCard>
       </div>
 
-      <ChartCard
-        title="Анализатор сделок"
-        subtitle="График цены по данным датасета с отметками входов и выходов каждой сделки."
-      >
-        <TradesAnalyzerChart datasetRows={previewRows} trades={trades} />
-      </ChartCard>
+      <div className="grid grid-cols-1 gap-3 2xl:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
+        <ChartCard
+          title="Анализатор сделок"
+          subtitle="График цены по данным датасета с отметками входов и выходов каждой сделки."
+          chartClassName="h-64 xl:h-72 2xl:h-[420px]"
+        >
+          <TradesAnalyzerChart datasetRows={previewRows} trades={trades} />
+        </ChartCard>
 
-      <SurfaceCard
-        title="Журнал сделок"
-        subtitle="Подробный журнал по сделкам запуска: вход/выход, направление, длительность и PnL."
-      >
-        <div className="grid grid-cols-2 gap-3 p-4 text-xs md:grid-cols-4">
-          <div className="rounded-[14px] border border-border bg-panel-subtle p-3">
-            <div className="text-[11px] uppercase text-muted-foreground">Профитных</div>
-            <div className="text-sm font-medium text-status-success">{tradeSummary.wins}</div>
-          </div>
-          <div className="rounded-[14px] border border-border bg-panel-subtle p-3">
-            <div className="text-[11px] uppercase text-muted-foreground">Убыточных</div>
-            <div className="text-sm font-medium text-status-failed">{tradeSummary.losses}</div>
-          </div>
-          <div className="rounded-[14px] border border-border bg-panel-subtle p-3">
-            <div className="text-[11px] uppercase text-muted-foreground">Суммарный PnL</div>
-            <div className={tradeSummary.totalPnl >= 0 ? "text-sm font-medium text-profit" : "text-sm font-medium text-loss"}>
-              {tradeSummary.totalPnl.toFixed(2)}%
+        <SurfaceCard
+          title="Журнал сделок"
+          subtitle="Подробный журнал по сделкам запуска: вход/выход, направление, длительность и PnL."
+          contentClassName="p-0"
+        >
+          <div className="grid grid-cols-2 gap-3 p-4 text-xs">
+            <div className="rounded-[14px] border border-border bg-panel-subtle p-3">
+              <div className="text-[11px] uppercase text-muted-foreground">Профитных</div>
+              <div className="text-sm font-medium text-status-success">{tradeSummary.wins}</div>
+            </div>
+            <div className="rounded-[14px] border border-border bg-panel-subtle p-3">
+              <div className="text-[11px] uppercase text-muted-foreground">Убыточных</div>
+              <div className="text-sm font-medium text-status-failed">{tradeSummary.losses}</div>
+            </div>
+            <div className="rounded-[14px] border border-border bg-panel-subtle p-3">
+              <div className="text-[11px] uppercase text-muted-foreground">Суммарный PnL</div>
+              <div className={tradeSummary.totalPnl >= 0 ? "text-sm font-medium text-profit" : "text-sm font-medium text-loss"}>
+                {tradeSummary.totalPnl.toFixed(2)}%
+              </div>
+            </div>
+            <div className="rounded-[14px] border border-border bg-panel-subtle p-3">
+              <div className="text-[11px] uppercase text-muted-foreground">Средняя длительность</div>
+              <div className="text-sm font-medium text-foreground">{tradeSummary.avgDuration.toFixed(1)}d</div>
             </div>
           </div>
-          <div className="rounded-[14px] border border-border bg-panel-subtle p-3">
-            <div className="text-[11px] uppercase text-muted-foreground">Средняя длительность</div>
-            <div className="text-sm font-medium text-foreground">{tradeSummary.avgDuration.toFixed(1)}d</div>
+          <div className="max-h-[420px] overflow-y-auto">
+            <TradesTable rows={trades} />
           </div>
-        </div>
-        <TradesTable rows={trades} />
-      </SurfaceCard>
+        </SurfaceCard>
+      </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
         <SurfaceCard contentClassName="p-0">
           <Tabs defaultValue="logs" className="flex h-full flex-col">
             <TabsList className="h-9 rounded-none border-b border-border bg-panel px-3">
@@ -153,7 +175,7 @@ export default function RunDetailsPage() {
               </TabsTrigger>
             </TabsList>
             <TabsContent value="logs" className="flex-1 p-3">
-              <ScrollArea className="h-[220px] font-mono text-xs text-muted-foreground">
+              <ScrollArea className="h-[180px] font-mono text-xs text-muted-foreground">
                 {logLines.map((line) => (
                   <div key={line}>{line}</div>
                 ))}
