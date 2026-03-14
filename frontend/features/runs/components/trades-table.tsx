@@ -24,8 +24,8 @@ export function TradesTable({ rows }: { rows: TradeRow[] }) {
             key={trade.id}
             className={
               trade.pnl >= 0
-                ? "bg-[hsl(var(--tl-success)/0.06)] hover:bg-[hsl(var(--tl-success)/0.10)]"
-                : "bg-[hsl(var(--tl-error)/0.06)] hover:bg-[hsl(var(--tl-error)/0.10)]"
+                ? "border-l-2 border-l-[hsl(var(--tl-success)/0.45)] bg-[hsl(var(--tl-success)/0.12)] hover:bg-[hsl(var(--tl-success)/0.17)]"
+                : "border-l-2 border-l-[hsl(var(--tl-error)/0.45)] bg-[hsl(var(--tl-error)/0.12)] hover:bg-[hsl(var(--tl-error)/0.17)]"
             }
           >
             <TableCell className="font-mono text-xs text-foreground">
