@@ -5,19 +5,20 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
         default:
-          "bg-primary text-primary-foreground hover:bg-primary/90",
+          "border border-primary/45 bg-[linear-gradient(135deg,hsl(var(--primary))_0%,hsl(var(--accent))_100%)] text-primary-foreground shadow-[0_10px_24px_rgba(107,58,216,0.42)] hover:-translate-y-0.5 hover:brightness-110 hover:shadow-[0_0_26px_rgba(154,97,255,0.6)]",
         destructive:
-          "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+          "border border-destructive/50 bg-destructive text-destructive-foreground shadow-[0_10px_24px_rgba(191,63,83,0.35)] hover:-translate-y-0.5 hover:bg-destructive/90",
         outline:
-          "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
+          "border border-border/80 bg-[linear-gradient(145deg,rgba(41,28,67,0.66),rgba(15,11,29,0.66))] text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] hover:border-primary/40 hover:text-foreground hover:shadow-[0_0_18px_rgba(140,88,240,0.33)]",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
+          "border border-border/70 bg-[linear-gradient(145deg,rgba(72,43,130,0.45),rgba(30,19,58,0.45))] text-secondary-foreground hover:border-primary/45 hover:shadow-[0_0_20px_rgba(140,88,240,0.33)]",
+        ghost:
+          "text-muted-foreground hover:bg-[linear-gradient(135deg,rgba(121,75,218,0.24),rgba(58,36,109,0.16))] hover:text-foreground",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
