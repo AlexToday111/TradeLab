@@ -18,6 +18,8 @@ class Settings:
     request_timeout_seconds: int
     sleep_between_requests_seconds: float
     binance_klines_page_limit: int
+    binance_max_retries: int
+    binance_retry_backoff_seconds: float
 
     @property
     def database_dsn(self) -> str:
@@ -40,4 +42,6 @@ settings = Settings(
     request_timeout_seconds=int(os.getenv("REQUEST_TIMEOUT_SECONDS", "15")),
     sleep_between_requests_seconds=float(os.getenv("SLEEP_BETWEEN_REQUESTS_SECONDS", "0.1")),
     binance_klines_page_limit=int(os.getenv("BINANCE_KLINES_PAGE_LIMIT", "1000")),
+    binance_max_retries=int(os.getenv("BINANCE_MAX_RETRIES", "3")),
+    binance_retry_backoff_seconds=float(os.getenv("BINANCE_RETRY_BACKOFF_SECONDS", "1.0")),
 )
