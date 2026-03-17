@@ -1,4 +1,5 @@
 import time
+from datetime import datetime
 from typing import Any
 
 import requests
@@ -39,33 +40,78 @@ class BinanceClient(BaseExchangeClient):
         self,
         symbol: str,
         interval: str,
-        limit_total: int,
+        limit_total: int | None = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
     ) -> list[Any]:
 
         url = f"{self.base_url}/api/v3/klines"
         all_klines: list[Any] = []
-        end_time: int | None = None
 
-        while len(all_klines) < limit_total:
-            current_limit = min(self.per_request_limit, limit_total - len(all_klines))
+        if start_time or end_time:
+            start_time_ms = int(start_time.timestamp() * 1000) if start_time else None
+            end_time_ms = int(end_time.timestamp() * 1000) if end_time else None
+            next_start_ms = start_time_ms
 
-            params = {
-                "symbol": symbol,
-                "interval": interval,
-                "limit": current_limit,
-            }
+            while True:
+                current_limit = self.per_request_limit
+                if limit_total is not None:
+                    remaining = limit_total - len(all_klines)
+                    if remaining <= 0:
+                        break
+                    current_limit = min(current_limit, remaining)
 
-            if end_time is not None:
-                params["endTime"] = end_time - 1
+                params = {
+                    "symbol": symbol,
+                    "interval": interval,
+                    "limit": current_limit,
+                }
 
-            klines = self._fetch_klines_page(url, params)
+                if next_start_ms is not None:
+                    params["startTime"] = next_start_ms
+                if end_time_ms is not None:
+                    params["endTime"] = end_time_ms
 
-            if not klines:
-                break
+                klines = self._fetch_klines_page(url, params)
 
-            all_klines = klines + all_klines
-            end_time = klines[0][0]
+                if not klines:
+                    break
 
-            time.sleep(self.sleep_between_requests)
+                all_klines.extend(klines)
+                next_start_ms = klines[-1][0] + 1
+
+                if end_time_ms is not None and next_start_ms >= end_time_ms:
+                    break
+
+                time.sleep(self.sleep_between_requests)
+        else:
+            if limit_total is None:
+                raise ValueError("limit_total is required when start_time/end_time are not provided")
+
+            end_time_ms: int | None = None
+            while len(all_klines) < limit_total:
+                current_limit = min(self.per_request_limit, limit_total - len(all_klines))
+
+                params = {
+                    "symbol": symbol,
+                    "interval": interval,
+                    "limit": current_limit,
+                }
+
+                if end_time_ms is not None:
+                    params["endTime"] = end_time_ms - 1
+
+                klines = self._fetch_klines_page(url, params)
+
+                if not klines:
+                    break
+
+                all_klines = klines + all_klines
+                end_time_ms = klines[0][0]
+
+                time.sleep(self.sleep_between_requests)
+
+        if limit_total is None:
+            return all_klines
 
         return all_klines[-limit_total:]
