@@ -1,4 +1,4 @@
-# TradeLab Monorepo
+<h1 align="center">TradeLab Monorepo</h1>
 
 ![TradeLab Logo](./frontend/public/logo.png)
 
@@ -7,7 +7,7 @@ This repository is now split into two top-level apps:
 - `frontend/` - Next.js UI
 - `backend/` - backend service scaffold
 
-## Quick start
+<h2 align="center">Quick start</h2>
 
 1. Install frontend dependencies:
 
@@ -23,7 +23,7 @@ npm run dev
 
 Frontend runs on `http://localhost:3000`.
 
-## Backend scaffold
+<h2 align="center">Backend scaffold</h2>
 
 Run backend in watch mode:
 
@@ -33,7 +33,7 @@ npm run dev:backend
 
 Backend runs on `http://localhost:4000` and exposes `GET /health`.
 
-## Useful scripts (from repo root)
+<h2 align="center">Useful scripts (from repo root)</h2>
 
 - `npm run dev` - run frontend
 - `npm run build` - build frontend
