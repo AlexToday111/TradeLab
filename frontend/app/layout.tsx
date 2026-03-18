@@ -1,7 +1,15 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "@/components/shell/app-shell";
 import { Providers } from "@/app/providers";
+
+const inter = Inter({
+  subsets: ["latin", "cyrillic"],
+  variable: "--font-sans",
+  display: "swap",
+  weight: ["500", "600", "700"],
+});
 
 export const metadata: Metadata = {
   title: "TradeLab",
@@ -15,7 +23,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ru" className="dark">
-      <body className="bg-background text-foreground">
+      <body className={`${inter.variable} bg-background text-foreground`}>
         <Providers>
           <AppShell>{children}</AppShell>
         </Providers>
