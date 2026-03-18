@@ -1,0 +1,1 @@
+"""MOEX exchange integration."""
