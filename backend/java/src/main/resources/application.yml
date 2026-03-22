@@ -3,9 +3,9 @@ server:
 
 spring:
   datasource:
-    url: jdbc:postgresql://127.0.0.1:55432/tradelab
-    username: postgres
-    password: postgres
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://127.0.0.1:55432/tradelab}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -25,4 +25,4 @@ spring:
 
 python:
   parser:
-    base-url: http://127.0.0.1:8001
+    base-url: ${PYTHON_PARSER_BASE_URL:http://127.0.0.1:8000}
