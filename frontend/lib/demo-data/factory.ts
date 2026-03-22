@@ -1,4 +1,5 @@
 import { Run } from "@/lib/types";
+import { getNextRunId } from "@/lib/run-id";
 
 const sampleConfigs = [
   `fees: 0.8\nslippage: 0.5\nexecution: vwap\nrisk:\n  per_trade: 0.5%\n  max_exposure: 25%\n`,
@@ -17,8 +18,8 @@ const sampleDatasets = [
   "FX дневной v09",
 ];
 
-export function createMockRun(): Run {
-  const id = `run_${Math.random().toString(16).slice(2, 6)}`;
+export function createMockRun(existingRunIds: string[] = []): Run {
+  const id = getNextRunId(existingRunIds);
   const strategy = sampleStrategies[Math.floor(Math.random() * sampleStrategies.length)];
   const datasetVersion = sampleDatasets[Math.floor(Math.random() * sampleDatasets.length)];
   const config = sampleConfigs[Math.floor(Math.random() * sampleConfigs.length)];

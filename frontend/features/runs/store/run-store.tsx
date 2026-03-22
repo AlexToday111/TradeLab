@@ -13,6 +13,18 @@ type RunStore = {
 
 const RunStoreContext = createContext<RunStore | null>(null);
 const STORAGE_KEY = "tradelab:runs";
+const READABLE_RUN_ID_PATTERN = /^run_\d+$/;
+
+function normalizeRunIds(runs: Run[]) {
+  if (runs.every((run) => READABLE_RUN_ID_PATTERN.test(run.id))) {
+    return runs;
+  }
+
+  return runs.map((run, index) => ({
+    ...run,
+    id: `run_${index + 1}`,
+  }));
+}
 
 export function RunStoreProvider({ children }: { children: React.ReactNode }) {
   const [runs, setRuns] = useState<Run[]>(initialRuns);
@@ -22,7 +34,8 @@ export function RunStoreProvider({ children }: { children: React.ReactNode }) {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       try {
-        setRuns(JSON.parse(stored));
+        const parsedRuns = JSON.parse(stored) as Run[];
+        setRuns(normalizeRunIds(parsedRuns));
       } catch {
         setRuns(initialRuns);
       }

@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { SurfaceCard } from "@/components/shared/surface-card";
 import { RunsTable } from "@/features/runs/components/runs-table";
 import { useRuns } from "@/features/runs/store/run-store";
+import { getNextRunIds } from "@/lib/run-id";
 import type { Run, RunStatus } from "@/lib/types";
 
 const zeroMetrics = {
@@ -36,8 +37,7 @@ function escapeCsv(value: string) {
   return `"${value.replace(/"/g, "\"\"")}"`;
 }
 
-function buildRerun(sourceRun: Run): Run {
-  const id = `run_${Math.random().toString(36).slice(2, 6)}`;
+function buildRerun(sourceRun: Run, id: string): Run {
   return {
     ...sourceRun,
     id,
@@ -122,7 +122,11 @@ export default function BacktestsPage() {
 
   const handleBulkRerun = () => {
     const selectedRuns = runs.filter((run) => selectedVisibleIds.includes(run.id));
-    selectedRuns.forEach((run) => addRun(buildRerun(run)));
+    const nextIds = getNextRunIds(
+      runs.map((run) => run.id),
+      selectedRuns.length
+    );
+    selectedRuns.forEach((run, index) => addRun(buildRerun(run, nextIds[index])));
     setSelected((prev) => prev.filter((id) => !selectedVisibleIds.includes(id)));
   };
 

@@ -1,43 +1,109 @@
-# TradeLab Monorepo
+<p align="center">
+  <img src="./frontend/public/Logo.png" alt="TradeLab Logo" />
+</p>
+<h1 align="center">Trade360Lab</h1>
 
-![TradeLab Logo](./frontend/public/logo.png)
+Trade360Lab — это монорепозиторий платформы для исследования, подготовки данных, запуска и сравнения торговых сценариев. Основной интерфейс находится во `frontend` и построен на Next.js: в нём собраны рабочее пространство, экран данных, бэктесты, карточки запусков и сравнение результатов. Папка `backend` содержит серверный scaffold для дальнейшего развития API и служебной логики. Дополнительно в репозитории есть `docs` с проектной документацией и `archive` с архивными материалами, которые не участвуют в активной сборке.
 
-This repository is now split into two top-level apps:
+## Mermaid-схема
 
-- `frontend/` - Next.js UI
-- `backend/` - backend service scaffold
+```mermaid
+flowchart LR
+    A[Trade360Lab]
 
-## Quick start
+    A --> B[frontend]
+    A --> C[backend]
+    A --> D[docs]
+    A --> E[archive]
 
-1. Install frontend dependencies:
+    B --> B1[app]
+    B --> B2[components]
+    B --> B3[features]
+    B --> B4[lib]
+    B --> B5[public]
+    B --> B6[styles]
 
-```bash
-npm run install:frontend
+    B2 --> B21[shell]
+    B2 --> B22[shared]
+    B2 --> B23[ui]
+
+    C --> C1[src]
 ```
 
-2. Start frontend from repo root:
+## Структура проекта
+
+```text
+.
+|-- frontend/
+|   |-- app/          # маршруты App Router
+|   |-- components/   # shell, shared-компоненты и UI-примитивы
+|   |-- features/     # доменная логика
+|   |-- lib/          # демо-данные, типы и утилиты
+|   |-- public/       # статические ассеты
+|   `-- styles/       # дизайн-токены и глобальные стили
+|-- backend/
+|   `-- src/          # backend scaffold
+|-- docs/             # проектная документация
+`-- archive/          # архивные материалы
+```
+
+## Стек фронтенда
+
+- Next.js 16
+- React 18
+- TypeScript
+- Tailwind CSS
+- Radix UI
+- Recharts
+
+## Основные маршруты фронтенда
+
+- `/workspace` — обзорный дашборд
+- `/desktop` — рабочее пространство проекта
+- `/data` — данные и импорт
+- `/backtests` — очередь и запуск бэктестов
+- `/runs/[id]` — детальная карточка запуска
+- `/compare` — сравнение нескольких запусков
+- `/research`, `/deploy`, `/settings` — заготовки под отдельные разделы
+
+## Быстрый старт
+
+Требования:
+
+- Node.js 20+
+- npm 10+
+
+Установка зависимостей:
+
+```bash
+npm run install:all
+```
+
+Запуск фронтенда:
 
 ```bash
 npm run dev
 ```
 
-Frontend runs on `http://localhost:3000`.
+Фронтенд будет доступен по адресу `http://localhost:3000`.
 
-## Backend scaffold
-
-Run backend in watch mode:
+Запуск backend:
 
 ```bash
 npm run dev:backend
 ```
 
-Backend runs on `http://localhost:4000` and exposes `GET /health`.
+Backend будет доступен по адресу `http://localhost:4000` и отдаёт `GET /health`.
 
-## Useful scripts (from repo root)
+## Полезные команды
 
-- `npm run dev` - run frontend
-- `npm run build` - build frontend
-- `npm run start` - start frontend build
-- `npm run lint` - lint frontend
-- `npm run typecheck` - type-check frontend
-- `npm run dev:backend` - run backend
+- `npm run dev` — запустить фронтенд
+- `npm run build` — собрать фронтенд
+- `npm run start` — запустить production-сборку фронтенда
+- `npm run typecheck` — проверить типы во фронтенде
+- `npm run lint` — запустить линтинг фронтенда
+- `npm run dev:frontend` — явно запустить фронтенд
+- `npm run dev:backend` — запустить backend
+- `npm run install:frontend` — установить зависимости фронтенда
+- `npm run install:backend` — установить зависимости backend
+- `npm run install:all` — установить все зависимости

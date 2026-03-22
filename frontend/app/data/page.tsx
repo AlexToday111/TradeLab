@@ -34,6 +34,7 @@ type DatasetSource = "bybit" | "local";
 type MarketType = "spot" | "futures";
 type LocalCsvMode = "merge" | "separate";
 type DatasetLoadStatus = "queued" | "processing" | "ready" | "error";
+type BinanceLoadMode = "latest" | "range";
 
 type CsvValidation = {
   isValid: boolean;
@@ -104,13 +105,15 @@ type ImportTemplate = {
   marketType: MarketType;
   symbolsInput: string;
   timeframe: (typeof bybitTimeframes)[number];
+  binanceLoadMode: BinanceLoadMode;
+  recentCandles: string;
   dateFrom: string;
   dateTo: string;
   localCsvMode: LocalCsvMode;
 };
 
 const sourceLabels: Record<DatasetSource, string> = {
-  bybit: "ByBit",
+  bybit: "Binance",
   local: "Локально",
 };
 
@@ -124,22 +127,26 @@ const requiredCsvColumns = ["timestamp", "open", "high", "low", "close", "volume
 const defaultImportTemplates: ImportTemplate[] = [
   {
     id: "tpl-bybit-btc-1h",
-    name: "ByBit BTCUSDT 1H",
+    name: "Binance BTCUSDT 1H",
     source: "bybit",
     marketType: "spot",
     symbolsInput: "BTCUSDT",
     timeframe: "1H",
+    binanceLoadMode: "range",
+    recentCandles: "500",
     dateFrom: "2025-01-01",
     dateTo: "2025-03-01",
     localCsvMode: "separate",
   },
   {
     id: "tpl-bybit-futures-5m",
-    name: "ByBit Futures 5M",
+    name: "Binance Futures 5M",
     source: "bybit",
     marketType: "futures",
     symbolsInput: "BTCUSDT, ETHUSDT",
     timeframe: "5M",
+    binanceLoadMode: "range",
+    recentCandles: "2000",
     dateFrom: "2025-02-01",
     dateTo: "2025-03-01",
     localCsvMode: "separate",
@@ -151,6 +158,8 @@ const defaultImportTemplates: ImportTemplate[] = [
     marketType: "spot",
     symbolsInput: "CSV",
     timeframe: "1H",
+    binanceLoadMode: "range",
+    recentCandles: "500",
     dateFrom: "",
     dateTo: "",
     localCsvMode: "merge",
@@ -322,7 +331,7 @@ function buildBacktestCompatibility(params: {
     return {
       compatible: true,
       missingFields: [],
-      notes: ["Формат ожидается от API-коннектора ByBit"],
+      notes: ["Формат ожидается от API-коннектора Binance"],
     };
   }
 
@@ -548,6 +557,8 @@ export default function DataPage() {
   const [marketType, setMarketType] = useState<MarketType>("spot");
   const [symbolsInput, setSymbolsInput] = useState("BTCUSDT");
   const [timeframe, setTimeframe] = useState<(typeof bybitTimeframes)[number]>("1H");
+  const [binanceLoadMode, setBinanceLoadMode] = useState<BinanceLoadMode>("latest");
+  const [recentCandles, setRecentCandles] = useState("500");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [uploadedCsvFiles, setUploadedCsvFiles] = useState<File[]>([]);
@@ -677,6 +688,8 @@ export default function DataPage() {
     setMarketType("spot");
     setSymbolsInput("BTCUSDT");
     setTimeframe("1H");
+    setBinanceLoadMode("latest");
+    setRecentCandles("500");
     setDateFrom("");
     setDateTo("");
     setUploadedCsvFiles([]);
@@ -694,6 +707,8 @@ export default function DataPage() {
     setMarketType(template.marketType);
     setSymbolsInput(template.symbolsInput);
     setTimeframe(template.timeframe);
+    setBinanceLoadMode(template.binanceLoadMode);
+    setRecentCandles(template.recentCandles);
     setDateFrom(template.dateFrom);
     setDateTo(template.dateTo);
     setLocalCsvMode(template.source === "local" ? template.localCsvMode : null);
@@ -729,11 +744,13 @@ export default function DataPage() {
       name:
         normalizedName.length > 0
           ? normalizedName
-          : `${datasetSource === "bybit" ? "ByBit" : "CSV"} preset ${importTemplates.length + 1}`,
+          : `${datasetSource === "bybit" ? "Binance" : "CSV"} preset ${importTemplates.length + 1}`,
       source: datasetSource,
       marketType,
       symbolsInput,
       timeframe,
+      binanceLoadMode,
+      recentCandles,
       dateFrom,
       dateTo,
       localCsvMode: localCsvMode ?? "separate",
@@ -860,6 +877,10 @@ export default function DataPage() {
   }
 
   function handleAddDataset() {
+    const normalizedRecentCandles = Number.parseInt(recentCandles.trim(), 10);
+    const hasValidRecentCandles =
+      Number.isFinite(normalizedRecentCandles) && normalizedRecentCandles > 0;
+
     if (
       datasetSource === "local" &&
       csvValidation &&
@@ -888,6 +909,21 @@ export default function DataPage() {
       return;
     }
 
+    if (datasetSource === "bybit" && binanceLoadMode === "latest" && !hasValidRecentCandles) {
+      setMergeError("Укажите корректное количество последних свечей (N > 0).");
+      return;
+    }
+
+    if (datasetSource === "bybit" && binanceLoadMode === "range" && (!dateFrom || !dateTo)) {
+      setMergeError("Для режима диапазона заполните даты from и to.");
+      return;
+    }
+
+    if (datasetSource === "bybit" && binanceLoadMode === "range" && dateFrom > dateTo) {
+      setMergeError("Дата from не может быть позже даты to.");
+      return;
+    }
+
     const symbols = symbolsInput
       .split(/[\s,]+/)
       .map((symbol) => symbol.trim())
@@ -897,7 +933,13 @@ export default function DataPage() {
 
     const datasetId = `custom-${Date.now()}`;
     const isLocal = datasetSource === "local";
+    const isBinanceLatestMode = datasetSource === "bybit" && binanceLoadMode === "latest";
     const isMergeMode = isLocal && localCsvMode === "merge";
+    const periodLabel = isLocal
+      ? "Локальный импорт"
+      : isBinanceLatestMode
+        ? `Последние ${normalizedRecentCandles.toLocaleString("ru-RU")} свечей`
+        : `${dateFrom} -> ${dateTo}`;
     const compatibility = buildBacktestCompatibility({
       source: datasetSource,
       validation: csvValidation,
@@ -915,19 +957,14 @@ export default function DataPage() {
           }
         : {
             rowCount: "Ожидается",
-            dateRange:
-              dateFrom && dateTo ? `${dateFrom} -> ${dateTo}` : "Ожидается",
+            dateRange: periodLabel,
             timeStep: timeframe,
             symbolCoverage: `${symbols.length} символов`,
           };
     const newDataset: UiDataset = {
       id: datasetId,
       name: datasetName.trim() || `Новый датасет ${datasets.length + 1}`,
-      period: isLocal
-        ? "Локальный импорт"
-        : dateFrom && dateTo
-          ? `${dateFrom} -> ${dateTo}`
-          : "Импорт из ByBit",
+      period: periodLabel,
       timeframe: isLocal ? "N/A" : timeframe,
       symbols: isLocal ? ["CSV"] : symbols.length > 0 ? symbols : ["N/A"],
       size: isMergeMode && mergedCsv ? formatBytes(mergedCsv.size) : formatBytes(uploadedSize),
@@ -947,7 +984,9 @@ export default function DataPage() {
       rowsHint: isMergeMode && mergedCsv
         ? `${mergedCsv.rows.toLocaleString("ru-RU")} строк (merged)`
         : datasetSource === "bybit"
-          ? "Ожидает парсинг"
+          ? isBinanceLatestMode
+            ? `Запрос последних ${normalizedRecentCandles.toLocaleString("ru-RU")} свечей`
+            : "Ожидает парсинг диапазона"
           : uploadedCsvFiles.length > 1
             ? `${uploadedCsvFiles.length} файл(ов) по отдельности`
             : uploadedCsvFiles.length > 0
@@ -1082,12 +1121,12 @@ export default function DataPage() {
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Все</SelectItem>
-                <SelectItem value="bybit">ByBit</SelectItem>
-                <SelectItem value="local">Локально</SelectItem>
-              </SelectContent>
-            </Select>
+                <SelectContent>
+                  <SelectItem value="all">Все</SelectItem>
+                  <SelectItem value="bybit">Binance</SelectItem>
+                  <SelectItem value="local">Локально</SelectItem>
+                </SelectContent>
+              </Select>
           </div>
           <div>
             <div className="mb-1 text-xs text-muted-foreground">Рынок</div>
@@ -1201,7 +1240,7 @@ export default function DataPage() {
               {createOpen ? (
         <SurfaceCard
           title="Добавление датасета"
-          subtitle="Источник: ByBit или локальные файлы. Для нескольких CSV можно выбрать режим: смёрджить или по отдельности."
+          subtitle="Источник: Binance или локальные файлы. Для Binance выберите один режим загрузки, для CSV можно выбрать merge/отдельно."
           overflow="visible"
           contentClassName="p-5 pb-6"
           actions={
@@ -1238,7 +1277,7 @@ export default function DataPage() {
                 <Input
                   value={templateNameDraft}
                   onChange={(event) => setTemplateNameDraft(event.target.value)}
-                  placeholder="Например: ByBit ETH 1D"
+                  placeholder="Например: Binance ETH 1D"
                 />
               </div>
               <div className="flex items-end gap-2">
@@ -1268,14 +1307,17 @@ export default function DataPage() {
                   return (
                     <>
                       <Badge variant="secondary">
-                        {activeTemplate.source === "bybit" ? "ByBit" : "CSV Upload"}
+                        {activeTemplate.source === "bybit" ? "Binance" : "CSV Upload"}
                       </Badge>
                       <Badge variant="secondary">{activeTemplate.marketType}</Badge>
                       <Badge variant="secondary">{activeTemplate.timeframe}</Badge>
                       <Badge variant="secondary">
-                        {activeTemplate.dateFrom && activeTemplate.dateTo
-                          ? `${activeTemplate.dateFrom} -> ${activeTemplate.dateTo}`
-                          : "Период не задан"}
+                        {activeTemplate.source === "bybit" &&
+                        activeTemplate.binanceLoadMode === "latest"
+                          ? `Последние ${activeTemplate.recentCandles || "N"} свечей`
+                          : activeTemplate.dateFrom && activeTemplate.dateTo
+                            ? `${activeTemplate.dateFrom} -> ${activeTemplate.dateTo}`
+                            : "Период не задан"}
                       </Badge>
                     </>
                   );
@@ -1296,7 +1338,7 @@ export default function DataPage() {
                 <Input
                   value={datasetName}
                   onChange={(event) => setDatasetName(event.target.value)}
-                  placeholder="Например: ByBit BTCUSDT 1h"
+                  placeholder="Например: Binance BTCUSDT 1h"
                 />
               </div>
 
@@ -1310,7 +1352,7 @@ export default function DataPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="bybit">ByBit (парсинг через API)</SelectItem>
+                    <SelectItem value="bybit">Binance (парсинг через API)</SelectItem>
                     <SelectItem value="local">Локально (CSV upload)</SelectItem>
                   </SelectContent>
                 </Select>
@@ -1319,69 +1361,97 @@ export default function DataPage() {
 
             {isBybitForm ? (
               <div className="space-y-3">
-              <div>
-                <div className="mb-1 text-xs text-muted-foreground">Рынок</div>
-                <Select
-                  value={marketType}
-                  onValueChange={(value) => setMarketType(value as MarketType)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="spot">Spot</SelectItem>
-                    <SelectItem value="futures">Futures</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <div className="mb-1 text-xs text-muted-foreground">Символы (через запятую)</div>
-                <Input
-                  value={symbolsInput}
-                  onChange={(event) => setSymbolsInput(event.target.value)}
-                  placeholder="BTCUSDT, ETHUSDT"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <div className="mb-1 text-xs text-muted-foreground">Период от</div>
+                  <div className="mb-1 text-xs text-muted-foreground">Рынок</div>
+                  <Select
+                    value={marketType}
+                    onValueChange={(value) => setMarketType(value as MarketType)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="spot">Spot</SelectItem>
+                      <SelectItem value="futures">Futures</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <div className="mb-1 text-xs text-muted-foreground">Символы (через запятую)</div>
                   <Input
-                    type="date"
-                    value={dateFrom}
-                    onChange={(event) => setDateFrom(event.target.value)}
+                    value={symbolsInput}
+                    onChange={(event) => setSymbolsInput(event.target.value)}
+                    placeholder="BTCUSDT, ETHUSDT"
                   />
                 </div>
                 <div>
-                  <div className="mb-1 text-xs text-muted-foreground">Период до</div>
-                  <Input
-                    type="date"
-                    value={dateTo}
-                    onChange={(event) => setDateTo(event.target.value)}
-                  />
+                  <div className="mb-1 text-xs text-muted-foreground">Режим загрузки</div>
+                  <Select
+                    value={binanceLoadMode}
+                    onValueChange={(value) => setBinanceLoadMode(value as BinanceLoadMode)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="latest">Режим 1: последние N свечей</SelectItem>
+                      <SelectItem value="range">Режим 2: диапазон from/to</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-              </div>
+                {binanceLoadMode === "latest" ? (
+                  <div>
+                    <div className="mb-1 text-xs text-muted-foreground">Количество свечей (N)</div>
+                    <Input
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={recentCandles}
+                      onChange={(event) => setRecentCandles(event.target.value)}
+                      placeholder="500"
+                    />
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <div className="mb-1 text-xs text-muted-foreground">Период from</div>
+                      <Input
+                        type="date"
+                        value={dateFrom}
+                        onChange={(event) => setDateFrom(event.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <div className="mb-1 text-xs text-muted-foreground">Период to</div>
+                      <Input
+                        type="date"
+                        value={dateTo}
+                        onChange={(event) => setDateTo(event.target.value)}
+                      />
+                    </div>
+                  </div>
+                )}
 
-              <div>
-                <div className="mb-1 text-xs text-muted-foreground">Таймфрейм</div>
-                <Select
-                  value={timeframe}
-                  onValueChange={(value) =>
-                    setTimeframe(value as (typeof bybitTimeframes)[number])
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {bybitTimeframes.map((item) => (
-                      <SelectItem key={item} value={item}>
-                        {item}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                <div>
+                  <div className="mb-1 text-xs text-muted-foreground">Таймфрейм</div>
+                  <Select
+                    value={timeframe}
+                    onValueChange={(value) =>
+                      setTimeframe(value as (typeof bybitTimeframes)[number])
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {bybitTimeframes.map((item) => (
+                        <SelectItem key={item} value={item}>
+                          {item}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             ) : null}
           </div>
