@@ -2,6 +2,9 @@ server:
   port: 8080
 
 spring:
+  sql:
+    init:
+      mode: always
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://127.0.0.1:55432/tradelab}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}

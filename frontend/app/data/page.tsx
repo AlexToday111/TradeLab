@@ -23,7 +23,6 @@ import {
 import { SurfaceCard } from "@/components/shared/surface-card";
 import {
   dataSources,
-  datasetVersions,
   previewRows,
   type DatasetVersion,
 } from "@/lib/demo-data/datasets";
@@ -89,7 +88,54 @@ type UiDataset = DatasetVersion & {
   mergedCsvUrl?: string;
   mergedCsvName?: string;
   mergedCsvRows?: number;
+  candleRows?: CandleTableRow[];
+  backendRequest?: BackendRequestMeta;
 };
+
+type CandleTableRow = {
+  ts: string;
+  symbol: string;
+  open: string;
+  high: string;
+  low: string;
+  close: string;
+  volume: string;
+};
+
+type BackendRequestMeta = {
+  exchange: string;
+  interval: string;
+  from: string;
+  to: string;
+};
+
+type ImportCandlesApiResponse = {
+  status: string;
+  exchange: string;
+  symbol: string;
+  interval: string;
+  imported: number;
+  from: string;
+  to: string;
+};
+
+type CandleApiResponse = {
+  exchange: string;
+  symbol: string;
+  interval: string;
+  openTime: string;
+  closeTime: string;
+  open: string;
+  high: string;
+  low: string;
+  close: string;
+  volume: string;
+};
+
+type PersistedDatasetPayload = Omit<
+  UiDataset,
+  "candleRows" | "mergedCsvUrl"
+>;
 
 type MergedCsv = {
   url: string;
@@ -123,6 +169,11 @@ const marketTypeLabels: Record<MarketType, string> = {
 };
 
 const bybitTimeframes = ["5M", "1H", "1D"] as const;
+const backendIntervalByTimeframe: Record<(typeof bybitTimeframes)[number], string> = {
+  "5M": "5m",
+  "1H": "1h",
+  "1D": "1d",
+};
 const requiredCsvColumns = ["timestamp", "open", "high", "low", "close", "volume"];
 const defaultImportTemplates: ImportTemplate[] = [
   {
@@ -219,6 +270,147 @@ function escapeCsvCell(value: string) {
 
 function parseCsvRow(line: string) {
   return line.split(",").map((cell) => cell.trim());
+}
+
+function formatNumberLikeApi(value: string) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return value;
+  }
+  return parsed.toLocaleString("ru-RU", { maximumFractionDigits: 8 });
+}
+
+function formatTimestampLabel(value: string) {
+  const timestamp = Date.parse(value);
+  if (Number.isNaN(timestamp)) {
+    return value;
+  }
+  return new Date(timestamp).toISOString().replace(".000Z", "Z");
+}
+
+function normalizeUiTimeframeToApi(timeframe: (typeof bybitTimeframes)[number]) {
+  return backendIntervalByTimeframe[timeframe];
+}
+
+function parseTimeframeMinutes(timeframe: (typeof bybitTimeframes)[number]) {
+  if (timeframe === "5M") {
+    return 5;
+  }
+  if (timeframe === "1H") {
+    return 60;
+  }
+  return 1440;
+}
+
+function alignUtcDateToTimeframe(date: Date, timeframe: (typeof bybitTimeframes)[number]) {
+  const aligned = new Date(date);
+  aligned.setUTCSeconds(0, 0);
+
+  if (timeframe === "5M") {
+    aligned.setUTCMinutes(Math.floor(aligned.getUTCMinutes() / 5) * 5);
+    return aligned;
+  }
+
+  if (timeframe === "1H") {
+    aligned.setUTCMinutes(0, 0, 0);
+    return aligned;
+  }
+
+  aligned.setUTCHours(0, 0, 0, 0);
+  return aligned;
+}
+
+function buildLatestRange(timeframe: (typeof bybitTimeframes)[number], count: number) {
+  const to = alignUtcDateToTimeframe(new Date(), timeframe);
+  const minutes = parseTimeframeMinutes(timeframe);
+  const from = new Date(to.getTime() - (count - 1) * minutes * 60_000);
+
+  return {
+    from: from.toISOString(),
+    to: to.toISOString(),
+  };
+}
+
+function buildRangeFromDateInputs(from: string, to: string) {
+  const fromDate = new Date(`${from}T00:00:00.000Z`);
+  const toDateExclusive = new Date(`${to}T00:00:00.000Z`);
+  toDateExclusive.setUTCDate(toDateExclusive.getUTCDate() + 1);
+
+  return {
+    from: fromDate.toISOString(),
+    to: toDateExclusive.toISOString(),
+  };
+}
+
+function formatApiErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return "Не удалось выполнить запрос к backend.";
+}
+
+async function readJsonOrThrow<T>(response: Response): Promise<T> {
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const message =
+      typeof payload === "object" &&
+      payload !== null &&
+      "message" in payload &&
+      typeof payload.message === "string"
+        ? payload.message
+        : `HTTP ${response.status}`;
+    throw new Error(message);
+  }
+
+  return payload as T;
+}
+
+function mapCandleToRow(candle: CandleApiResponse): CandleTableRow {
+  return {
+    ts: formatTimestampLabel(candle.openTime),
+    symbol: candle.symbol,
+    open: formatNumberLikeApi(candle.open),
+    high: formatNumberLikeApi(candle.high),
+    low: formatNumberLikeApi(candle.low),
+    close: formatNumberLikeApi(candle.close),
+    volume: formatNumberLikeApi(candle.volume),
+  };
+}
+
+function buildProfileFromCandles(
+  candles: CandleApiResponse[],
+  timeframe: (typeof bybitTimeframes)[number]
+): DatasetProfile {
+  const sorted = [...candles].sort(
+    (left, right) => Date.parse(left.openTime) - Date.parse(right.openTime)
+  );
+  const first = sorted[0];
+  const last = sorted[sorted.length - 1];
+  const symbols = new Set(sorted.map((candle) => candle.symbol));
+
+  return {
+    rowCount: `${sorted.length.toLocaleString("ru-RU")} строк`,
+    dateRange:
+      first && last
+        ? `${formatTimestampLabel(first.openTime)} -> ${formatTimestampLabel(last.openTime)}`
+        : "N/A",
+    timeStep: timeframe,
+    symbolCoverage: `${symbols.size} символов`,
+  };
+}
+
+function sanitizeDatasetForPersistence(dataset: UiDataset): PersistedDatasetPayload {
+  const { candleRows: _candleRows, mergedCsvUrl: _mergedCsvUrl, ...persistedDataset } = dataset;
+  return persistedDataset;
+}
+
+function hydrateDataset(dataset: PersistedDatasetPayload): UiDataset {
+  return {
+    ...dataset,
+    archived: dataset.archived ?? false,
+    loadStatus: dataset.loadStatus ?? "ready",
+  };
 }
 
 function normalizeColumnName(name: string) {
@@ -516,32 +708,8 @@ async function validateCsvFiles(files: File[]): Promise<CsvValidationResult> {
   };
 }
 
-function createInitialDatasets(): UiDataset[] {
-  const demoRange = `${previewRows[0]?.ts ?? "N/A"} -> ${previewRows[previewRows.length - 1]?.ts ?? "N/A"}`;
-  return datasetVersions.map((dataset) => ({
-    ...dataset,
-    source: "local",
-    marketType: "spot",
-    loadStatus: "ready",
-    archived: false,
-    profile: {
-      rowCount: `${previewRows.length} строк`,
-      dateRange: demoRange,
-      timeStep: dataset.timeframe,
-      symbolCoverage: `${dataset.symbols.length} символов`,
-    },
-    compatibility: {
-      compatible: true,
-      missingFields: [],
-      notes: ["Демо-набор совместим"],
-    },
-    tags: buildDatasetTags("local", "spot", dataset.timeframe, dataset.symbols),
-    rowsHint: "Демо-набор",
-  }));
-}
-
 export default function DataPage() {
-  const [datasets, setDatasets] = useState<UiDataset[]>(createInitialDatasets);
+  const [datasets, setDatasets] = useState<UiDataset[]>([]);
   const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterSource, setFilterSource] = useState<"all" | DatasetSource>("all");
@@ -567,6 +735,8 @@ export default function DataPage() {
   const [localCsvMode, setLocalCsvMode] = useState<LocalCsvMode | null>(null);
   const [mergeError, setMergeError] = useState<string | null>(null);
   const [mergedCsv, setMergedCsv] = useState<MergedCsv | null>(null);
+  const [isImportingCandles, setIsImportingCandles] = useState(false);
+  const [isLoadingDatasets, setIsLoadingDatasets] = useState(true);
   const [importTemplates, setImportTemplates] =
     useState<ImportTemplate[]>(defaultImportTemplates);
   const [selectedTemplateId, setSelectedTemplateId] = useState("none");
@@ -576,6 +746,105 @@ export default function DataPage() {
     () => datasets.find((dataset) => dataset.id === selectedDatasetId) ?? null,
     [datasets, selectedDatasetId]
   );
+  const selectedDatasetRows = useMemo<CandleTableRow[]>(
+    () =>
+      selectedDataset?.candleRows?.length
+        ? selectedDataset.candleRows
+        : previewRows.map((row) => ({
+            ts: row.ts,
+            symbol: selectedDataset?.symbols[0] ?? "N/A",
+            open: String(row.open),
+            high: String(row.high),
+            low: String(row.low),
+            close: String(row.close),
+            volume: String(row.volume),
+          })),
+    [selectedDataset]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadDatasets() {
+      setIsLoadingDatasets(true);
+
+      try {
+        const response = await fetch("/api/datasets", { cache: "no-store" });
+        const payload = await readJsonOrThrow<PersistedDatasetPayload[]>(response);
+
+        if (!cancelled) {
+          setDatasets(payload.map(hydrateDataset));
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setMergeError(formatApiErrorMessage(error));
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingDatasets(false);
+        }
+      }
+    }
+
+    loadDatasets();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!selectedDataset?.backendRequest || selectedDataset.candleRows?.length) {
+      return;
+    }
+
+    const datasetToLoad = selectedDataset;
+
+    let cancelled = false;
+
+    async function loadDatasetCandles() {
+      try {
+        const collectedCandles: CandleApiResponse[] = [];
+
+        for (const symbol of datasetToLoad.symbols) {
+          const query = new URLSearchParams({
+            exchange: datasetToLoad.backendRequest?.exchange ?? "binance",
+            symbol,
+            interval: datasetToLoad.backendRequest?.interval ?? "1h",
+            from: datasetToLoad.backendRequest?.from ?? "",
+            to: datasetToLoad.backendRequest?.to ?? "",
+          });
+          const response = await fetch(`/api/candles?${query.toString()}`, {
+            cache: "no-store",
+          });
+          const payload = await readJsonOrThrow<CandleApiResponse[]>(response);
+          collectedCandles.push(...payload);
+        }
+
+        if (!cancelled) {
+          const candleRows = collectedCandles
+            .sort((left, right) => Date.parse(left.openTime) - Date.parse(right.openTime))
+            .map(mapCandleToRow);
+
+          setDatasets((prev) =>
+            prev.map((dataset) =>
+              dataset.id === datasetToLoad.id ? { ...dataset, candleRows } : dataset
+            )
+          );
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setMergeError(formatApiErrorMessage(error));
+        }
+      }
+    }
+
+    loadDatasetCandles();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedDataset]);
 
   useEffect(() => {
     setRenameDraft(selectedDataset?.name ?? "");
@@ -876,7 +1145,7 @@ export default function DataPage() {
     URL.revokeObjectURL(url);
   }
 
-  function handleAddDataset() {
+  async function handleAddDataset() {
     const normalizedRecentCandles = Number.parseInt(recentCandles.trim(), 10);
     const hasValidRecentCandles =
       Number.isFinite(normalizedRecentCandles) && normalizedRecentCandles > 0;
@@ -929,12 +1198,121 @@ export default function DataPage() {
       .map((symbol) => symbol.trim())
       .filter(Boolean);
 
+    if (datasetSource === "bybit" && symbols.length === 0) {
+      setMergeError("Укажите хотя бы один символ.");
+      return;
+    }
+
     const uploadedSize = uploadedCsvFiles.reduce((total, file) => total + file.size, 0);
 
     const datasetId = `custom-${Date.now()}`;
     const isLocal = datasetSource === "local";
     const isBinanceLatestMode = datasetSource === "bybit" && binanceLoadMode === "latest";
     const isMergeMode = isLocal && localCsvMode === "merge";
+    const apiInterval = normalizeUiTimeframeToApi(timeframe);
+
+    if (!isLocal) {
+      const requestRange = isBinanceLatestMode
+        ? buildLatestRange(timeframe, normalizedRecentCandles)
+        : buildRangeFromDateInputs(dateFrom, dateTo);
+
+      setMergeError(null);
+      setIsImportingCandles(true);
+
+      try {
+        const collectedCandles: CandleApiResponse[] = [];
+        let importedCount = 0;
+
+        for (const symbol of symbols) {
+          const importResponse = await fetch("/api/imports/candles", {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+            },
+            body: JSON.stringify({
+              exchange: "binance",
+              symbol,
+              interval: apiInterval,
+              from: requestRange.from,
+              to: requestRange.to,
+            }),
+          });
+          const importPayload = await readJsonOrThrow<ImportCandlesApiResponse>(importResponse);
+          importedCount += importPayload.imported;
+
+          const query = new URLSearchParams({
+            exchange: "binance",
+            symbol,
+            interval: apiInterval,
+            from: requestRange.from,
+            to: requestRange.to,
+          });
+          const candlesResponse = await fetch(`/api/candles?${query.toString()}`, {
+            cache: "no-store",
+          });
+          const candlesPayload = await readJsonOrThrow<CandleApiResponse[]>(candlesResponse);
+          collectedCandles.push(...candlesPayload);
+        }
+
+        const sortedCandles = [...collectedCandles].sort(
+          (left, right) => Date.parse(left.openTime) - Date.parse(right.openTime)
+        );
+        const candleRows = sortedCandles.map(mapCandleToRow);
+        const periodLabel = isBinanceLatestMode
+          ? `Последние ${normalizedRecentCandles.toLocaleString("ru-RU")} свечей`
+          : `${dateFrom} -> ${dateTo}`;
+        const newDataset: UiDataset = {
+          id: datasetId,
+          name: datasetName.trim() || `Новый датасет ${datasets.length + 1}`,
+          period: periodLabel,
+          timeframe,
+          symbols,
+          size: `${sortedCandles.length.toLocaleString("ru-RU")} свечей`,
+          pipelineHash: "api_binance_candles",
+          source: datasetSource,
+          marketType,
+          loadStatus: "ready",
+          archived: false,
+          profile: buildProfileFromCandles(sortedCandles, timeframe),
+          compatibility: buildBacktestCompatibility({
+            source: datasetSource,
+            validation: null,
+          }),
+          tags: buildDatasetTags(datasetSource, marketType, timeframe, symbols),
+          rowsHint: `Импортировано ${importedCount.toLocaleString("ru-RU")} свечей`,
+          candleRows,
+          backendRequest: {
+            exchange: "binance",
+            interval: apiInterval,
+            from: requestRange.from,
+            to: requestRange.to,
+          },
+        };
+
+        const persistedResponse = await fetch("/api/datasets", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify(sanitizeDatasetForPersistence(newDataset)),
+        });
+        const persistedDataset = hydrateDataset(
+          await readJsonOrThrow<PersistedDatasetPayload>(persistedResponse)
+        );
+
+        setDatasets((prev) => [{ ...persistedDataset, candleRows }, ...prev]);
+        setSelectedDatasetId(datasetId);
+        setCreateOpen(false);
+        resetCreateForm({ preserveMergedCsv: Boolean(mergedCsv) });
+        return;
+      } catch (error) {
+        setMergeError(formatApiErrorMessage(error));
+        return;
+      } finally {
+        setIsImportingCandles(false);
+      }
+    }
+
     const periodLabel = isLocal
       ? "Локальный импорт"
       : isBinanceLatestMode
@@ -971,7 +1349,7 @@ export default function DataPage() {
       pipelineHash: isMergeMode ? "csv_merge_local" : "dataset_pending",
       source: datasetSource,
       marketType: isLocal ? "spot" : marketType,
-      loadStatus: datasetSource === "bybit" ? "queued" : "ready",
+      loadStatus: "ready",
       archived: false,
       profile,
       compatibility,
@@ -983,27 +1361,46 @@ export default function DataPage() {
       ),
       rowsHint: isMergeMode && mergedCsv
         ? `${mergedCsv.rows.toLocaleString("ru-RU")} строк (merged)`
-        : datasetSource === "bybit"
-          ? isBinanceLatestMode
-            ? `Запрос последних ${normalizedRecentCandles.toLocaleString("ru-RU")} свечей`
-            : "Ожидает парсинг диапазона"
-          : uploadedCsvFiles.length > 1
-            ? `${uploadedCsvFiles.length} файл(ов) по отдельности`
-            : uploadedCsvFiles.length > 0
-              ? "1 CSV файл"
+        : uploadedCsvFiles.length > 1
+          ? `${uploadedCsvFiles.length} файл(ов) по отдельности`
+          : uploadedCsvFiles.length > 0
+            ? "1 CSV файл"
             : "Черновик",
       mergedCsvName: isMergeMode ? mergedCsv?.name : undefined,
       mergedCsvRows: isMergeMode ? mergedCsv?.rows : undefined,
       mergedCsvUrl: isMergeMode ? mergedCsv?.url : undefined,
     };
 
-    setDatasets((prev) => [newDataset, ...prev]);
+    try {
+      const persistedResponse = await fetch("/api/datasets", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(sanitizeDatasetForPersistence(newDataset)),
+      });
+      const persistedDataset = hydrateDataset(
+        await readJsonOrThrow<PersistedDatasetPayload>(persistedResponse)
+      );
+
+      setDatasets((prev) => [
+        {
+          ...persistedDataset,
+          mergedCsvUrl: newDataset.mergedCsvUrl,
+        },
+        ...prev,
+      ]);
+    } catch (error) {
+      setMergeError(formatApiErrorMessage(error));
+      return;
+    }
+
     setSelectedDatasetId(datasetId);
     setCreateOpen(false);
     resetCreateForm({ preserveMergedCsv: Boolean(mergedCsv) });
   }
 
-  function handleRenameDataset() {
+  async function handleRenameDataset() {
     if (!selectedDataset) {
       return;
     }
@@ -1011,46 +1408,77 @@ export default function DataPage() {
     if (!nextName) {
       return;
     }
-    setDatasets((prev) =>
-      prev.map((dataset) =>
-        dataset.id === selectedDataset.id ? { ...dataset, name: nextName } : dataset
-      )
-    );
+
+    try {
+      const response = await fetch(`/api/datasets/${selectedDataset.id}`, {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ name: nextName }),
+      });
+      const persistedDataset = hydrateDataset(
+        await readJsonOrThrow<PersistedDatasetPayload>(response)
+      );
+
+      setDatasets((prev) =>
+        prev.map((dataset) =>
+          dataset.id === selectedDataset.id
+            ? {
+                ...persistedDataset,
+                candleRows: dataset.candleRows,
+                mergedCsvUrl: dataset.mergedCsvUrl,
+              }
+            : dataset
+        )
+      );
+    } catch (error) {
+      setMergeError(formatApiErrorMessage(error));
+    }
   }
 
-  function handleDuplicateDataset() {
+  async function handleDuplicateDataset() {
     if (!selectedDataset) {
       return;
     }
-    const copyId = `copy-${Date.now()}`;
-    const duplicatedDataset: UiDataset = {
-      ...selectedDataset,
-      id: copyId,
-      name: `${selectedDataset.name} (копия)`,
-      archived: false,
-      loadStatus: "ready",
-    };
-    setDatasets((prev) => [duplicatedDataset, ...prev]);
-    setSelectedDatasetId(copyId);
+
+    try {
+      const response = await fetch(`/api/datasets/${selectedDataset.id}/duplicate`, {
+        method: "POST",
+      });
+      const persistedDataset = hydrateDataset(
+        await readJsonOrThrow<PersistedDatasetPayload>(response)
+      );
+      const duplicatedDataset: UiDataset = {
+        ...persistedDataset,
+        candleRows: selectedDataset.candleRows,
+      };
+
+      setDatasets((prev) => [duplicatedDataset, ...prev]);
+      setSelectedDatasetId(duplicatedDataset.id);
+    } catch (error) {
+      setMergeError(formatApiErrorMessage(error));
+    }
   }
 
-  function handleArchiveDataset() {
+  async function handleDeleteDataset() {
     if (!selectedDataset) {
       return;
     }
-    setDatasets((prev) =>
-      prev.map((dataset) =>
-        dataset.id === selectedDataset.id ? { ...dataset, archived: true } : dataset
-      )
-    );
-  }
 
-  function handleDeleteDataset() {
-    if (!selectedDataset) {
-      return;
+    try {
+      const response = await fetch(`/api/datasets/${selectedDataset.id}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      setDatasets((prev) => prev.filter((dataset) => dataset.id !== selectedDataset.id));
+      setSelectedDatasetId(null);
+    } catch (error) {
+      setMergeError(formatApiErrorMessage(error));
     }
-    setDatasets((prev) => prev.filter((dataset) => dataset.id !== selectedDataset.id));
-    setSelectedDatasetId(null);
   }
 
   const isBybitForm = datasetSource === "bybit";
@@ -1229,7 +1657,11 @@ export default function DataPage() {
                 </button>
               );
             })}
-            {filteredDatasets.length === 0 ? (
+            {isLoadingDatasets ? (
+              <div className="p-4 text-xs text-muted-foreground">
+                Загрузка датасетов...
+              </div>
+            ) : filteredDatasets.length === 0 ? (
               <div className="p-4 text-xs text-muted-foreground">
                 По текущим фильтрам датасеты не найдены.
               </div>
@@ -1622,8 +2054,8 @@ export default function DataPage() {
           {mergeError ? <div className="mt-3 text-xs text-status-failed">{mergeError}</div> : null}
 
           <div className="mt-5 flex justify-end">
-            <Button type="button" onClick={handleAddDataset}>
-              Добавить датасет в список
+            <Button type="button" onClick={handleAddDataset} disabled={isImportingCandles}>
+              {isImportingCandles ? "Импорт свечей..." : "Добавить датасет в список"}
             </Button>
           </div>
         </SurfaceCard>
@@ -1655,9 +2087,6 @@ export default function DataPage() {
                     Дублировать
                   </Button>
                   <div className="flex flex-wrap gap-2">
-                    <Button type="button" size="sm" variant="secondary" onClick={handleArchiveDataset}>
-                      Архивировать
-                    </Button>
                     <Button type="button" size="sm" variant="destructive" onClick={handleDeleteDataset}>
                       Удалить
                     </Button>
@@ -1723,6 +2152,17 @@ export default function DataPage() {
                       {selectedDataset.rowsHint ?? "Готов"}
                     </TableCell>
                   </TableRow>
+                  {selectedDataset.backendRequest ? (
+                    <TableRow>
+                      <TableCell className="text-xs text-muted-foreground">API запрос</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {selectedDataset.backendRequest.exchange} / {selectedDataset.backendRequest.interval} /{" "}
+                        {selectedDataset.backendRequest.from}
+                        {" -> "}
+                        {selectedDataset.backendRequest.to}
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
                 </TableBody>
               </Table>
 
@@ -1810,6 +2250,7 @@ export default function DataPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Временная метка</TableHead>
+                    <TableHead>Символ</TableHead>
                     <TableHead>Открытие</TableHead>
                     <TableHead>Макс.</TableHead>
                     <TableHead>Мин.</TableHead>
@@ -1818,9 +2259,10 @@ export default function DataPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {previewRows.map((row) => (
-                    <TableRow key={`${selectedDataset.id}-${row.ts}`}>
+                  {selectedDatasetRows.map((row) => (
+                    <TableRow key={`${selectedDataset.id}-${row.symbol}-${row.ts}`}>
                       <TableCell className="text-xs text-muted-foreground">{row.ts}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{row.symbol}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">{row.open}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">{row.high}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">{row.low}</TableCell>
