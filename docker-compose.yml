@@ -45,5 +45,17 @@ services:
       - postgres
       - python-parser
 
+  frontend:
+    build:
+      context: ./frontend
+    container_name: tradelab-frontend
+    environment:
+      BACKEND_API_BASE_URL: http://java-api:8080
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+    depends_on:
+      - java-api
+
 volumes:
   postgres_data:
