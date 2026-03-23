@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Download, Filter, Repeat, CheckSquare } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Download, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -10,6 +10,8 @@ import { PageHeader } from "@/components/shared/page-header";
 import { SurfaceCard } from "@/components/shared/surface-card";
 import { RunsTable } from "@/features/runs/components/runs-table";
 import { useRuns } from "@/features/runs/store/run-store";
+import { projects } from "@/lib/demo-data/projects";
+import { getRunProjectId } from "@/lib/project-runs";
 import { getNextRunIds } from "@/lib/run-id";
 import type { Run, RunStatus } from "@/lib/types";
 
@@ -56,6 +58,7 @@ function parseRunDate(value: string) {
 
 export default function BacktestsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { runs, addRun } = useRuns();
 
   const [selected, setSelected] = useState<string[]>([]);
@@ -65,6 +68,18 @@ export default function BacktestsPage() {
     "any"
   );
   const [timeframeFilter, setTimeframeFilter] = useState<string>("all");
+  const [projectFilter, setProjectFilter] = useState<string>("all");
+
+  useEffect(() => {
+    const projectFromQuery = searchParams.get("project");
+    if (!projectFromQuery) {
+      return;
+    }
+
+    if (projects.some((project) => project.id === projectFromQuery)) {
+      setProjectFilter(projectFromQuery);
+    }
+  }, [searchParams]);
 
   const availableTimeframes = useMemo(
     () => Array.from(new Set(runs.map((run) => run.timeframe))).sort(),
@@ -79,16 +94,18 @@ export default function BacktestsPage() {
         const statusMatch = statusFilter === "all" || run.status === statusFilter;
         const tagMatch = tagFilter === "any" || run.tags.includes(tagFilter);
         const timeframeMatch = timeframeFilter === "all" || run.timeframe === timeframeFilter;
+        const projectMatch =
+          projectFilter === "all" || getRunProjectId(run) === projectFilter;
         const searchMatch =
           query.length === 0 ||
           run.id.toLowerCase().includes(query) ||
           run.strategy.toLowerCase().includes(query) ||
           run.datasetVersion.toLowerCase().includes(query);
 
-        return statusMatch && tagMatch && timeframeMatch && searchMatch;
+        return statusMatch && tagMatch && timeframeMatch && projectMatch && searchMatch;
       })
       .sort((a, b) => parseRunDate(b.createdAt) - parseRunDate(a.createdAt));
-  }, [runs, searchQuery, statusFilter, tagFilter, timeframeFilter]);
+  }, [runs, searchQuery, statusFilter, tagFilter, timeframeFilter, projectFilter]);
 
   const filteredIds = useMemo(() => filteredRuns.map((run) => run.id), [filteredRuns]);
   const selectedVisibleIds = selected.filter((id) => filteredIds.includes(id));
@@ -160,15 +177,9 @@ export default function BacktestsPage() {
   return (
     <div className="flex h-full flex-col gap-5">
       <PageHeader
-        eyebrow="Запуски"
         title="Бэктесты"
-        description="Фильтруйте прогоны, быстро выбирайте нужные запуски и применяйте массовые действия."
         actions={
           <>
-            <Button size="sm" variant="secondary" onClick={toggleVisibleSelection}>
-              <CheckSquare className="mr-2 h-4 w-4" />
-              {allVisibleSelected ? "Снять выбор" : "Выбрать по фильтру"}
-            </Button>
             <Button
               size="sm"
               variant="secondary"
@@ -212,11 +223,7 @@ export default function BacktestsPage() {
       <SurfaceCard
         className="bg-[linear-gradient(130deg,rgba(29,41,79,0.34),rgba(19,24,35,0.95)_72%)]"
       >
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Filter className="h-4 w-4" />
-            Фильтры
-          </div>
+        <div className="flex flex-wrap items-center justify-center gap-2">
           <Input
             className="h-8 w-[220px] text-xs"
             placeholder="ID, стратегия, датасет"
@@ -246,6 +253,19 @@ export default function BacktestsPage() {
               <SelectItem value="prod-like">Как в проде</SelectItem>
             </SelectContent>
           </Select>
+          <Select value={projectFilter} onValueChange={setProjectFilter}>
+            <SelectTrigger className="h-8 w-[180px] text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Все проекты</SelectItem>
+              {projects.map((project) => (
+                <SelectItem key={project.id} value={project.id}>
+                  {project.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select value={timeframeFilter} onValueChange={setTimeframeFilter}>
             <SelectTrigger className="h-8 w-[140px] text-xs">
               <SelectValue />
@@ -267,6 +287,7 @@ export default function BacktestsPage() {
               setSearchQuery("");
               setStatusFilter("all");
               setTagFilter("any");
+              setProjectFilter("all");
               setTimeframeFilter("all");
             }}
           >

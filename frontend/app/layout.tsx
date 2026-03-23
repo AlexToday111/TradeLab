@@ -14,6 +14,10 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "TradeLab",
   description: "Интерфейс исследования, запуска и сравнения торговых сценариев.",
+  icons: {
+    icon: "/favicon.svg",
+    shortcut: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({

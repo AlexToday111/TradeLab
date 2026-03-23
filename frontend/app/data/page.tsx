@@ -20,6 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { PageHeader } from "@/components/shared/page-header";
 import { SurfaceCard } from "@/components/shared/surface-card";
 import {
   dataSources,
@@ -1488,6 +1489,10 @@ export default function DataPage() {
 
   return (
     <div className="flex h-full flex-col gap-5">
+      <PageHeader
+        title="Данные"
+      />
+
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {dataSources.map((source) => (
           <SurfaceCard

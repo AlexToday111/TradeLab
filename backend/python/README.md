@@ -1,26 +1,59 @@
-# TradeLab Python Parser Service
+<h1 align="center">TradeLab Python Parser</h1>
 
-Python service for importing exchange candles into PostgreSQL. The service exposes an internal HTTP API and is designed to be called later from the Java backend.
+<p align="center">
+  FastAPI сервис для импорта рыночных свечей в PostgreSQL.
+</p>
 
-## Requirements
+<h2 align="center">Стек</h2>
 
-- Python 3.11+
-- PostgreSQL
+<p align="center">
+  <img alt="Python" src="https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white" />
+  <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white" />
+  <img alt="Uvicorn" src="https://img.shields.io/badge/Uvicorn-111827?logo=gunicorn&logoColor=white" />
+  <img alt="Psycopg" src="https://img.shields.io/badge/Psycopg-2E5EAA?logo=postgresql&logoColor=white" />
+  <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white" />
+  <img alt="Requests" src="https://img.shields.io/badge/Requests-2.x-5A29E4?logo=python&logoColor=white" />
+</p>
 
-## Install
+<h2 align="center">Структура</h2>
 
-```bash
-cd backend/python
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
+```text
+backend/python/
+|-- parser/
+|   |-- main.py
+|   |-- config.py
+|   |-- db.py
+|   |-- schema.sql
+|   |-- exchanges/
+|   |   `-- binance/
+|   |-- repositories/
+|   `-- services/
+|-- requirements.txt
+`-- run_local_postgres.ps1
 ```
 
-## Environment
+<h2 align="center">API</h2>
 
-Create `.env` in `backend/python` from `.env.example`.
+- `GET /health`
+- `POST /internal/import/candles`
 
-Required variables:
+Пример запроса:
+
+```json
+{
+  "exchange": "binance",
+  "symbol": "BTCUSDT",
+  "interval": "1h",
+  "from": "2024-01-01T00:00:00Z",
+  "to": "2024-01-10T00:00:00Z"
+}
+```
+
+<h2 align="center">Переменные окружения</h2>
+
+Создай `.env` в `backend/python` на основе `.env.example`.
+
+Ключевые переменные:
 
 - `DB_HOST`
 - `DB_PORT`
@@ -32,85 +65,34 @@ Required variables:
 - `BINANCE_API_SECRET`
 - `PYTHON_SERVICE_PORT`
 
-## Run service
+<h2 align="center">Запуск локально</h2>
 
 ```bash
 cd backend/python
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
 uvicorn parser.main:app --host 0.0.0.0 --port 8000
 ```
 
-Or:
+При старте сервис применяет `parser/schema.sql`.
 
-```bash
-cd backend/python
-python -m parser.main
-```
-
-On startup the service connects to PostgreSQL and applies `parser/schema.sql`.
-
-## Optional local PostgreSQL
-
-If your system PostgreSQL credentials are unknown or you want an isolated local database for this service, run:
+<h2 align="center">Локальный PostgreSQL (опционально)</h2>
 
 ```powershell
 cd backend/python
 powershell -ExecutionPolicy Bypass -File .\run_local_postgres.ps1
 ```
 
-This starts a user-owned PostgreSQL cluster on `localhost:55432` with:
+Скрипт поднимает кластер на `localhost:55432`:
 
-- database: `tradelab`
-- user: `postgres`
-- password: `postgres`
+- БД: `tradelab`
+- Пользователь: `postgres`
+- Пароль: `postgres`
 
-Then set `DB_PORT=55432` in your local `.env`.
-
-## Health check
+<h2 align="center">Docker</h2>
 
 ```bash
-curl http://localhost:8000/health
+docker build -t tradelab-python ./backend/python
 ```
 
-Expected response:
-
-```json
-{
-  "status": "ok",
-  "service": "python-parser"
-}
-```
-
-## Import candles
-
-```bash
-curl -X POST http://localhost:8000/internal/import/candles \
-  -H "Content-Type: application/json" \
-  -d '{
-    "exchange": "binance",
-    "symbol": "BTCUSDT",
-    "interval": "1h",
-    "from": "2024-01-01T00:00:00Z",
-    "to": "2024-01-10T00:00:00Z"
-  }'
-```
-
-Expected response shape:
-
-```json
-{
-  "status": "success",
-  "exchange": "binance",
-  "symbol": "BTCUSDT",
-  "interval": "1h",
-  "imported": 123,
-  "from": "2024-01-01T00:00:00Z",
-  "to": "2024-01-10T00:00:00Z"
-}
-```
-
-## Notes for Java integration
-
-- `GET /health` can be used for readiness checks.
-- `POST /internal/import/candles` accepts a fixed JSON contract and returns a synchronous import result.
-- The service currently supports only `binance`.
-- Candle persistence is idempotent-friendly through PostgreSQL `ON CONFLICT DO UPDATE` on `(exchange, symbol, interval, open_time)`.
