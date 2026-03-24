@@ -8,9 +8,16 @@ from parser.config import settings
 from parser.db import get_connection, initialize_schema
 from parser.exceptions import AppError
 from parser.logging_setup import configure_logging
-from parser.models.dto import CandleImportRequest, CandleImportResponse, HealthResponse
+from parser.models.dto import (
+    CandleImportRequest,
+    CandleImportResponse,
+    HealthResponse,
+    StrategyValidationRequest,
+    StrategyValidationResponse,
+)
 from parser.repositories.candle_repository import CandleRepository
 from parser.services.candle_import_service import CandleImportService
+from parser.services.strategy_validation_service import StrategyValidationService
 
 
 logger = logging.getLogger(__name__)
@@ -52,6 +59,12 @@ def create_app() -> FastAPI:
             return service.import_candles(request)
         finally:
             connection.close()
+
+    @app.post("/internal/strategies/validate", response_model=StrategyValidationResponse)
+    async def validate_strategy(request: StrategyValidationRequest) -> StrategyValidationResponse:
+        logger.info("Incoming strategy validation request for %s", request.file_path)
+        service = StrategyValidationService()
+        return service.validate(request.file_path)
 
     return app
 

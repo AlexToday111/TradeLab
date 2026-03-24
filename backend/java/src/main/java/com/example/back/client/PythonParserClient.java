@@ -1,9 +1,7 @@
 package com.example.back.client;
 
 import com.example.back.config.PythonClientConfig;
-import com.example.back.dto.ImportCandlesRequest;
-import com.example.back.dto.ImportCandlesResponse;
-import com.example.back.dto.PythonHealthResponse;
+import com.example.back.dto.*;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -31,5 +29,13 @@ public class PythonParserClient {
                 .uri("/health")
                 .retrieve()
                 .body(PythonHealthResponse.class);
+    }
+
+    public StrategyValidationResponse validateStrategy(StrategyValidationRequest request) {
+        return restClient.post()
+                .uri("/internal/strategies/validate")
+                .body(request)
+                .retrieve()
+                .body(StrategyValidationResponse.class);
     }
 }
