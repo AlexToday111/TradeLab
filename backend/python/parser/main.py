@@ -1,103 +1,63 @@
-import argparse
 import logging
-from datetime import datetime, timezone
 
-from parser.db import get_connection
+import uvicorn
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+
+from parser.config import settings
+from parser.db import get_connection, initialize_schema
+from parser.exceptions import AppError
+from parser.logging_setup import configure_logging
+from parser.models.dto import CandleImportRequest, CandleImportResponse, HealthResponse
 from parser.repositories.candle_repository import CandleRepository
 from parser.services.candle_import_service import CandleImportService
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="TradeLab candles importer")
-
-    parser.add_argument(
-        "--exchange",
-        required=True,
-        help="Exchange name, e.g. binance",
-    )
-    parser.add_argument(
-        "--symbol",
-        required=True,
-        help="Trading pair, e.g. BTCUSDT",
-    )
-    parser.add_argument(
-        "--interval",
-        required=True,
-        help="Candle interval, e.g. 5m",
-    )
-    parser.add_argument(
-        "--limit",
-        type=int,
-        help="Number of candles to load (mutually exclusive with --start/--end)",
-    )
-    parser.add_argument(
-        "--start",
-        help="Start datetime (ISO 8601), e.g. 2024-01-01T00:00:00Z",
-    )
-    parser.add_argument(
-        "--end",
-        help="End datetime (ISO 8601), e.g. 2024-01-02T00:00:00Z",
-    )
-
-    return parser
+logger = logging.getLogger(__name__)
 
 
-def parse_datetime(value: str) -> datetime:
-    normalized = value.replace("Z", "+00:00")
-    parsed = datetime.fromisoformat(normalized)
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+def create_app() -> FastAPI:
+    configure_logging()
+
+    app = FastAPI(title="TradeLab Python Parser", version="0.1.0")
+
+    @app.on_event("startup")
+    async def on_startup() -> None:
+        logger.info("Starting python-parser service on port %s", settings.python_service_port)
+        try:
+            connection = get_connection()
+            try:
+                initialize_schema(connection)
+            finally:
+                connection.close()
+        except AppError:
+            logger.warning("Database schema initialization skipped during startup", exc_info=True)
+
+    @app.exception_handler(AppError)
+    async def handle_app_error(_: Request, exc: AppError) -> JSONResponse:
+        logger.exception("Application error: %s", exc.message)
+        return JSONResponse(status_code=exc.status_code, content={"status": "error", "message": exc.message})
+
+    @app.get("/health", response_model=HealthResponse)
+    async def healthcheck() -> HealthResponse:
+        return HealthResponse(status="ok", service="python-parser")
+
+    @app.post("/internal/import/candles", response_model=CandleImportResponse)
+    async def import_candles(request: CandleImportRequest) -> CandleImportResponse:
+        logger.info("Incoming candle import request")
+        connection = get_connection()
+        try:
+            repository = CandleRepository(connection)
+            service = CandleImportService(repository)
+            return service.import_candles(request)
+        finally:
+            connection.close()
+
+    return app
 
 
-def main() -> None:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-    )
-    logger = logging.getLogger(__name__)
-
-    parser = build_parser()
-    args = parser.parse_args()
-
-    if args.limit is None:
-        if not args.start or not args.end:
-            parser.error("Either --limit or both --start/--end must be provided")
-    else:
-        if args.start or args.end:
-            parser.error("--limit is mutually exclusive with --start/--end")
-
-    start_time = parse_datetime(args.start) if args.start else None
-    end_time = parse_datetime(args.end) if args.end else None
-    if start_time and end_time and start_time >= end_time:
-        parser.error("--start must be earlier than --end")
-
-    connection = get_connection()
-    try:
-        candle_repository = CandleRepository(connection)
-        candle_repository.create_table_if_not_exists()
-
-        candle_import_service = CandleImportService(candle_repository)
-
-        inserted_count = candle_import_service.import_candles(
-            exchange=args.exchange,
-            symbol=args.symbol,
-            interval=args.interval,
-            limit_total=args.limit,
-            start_time=start_time,
-            end_time=end_time,
-        )
-
-        logger.info(
-            "Imported candles successfully: exchange=%s, symbol=%s, interval=%s, count=%s",
-            args.exchange,
-            args.symbol,
-            args.interval,
-            inserted_count,
-        )
-    finally:
-        connection.close()
+app = create_app()
 
 
 if __name__ == "__main__":
-    main()
+    uvicorn.run("parser.main:app", host="0.0.0.0", port=settings.python_service_port, reload=False)

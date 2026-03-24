@@ -1,3 +1,7 @@
-requests==2.32.3
-psycopg2-binary==2.9.10
-python-dotenv==1.0.1
+fastapi==0.135.1
+httpx==0.28.1
+pydantic==2.12.5
+psycopg[binary]==3.2.12
+python-dotenv==1.2.2
+requests==2.32.5
+uvicorn==0.42.0

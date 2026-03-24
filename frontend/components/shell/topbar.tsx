@@ -47,7 +47,7 @@ export function Topbar() {
                 className={cn(
                   "group flex h-10 shrink-0 items-center gap-2 rounded-full border px-4 text-[13px] font-medium text-white/66 transition-all duration-200",
                   isActive
-                    ? "border-white/[0.06] bg-white/[0.06] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+                    ? "border-[#c7ee51]/40 bg-[#c7ee51]/14 text-[#c7ee51] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
                     : "border-transparent bg-transparent hover:border-white/[0.04] hover:bg-white/[0.03] hover:text-white/88"
                 )}
               >
@@ -61,12 +61,12 @@ export function Topbar() {
                     aria-hidden="true"
                   />
                 ) : Icon ? (
-                  <Icon
-                    className={cn(
-                      "h-4 w-4 shrink-0",
-                      isActive ? "text-white/80" : "text-white/42 group-hover:text-white/70"
-                    )}
-                  />
+                    <Icon
+                      className={cn(
+                        "h-4 w-4 shrink-0",
+                        isActive ? "text-[#c7ee51]" : "text-white/42 group-hover:text-white/70"
+                      )}
+                    />
                 ) : null}
                 <span className="leading-none">{item.label}</span>
               </Link>

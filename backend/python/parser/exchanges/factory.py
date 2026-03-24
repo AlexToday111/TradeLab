@@ -1,3 +1,4 @@
+from parser.exceptions import ExchangeError
 from parser.exchanges.base import BaseExchangeClient
 from parser.exchanges.binance.client import BinanceClient
 
@@ -8,4 +9,4 @@ def get_exchange_client(exchange: str) -> BaseExchangeClient:
     if exchange_normalized == "binance":
         return BinanceClient()
 
-    raise ValueError(f"Unsupported exchange: {exchange}")
+    raise ExchangeError(f"Unsupported exchange: {exchange}")

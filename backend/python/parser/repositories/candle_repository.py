@@ -1,36 +1,14 @@
 from typing import Sequence
 
-from psycopg2.extras import execute_values
+import psycopg
 
+from parser.exceptions import RepositoryError
 from parser.models.candle import Candle
 
 
 class CandleRepository:
     def __init__(self, connection) -> None:
         self.connection = connection
-
-    def create_table_if_not_exists(self) -> None:
-        query = """
-        CREATE TABLE IF NOT EXISTS market_candles (
-            id BIGSERIAL PRIMARY KEY,
-            exchange VARCHAR(32) NOT NULL,
-            symbol VARCHAR(32) NOT NULL,
-            interval VARCHAR(16) NOT NULL,
-            open_time TIMESTAMPTZ NOT NULL,
-            open NUMERIC(20, 8) NOT NULL,
-            high NUMERIC(20, 8) NOT NULL,
-            low NUMERIC(20, 8) NOT NULL,
-            close NUMERIC(20, 8) NOT NULL,
-            volume NUMERIC(28, 8) NOT NULL,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            UNIQUE (exchange, symbol, interval, open_time)
-        );
-        """
-
-        with self.connection.cursor() as cursor:
-            cursor.execute(query)
-
-        self.connection.commit()
 
     def save_all(self, candles: Sequence[Candle]) -> int:
         if not candles:
@@ -42,6 +20,7 @@ class CandleRepository:
                 candle.symbol,
                 candle.interval,
                 candle.open_time,
+                candle.close_time,
                 candle.open,
                 candle.high,
                 candle.low,
@@ -52,29 +31,37 @@ class CandleRepository:
         ]
 
         query = """
-        INSERT INTO market_candles (
+        INSERT INTO candles (
             exchange,
             symbol,
             interval,
             open_time,
+            close_time,
             open,
             high,
             low,
             close,
             volume
         )
-        VALUES %s
+        VALUES (
+            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+        )
         ON CONFLICT (exchange, symbol, interval, open_time)
         DO UPDATE SET
+            close_time = EXCLUDED.close_time,
             open = EXCLUDED.open,
             high = EXCLUDED.high,
             low = EXCLUDED.low,
             close = EXCLUDED.close,
-            volume = EXCLUDED.volume
+            volume = EXCLUDED.volume,
+            updated_at = NOW()
         """
 
-        with self.connection.cursor() as cursor:
-            execute_values(cursor, query, rows)
-
-        self.connection.commit()
-        return len(rows)
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.executemany(query, rows)
+            self.connection.commit()
+            return len(rows)
+        except psycopg.Error as exc:
+            self.connection.rollback()
+            raise RepositoryError("Failed to persist candles") from exc
