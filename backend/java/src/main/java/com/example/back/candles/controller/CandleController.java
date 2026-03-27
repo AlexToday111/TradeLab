@@ -1,7 +1,7 @@
-package com.example.back.controller;
+package com.example.back.candles.controller;
 
-import com.example.back.dto.CandleResponse;
-import com.example.back.service.CandleQueryService;
+import com.example.back.candles.dto.CandleResponse;
+import com.example.back.candles.service.CandleQueryService;
 import java.time.Instant;
 import java.util.List;
 import org.springframework.format.annotation.DateTimeFormat;

@@ -1,6 +1,6 @@
 package com.example.back.client;
 
-import com.example.back.config.PythonClientConfig;
+import com.example.back.common.config.PythonClientConfig;
 import com.example.back.dto.*;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -37,5 +37,13 @@ public class PythonParserClient {
                 .body(request)
                 .retrieve()
                 .body(StrategyValidationResponse.class);
+    }
+
+    public PythonRunExecuteResponse executeRun(PythonRunExecuteRequest request){
+        return restClient.post()
+                .uri("/internal/runs/exchange")
+                .body(request)
+                .retrieve()
+                .body(PythonRunExecuteResponse.class);
     }
 }

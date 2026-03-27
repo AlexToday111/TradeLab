@@ -1,4 +1,4 @@
-package com.example.back.dto;
+package com.example.back.candles.dto;
 
 import java.math.BigDecimal;
 import java.time.Instant;

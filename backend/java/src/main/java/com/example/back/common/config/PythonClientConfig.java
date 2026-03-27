@@ -1,4 +1,4 @@
-package com.example.back.config;
+package com.example.back.common.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;

@@ -1,6 +1,6 @@
-package com.example.back.repository;
+package com.example.back.candles.repository;
 
-import com.example.back.entity.CandleEntity;
+import com.example.back.candles.entity.CandleEntity;
 import java.time.Instant;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;

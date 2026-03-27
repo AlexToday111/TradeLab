@@ -1,8 +1,8 @@
-package com.example.back.service;
+package com.example.back.candles.service;
 
-import com.example.back.dto.CandleResponse;
-import com.example.back.entity.CandleEntity;
-import com.example.back.repository.CandleRepository;
+import com.example.back.candles.dto.CandleResponse;
+import com.example.back.candles.entity.CandleEntity;
+import com.example.back.candles.repository.CandleRepository;
 import java.time.Instant;
 import java.util.List;
 import org.springframework.stereotype.Service;
