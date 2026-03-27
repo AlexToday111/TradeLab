@@ -1,6 +1,6 @@
 package com.example.back.service;
 
-import com.example.back.client.PythonParserClient;
+import com.example.back.imports.client.PythonParserClient;
 import com.example.back.dto.StrategyResponse;
 import com.example.back.dto.StrategyValidationRequest;
 import com.example.back.dto.StrategyValidationResponse;

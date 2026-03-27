@@ -1,8 +1,8 @@
-package com.example.back.service;
+package com.example.back.datasets.service;
 
-import com.example.back.dto.RenameDatasetRequest;
-import com.example.back.entity.DatasetEntity;
-import com.example.back.repository.DatasetRepository;
+import com.example.back.datasets.dto.RenameDatasetRequest;
+import com.example.back.datasets.entity.DatasetEntity;
+import com.example.back.datasets.repository.DatasetRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;

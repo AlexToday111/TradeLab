@@ -1,7 +1,7 @@
-package com.example.back.controller;
+package com.example.back.datasets.controller;
 
-import com.example.back.dto.RenameDatasetRequest;
-import com.example.back.service.DatasetService;
+import com.example.back.datasets.dto.RenameDatasetRequest;
+import com.example.back.datasets.service.DatasetService;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.util.List;
 import org.springframework.http.HttpStatus;

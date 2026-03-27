@@ -1,8 +1,8 @@
-package com.example.back.service;
+package com.example.back.imports.service;
 
-import com.example.back.client.PythonParserClient;
-import com.example.back.dto.ImportCandlesRequest;
-import com.example.back.dto.ImportCandlesResponse;
+import com.example.back.imports.client.PythonParserClient;
+import com.example.back.imports.dto.ImportCandlesRequest;
+import com.example.back.imports.dto.ImportCandlesResponse;
 import org.springframework.stereotype.Service;
 
 @Service

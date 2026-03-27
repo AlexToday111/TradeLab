@@ -1,8 +1,7 @@
 package com.example.back.controller;
 
-
-import com.example.back.client.PythonParserClient;
-import com.example.back.dto.PythonHealthResponse;
+import com.example.back.imports.client.PythonParserClient;
+import com.example.back.imports.dto.PythonHealthResponse;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 

@@ -1,6 +1,5 @@
 package com.example.back.controller;
 
-import com.example.back.client.PythonParserClient;
 import com.example.back.dto.StrategyResponse;
 import com.example.back.service.StrategyFileService;
 import lombok.RequiredArgsConstructor;
@@ -9,8 +8,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.util.ArrayList;
 import java.util.List;
 
 @RestController

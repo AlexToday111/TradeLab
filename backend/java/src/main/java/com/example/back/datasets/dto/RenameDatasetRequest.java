@@ -1,4 +1,4 @@
-package com.example.back.dto;
+package com.example.back.datasets.dto;
 
 public record RenameDatasetRequest(String name) {
 }

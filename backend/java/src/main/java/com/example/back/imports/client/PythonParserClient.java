@@ -1,7 +1,13 @@
-package com.example.back.client;
+package com.example.back.imports.client;
 
 import com.example.back.common.config.PythonClientConfig;
-import com.example.back.dto.*;
+import com.example.back.imports.dto.ImportCandlesRequest;
+import com.example.back.imports.dto.ImportCandlesResponse;
+import com.example.back.imports.dto.PythonHealthResponse;
+import com.example.back.dto.PythonRunExecuteRequest;
+import com.example.back.dto.PythonRunExecuteResponse;
+import com.example.back.dto.StrategyValidationRequest;
+import com.example.back.dto.StrategyValidationResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 

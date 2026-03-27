@@ -1,6 +1,6 @@
-package com.example.back.repository;
+package com.example.back.datasets.repository;
 
-import com.example.back.entity.DatasetEntity;
+import com.example.back.datasets.entity.DatasetEntity;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 
