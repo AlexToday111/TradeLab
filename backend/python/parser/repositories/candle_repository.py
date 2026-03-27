@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Sequence
 
 import psycopg
@@ -65,3 +66,57 @@ class CandleRepository:
         except psycopg.Error as exc:
             self.connection.rollback()
             raise RepositoryError("Failed to persist candles") from exc
+
+    def find_by_market_range(
+        self,
+        *,
+        exchange: str,
+        symbol: str,
+        interval: str,
+        from_time: datetime,
+        to_time: datetime,
+    ) -> list[Candle]:
+        query = """
+        SELECT
+            exchange,
+            symbol,
+            interval,
+            open_time,
+            close_time,
+            open,
+            high,
+            low,
+            close,
+            volume
+        FROM candles
+        WHERE exchange = %s
+          AND symbol = %s
+          AND interval = %s
+          AND open_time >= %s
+          AND open_time < %s
+        ORDER BY open_time ASC
+        """
+
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute(query, (exchange, symbol, interval, from_time, to_time))
+                rows = cursor.fetchall()
+        except psycopg.Error as exc:
+            self.connection.rollback()
+            raise RepositoryError("Failed to load candles") from exc
+
+        return [
+            Candle(
+                exchange=row[0],
+                symbol=row[1],
+                interval=row[2],
+                open_time=row[3],
+                close_time=row[4],
+                open=row[5],
+                high=row[6],
+                low=row[7],
+                close=row[8],
+                volume=row[9],
+            )
+            for row in rows
+        ]
