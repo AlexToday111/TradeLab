@@ -12,11 +12,14 @@ from parser.models.dto import (
     CandleImportRequest,
     CandleImportResponse,
     HealthResponse,
+    RunExecuteRequest,
+    RunExecuteResponse,
     StrategyValidationRequest,
     StrategyValidationResponse,
 )
 from parser.repositories.candle_repository import CandleRepository
 from parser.services.candle_import_service import CandleImportService
+from parser.services.strategy_execution_service import StrategyExecutionService
 from parser.services.strategy_validation_service import StrategyValidationService
 
 
@@ -65,6 +68,26 @@ def create_app() -> FastAPI:
         logger.info("Incoming strategy validation request for %s", request.file_path)
         service = StrategyValidationService()
         return service.validate(request.file_path)
+
+    @app.post("/internal/runs/execute", response_model=RunExecuteResponse)
+    async def execute_run(request: RunExecuteRequest) -> RunExecuteResponse:
+        logger.info("Incoming strategy run request for %s", request.strategy_file_path)
+
+        connection = None
+        try:
+            connection = get_connection()
+            repository = CandleRepository(connection)
+            service = StrategyExecutionService(repository)
+            return service.execute(request)
+        except AppError as exc:
+            logger.exception("Strategy run failed with application error")
+            return RunExecuteResponse(success=False, metrics=None, error=exc.message)
+        except Exception:  # noqa: BLE001
+            logger.exception("Strategy run failed with unexpected error")
+            return RunExecuteResponse(success=False, metrics=None, error="Unexpected execution error")
+        finally:
+            if connection is not None:
+                connection.close()
 
     return app
 
