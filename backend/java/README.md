@@ -1,4 +1,4 @@
-<h1 align="center">TradeLab Java API</h1>
+<h1 align="center">Trade360Lab Java API</h1>
 
 <p align="center">
   Spring Boot сервис для работы с датасетами, свечами и оркестрации импорта через Python parser.

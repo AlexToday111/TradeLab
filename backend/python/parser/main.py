@@ -3,17 +3,31 @@ import logging
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
-from parser.config import settings
-from parser.db import get_connection, initialize_schema
-from parser.exceptions import AppError
-from parser.logging_setup import configure_logging
-from parser.models.dto import CandleImportRequest, CandleImportResponse, HealthResponse
-from parser.repositories.candle_repository import CandleRepository
-from parser.services.candle_import_service import CandleImportService
+from parser.candles.repositories.candle_repository import CandleRepository
+from parser.common.config.db import get_connection, initialize_schema
+from parser.common.config.settings import settings
+from parser.common.exceptions import AppError
+from parser.common.util.logging import configure_logging
+from parser.imports.dto.candle_import_dto import CandleImportRequest, CandleImportResponse
+from parser.imports.repositories.candle_import_repository import CandleImportRepository
+from parser.imports.services.candle_import_service import CandleImportService
+from parser.runs.dto.run_execute_dto import RunExecuteRequest, RunExecuteResponse
+from parser.runs.services.strategy_execution_service import StrategyExecutionService
+from parser.strategies.dto.strategy_validation_dto import (
+    StrategyValidationRequest,
+    StrategyValidationResponse,
+)
+from parser.strategies.services.strategy_validation_service import StrategyValidationService
 
 
 logger = logging.getLogger(__name__)
+
+
+class HealthResponse(BaseModel):
+    status: str
+    service: str
 
 
 def create_app() -> FastAPI:
@@ -47,11 +61,37 @@ def create_app() -> FastAPI:
         logger.info("Incoming candle import request")
         connection = get_connection()
         try:
-            repository = CandleRepository(connection)
+            repository = CandleImportRepository(connection)
             service = CandleImportService(repository)
             return service.import_candles(request)
         finally:
             connection.close()
+
+    @app.post("/internal/strategies/validate", response_model=StrategyValidationResponse)
+    async def validate_strategy(request: StrategyValidationRequest) -> StrategyValidationResponse:
+        logger.info("Incoming strategy validation request for %s", request.file_path)
+        service = StrategyValidationService()
+        return service.validate(request.file_path)
+
+    @app.post("/internal/runs/execute", response_model=RunExecuteResponse)
+    async def execute_run(request: RunExecuteRequest) -> RunExecuteResponse:
+        logger.info("Incoming strategy run request for %s", request.strategy_file_path)
+
+        connection = None
+        try:
+            connection = get_connection()
+            repository = CandleRepository(connection)
+            service = StrategyExecutionService(repository)
+            return service.execute(request)
+        except AppError as exc:
+            logger.exception("Strategy run failed with application error")
+            return RunExecuteResponse(success=False, metrics=None, error=exc.message)
+        except Exception:  # noqa: BLE001
+            logger.exception("Strategy run failed with unexpected error")
+            return RunExecuteResponse(success=False, metrics=None, error="Unexpected execution error")
+        finally:
+            if connection is not None:
+                connection.close()
 
     return app
 

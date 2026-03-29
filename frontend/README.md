@@ -1,4 +1,4 @@
-<h1 align="center">TradeLab Frontend</h1>
+<h1 align="center">Trade360Lab Frontend</h1>
 
 <p align="center">
   Фронтенд-приложение на Next.js (App Router) для работы с проектами, датасетами, бэктестами и результатами запусков.
@@ -49,6 +49,7 @@ frontend/
 cd frontend
 npm install
 npm run dev
+
 ```
 
 <h2 align="center">Полезные команды</h2>

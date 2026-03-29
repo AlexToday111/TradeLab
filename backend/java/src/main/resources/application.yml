@@ -26,6 +26,9 @@ spring:
     serialization:
       write-dates-as-timestamps: false
 
+app:
+  strategy-storage-path: ./storage/strategies
+
 python:
   parser:
     base-url: ${PYTHON_PARSER_BASE_URL:http://127.0.0.1:8000}

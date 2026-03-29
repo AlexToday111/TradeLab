@@ -12,11 +12,11 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "TradeLab",
+  title: "T360Lab",
   description: "Интерфейс исследования, запуска и сравнения торговых сценариев.",
   icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
   },
 };
 

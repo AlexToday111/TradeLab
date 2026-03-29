@@ -1,4 +1,4 @@
-<h1 align="center">TradeLab Python Parser</h1>
+<h1 align="center">Trade360Lab Python Parser</h1>
 
 <p align="center">
   FastAPI сервис для импорта рыночных свечей в PostgreSQL.

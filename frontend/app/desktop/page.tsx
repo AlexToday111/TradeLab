@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -26,10 +26,13 @@ import { PageHeader } from "@/components/shared/page-header";
 import { SurfaceCard } from "@/components/shared/surface-card";
 import { DrawdownChart, EquityChart } from "@/features/runs/charts/run-charts";
 import { useRuns } from "@/features/runs/store/run-store";
+import { fetchStrategies, uploadStrategy } from "@/lib/api/strategies";
 import { projects, type Project } from "@/lib/demo-data/projects";
 import { getProjectRuns } from "@/lib/project-runs";
+import type { Strategy } from "@/lib/types";
 
 const DEFAULT_START_BALANCE_USD = 100_000;
+type UploadState = "idle" | "uploading" | "success" | "error";
 
 function parseRunDate(value: string) {
   const parsed = Date.parse(value.replace(" ", "T"));
@@ -61,16 +64,40 @@ function createProjectId(name: string) {
   return `proj-${slug || "custom"}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
+function toErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+  return fallback;
+}
+
+function formatStrategyCreatedAt(value: string) {
+  const timestamp = Date.parse(value);
+  if (Number.isNaN(timestamp)) {
+    return value;
+  }
+  return new Date(timestamp).toLocaleString("ru-RU");
+}
+
 export default function DesktopPage() {
   const { runs } = useRuns();
   const searchParams = useSearchParams();
   const requestedProjectId = searchParams.get("project");
+  const strategyFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [projectOptions, setProjectOptions] = useState<Project[]>(projects);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectDescription, setNewProjectDescription] = useState("");
+  const [isAddStrategyOpen, setIsAddStrategyOpen] = useState(false);
+  const [newStrategyName, setNewStrategyName] = useState("");
+  const [uploadState, setUploadState] = useState<UploadState>("idle");
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadResult, setUploadResult] = useState<Strategy | null>(null);
+  const [strategies, setStrategies] = useState<Strategy[]>([]);
+  const [isStrategiesLoading, setIsStrategiesLoading] = useState(true);
+  const [strategiesError, setStrategiesError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!requestedProjectId) {
@@ -81,6 +108,35 @@ export default function DesktopPage() {
       setSelectedProjectId(requestedProjectId);
     }
   }, [projectOptions, requestedProjectId]);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const loadStrategies = async () => {
+      setIsStrategiesLoading(true);
+      setStrategiesError(null);
+
+      try {
+        const payload = await fetchStrategies();
+        if (!isCancelled) {
+          setStrategies(payload);
+        }
+      } catch (error) {
+        if (!isCancelled) {
+          setStrategiesError(toErrorMessage(error, "Не удалось загрузить список стратегий."));
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsStrategiesLoading(false);
+        }
+      }
+    };
+
+    void loadStrategies();
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
 
   const project = useMemo(() => {
     if (!selectedProjectId) {
@@ -160,6 +216,7 @@ export default function DesktopPage() {
   ];
 
   const canCreateProject = newProjectName.trim().length > 0;
+  const canAddStrategy = newStrategyName.trim().length > 0;
 
   const handleCreateProject = () => {
     if (!canCreateProject) {
@@ -181,6 +238,57 @@ export default function DesktopPage() {
     setNewProjectName("");
     setNewProjectDescription("");
     setIsCreateProjectOpen(false);
+  };
+
+  const handleStrategyPickerOpen = () => {
+    if (uploadState === "uploading") {
+      return;
+    }
+
+    strategyFileInputRef.current?.click();
+  };
+
+  const handleAddStrategy = () => {
+    setIsAddStrategyOpen(false);
+    setNewStrategyName("");
+  };
+
+  const handleStrategyFileSelect = async (event: ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!selectedFile) {
+      return;
+    }
+
+    if (!selectedFile.name.toLowerCase().endsWith(".py")) {
+      setUploadState("error");
+      setUploadError("Разрешены только файлы с расширением .py");
+      return;
+    }
+
+    setUploadState("uploading");
+    setUploadError(null);
+
+    try {
+      const uploadedStrategy = await uploadStrategy(selectedFile);
+      setUploadResult(uploadedStrategy);
+      setUploadState("success");
+
+      setIsStrategiesLoading(true);
+      setStrategiesError(null);
+      try {
+        const payload = await fetchStrategies();
+        setStrategies(payload);
+      } catch (error) {
+        setStrategiesError(toErrorMessage(error, "Не удалось обновить список стратегий."));
+      } finally {
+        setIsStrategiesLoading(false);
+      }
+    } catch (error) {
+      setUploadState("error");
+      setUploadError(toErrorMessage(error, "Загрузка стратегии завершилась с ошибкой."));
+    }
   };
 
   if (!project) {
@@ -351,13 +459,71 @@ export default function DesktopPage() {
 
       <SurfaceCard className={desktopSurfaceToneClassName}>
         <div className="space-y-4">
-          <div>
-            <div className="text-2xl font-semibold tracking-tight text-foreground">
-              {project.name}
+          <div className="space-y-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <div className="text-2xl font-semibold tracking-tight text-foreground">
+                  {project.name}
+                </div>
+                <div className="mt-2 max-w-2xl text-sm text-muted-foreground">
+                  {project.description}
+                </div>
+              </div>
+              <Button
+                size="sm"
+                className="w-fit"
+                onClick={handleStrategyPickerOpen}
+                disabled={uploadState === "uploading"}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Добавить стратегию
+              </Button>
             </div>
-            <div className="mt-2 max-w-2xl text-sm text-muted-foreground">
-              {project.description}
+
+            <input
+              ref={strategyFileInputRef}
+              type="file"
+              accept=".py"
+              className="hidden"
+              onChange={handleStrategyFileSelect}
+            />
+            <div className="text-xs text-muted-foreground">
+              {uploadState === "idle" ? "Поддерживается загрузка только .py файлов." : null}
+              {uploadState === "uploading" ? "Файл загружается и валидируется..." : null}
+              {uploadState === "success" ? "Стратегия успешно загружена." : null}
+              {uploadState === "error" ? uploadError : null}
             </div>
+
+            {isAddStrategyOpen ? (
+              <div className="rounded-[18px] border border-white/12 bg-[rgba(8,12,20,0.68)] p-4">
+                <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px]">
+                  <input
+                    value={newStrategyName}
+                    onChange={(event) => setNewStrategyName(event.target.value)}
+                    placeholder="Имя стратегии (например, atlas_breakout.py)"
+                    className="h-10 w-full rounded-[12px] border border-white/12 bg-[rgba(14,18,28,0.82)] px-3 text-sm text-foreground placeholder:text-muted-foreground/80 outline-none transition-colors focus:border-[hsl(var(--tl-glow)/0.5)]"
+                  />
+                  <div className="flex items-end gap-2 lg:flex-col lg:justify-end">
+                    <Button
+                      size="sm"
+                      className="w-full"
+                      disabled={!canAddStrategy}
+                      onClick={handleAddStrategy}
+                    >
+                      Добавить
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="w-full"
+                      onClick={() => setIsAddStrategyOpen(false)}
+                    >
+                      Отмена
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
           <div className="grid gap-3 md:grid-cols-3">
             {projectMetrics.map((metric) => {
@@ -400,6 +566,120 @@ export default function DesktopPage() {
                 </div>
               );
             })}
+          </div>
+        </div>
+      </SurfaceCard>
+
+      <SurfaceCard title="Стратегии" subtitle="Загрузка и проверка strategy file">
+        <div className="space-y-4 text-xs">
+          {uploadResult ? (
+            <div className="rounded-[16px] border border-white/12 bg-[rgba(8,12,20,0.58)] p-3">
+              <div className="mb-2 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                Последний результат загрузки
+              </div>
+              <div className="grid gap-2 md:grid-cols-2">
+                <div>
+                  <div className="text-[11px] text-muted-foreground">Имя стратегии</div>
+                  <div className="text-foreground">{uploadResult.name ?? "n/a"}</div>
+                </div>
+                <div>
+                  <div className="text-[11px] text-muted-foreground">Файл</div>
+                  <div className="font-mono text-foreground">{uploadResult.filename}</div>
+                </div>
+                <div>
+                  <div className="text-[11px] text-muted-foreground">Статус</div>
+                  <div
+                    className={
+                      uploadResult.status === "VALID"
+                        ? "font-semibold text-status-success"
+                        : "font-semibold text-status-failed"
+                    }
+                  >
+                    {uploadResult.status}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[11px] text-muted-foreground">Создано</div>
+                  <div className="text-foreground">
+                    {formatStrategyCreatedAt(uploadResult.createdAt)}
+                  </div>
+                </div>
+              </div>
+              {uploadResult.validationError ? (
+                <div className="mt-2 rounded-[10px] border border-[rgba(179,0,0,0.35)] bg-[rgba(179,0,0,0.12)] px-2.5 py-2 text-status-failed">
+                  {uploadResult.validationError}
+                </div>
+              ) : null}
+              {uploadResult.parametersSchema ? (
+                <pre className="mt-2 overflow-x-auto rounded-[10px] border border-white/10 bg-[rgba(3,6,12,0.5)] p-2 text-[11px] leading-relaxed text-foreground">
+{JSON.stringify(uploadResult.parametersSchema, null, 2)}
+                </pre>
+              ) : null}
+            </div>
+          ) : null}
+
+          <div className="overflow-hidden rounded-[14px] border border-white/10">
+            <div className="flex items-center justify-between border-b border-white/10 bg-[rgba(11,16,26,0.72)] px-3 py-2">
+              <div className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                Список стратегий
+              </div>
+              <div className="text-[11px] text-muted-foreground">
+                {isStrategiesLoading ? "Обновление..." : `${strategies.length} шт.`}
+              </div>
+            </div>
+
+            {strategiesError ? (
+              <div className="px-3 py-3 text-status-failed">{strategiesError}</div>
+            ) : null}
+
+            {!strategiesError && isStrategiesLoading ? (
+              <div className="px-3 py-3 text-muted-foreground">Загружаем стратегии...</div>
+            ) : null}
+
+            {!strategiesError && !isStrategiesLoading && strategies.length === 0 ? (
+              <div className="px-3 py-3 text-muted-foreground">Пока нет загруженных стратегий.</div>
+            ) : null}
+
+            {!strategiesError && !isStrategiesLoading && strategies.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-[780px] w-full">
+                  <thead className="bg-[rgba(255,255,255,0.02)] text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
+                    <tr className="border-b border-white/10">
+                      <th className="px-3 py-2 text-left">ID</th>
+                      <th className="px-3 py-2 text-left">Name</th>
+                      <th className="px-3 py-2 text-left">Filename</th>
+                      <th className="px-3 py-2 text-left">Status</th>
+                      <th className="px-3 py-2 text-left">Created At</th>
+                      <th className="px-3 py-2 text-left">Validation Error</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {strategies.map((strategy) => (
+                      <tr key={strategy.id} className="border-b border-white/10 last:border-b-0">
+                        <td className="px-3 py-2 font-mono text-foreground">{strategy.id}</td>
+                        <td className="px-3 py-2 text-foreground">{strategy.name ?? "n/a"}</td>
+                        <td className="px-3 py-2 font-mono text-foreground">{strategy.filename}</td>
+                        <td
+                          className={
+                            strategy.status === "VALID"
+                              ? "px-3 py-2 font-semibold text-status-success"
+                              : "px-3 py-2 font-semibold text-status-failed"
+                          }
+                        >
+                          {strategy.status}
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground">
+                          {formatStrategyCreatedAt(strategy.createdAt)}
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground">
+                          {strategy.validationError ?? "-"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
           </div>
         </div>
       </SurfaceCard>

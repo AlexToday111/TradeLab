@@ -1,4 +1,4 @@
-<h1 align="center">TradeLab Backend</h1>
+<h1 align="center">Trade360Lab Backend</h1>
 
 <p align="center">
   Бэкенд разделен на два сервиса: Java API и Python parser.

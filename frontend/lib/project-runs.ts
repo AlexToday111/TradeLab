@@ -5,12 +5,18 @@ const projectRunKeywords: Record<string, string[]> = {
   "proj-orbit": ["orbit"],
   "proj-ridge": ["ridge"],
 };
+const PROJECT_TAG_PREFIX = "project:";
 
 function strategyToKey(strategy: string) {
   return strategy.toLowerCase();
 }
 
-export function getRunProjectId(run: Pick<Run, "strategy">) {
+export function getRunProjectId(run: Pick<Run, "strategy"> & Partial<Pick<Run, "tags">>) {
+  const projectTag = run.tags?.find((tag) => tag.startsWith(PROJECT_TAG_PREFIX));
+  if (projectTag) {
+    return projectTag.slice(PROJECT_TAG_PREFIX.length);
+  }
+
   const strategyKey = strategyToKey(run.strategy);
 
   for (const [projectId, keywords] of Object.entries(projectRunKeywords)) {
