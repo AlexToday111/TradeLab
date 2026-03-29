@@ -1,32 +1,53 @@
 package com.example.back.imports.dto;
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
 @NoArgsConstructor
+@Schema(description = "Результат импорта свечей")
 public class ImportCandlesResponse {
 
-    @NotBlank(message = "Статус операции не может быть пустым")
+    @Schema(
+            description = "Статус операции",
+            example = "success"
+    )
     private String status;
 
-    @NotBlank(message = "Биржа не может быть пустой")
+    @Schema(
+            description = "Биржа",
+            example = "binance"
+    )
     private String exchange;
 
-    @NotBlank(message = "Символ (торговая пара) не может быть пустым")
+    @Schema(
+            description = "Торговая пара",
+            example = "BTCUSDT"
+    )
     private String symbol;
 
-    @NotBlank(message = "Интервал свечей не может быть пустым")
+    @Schema(
+            description = "Интервал свечей",
+            example = "1h"
+    )
     private String interval;
 
-    @NotNull(message = "Количество импортированных свечей обязательно")
+    @Schema(
+            description = "Количество импортированных свечей",
+            example = "744"
+    )
     private int imported;
 
-    @NotBlank(message = "Дата начала (from) не может быть пустой")
+    @Schema(
+            description = "Начало диапазона (ISO-8601)",
+            example = "2024-01-01T00:00:00Z"
+    )
     private String from;
 
-    @NotBlank(message = "Дата окончания (to) не может быть пустой")
+    @Schema(
+            description = "Конец диапазона (ISO-8601)",
+            example = "2024-01-31T23:59:59Z"
+    )
     private String to;
 }
