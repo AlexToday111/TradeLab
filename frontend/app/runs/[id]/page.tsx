@@ -82,7 +82,6 @@ export default function RunDetailsPage() {
       <PageHeader
         eyebrow="Детали запуска"
         title={`Запуск ${run.id}`}
-        description="Метрики, графики, артефакты и воспроизводимость выбранного прогона."
       />
       <RunHeader run={run} />
 
