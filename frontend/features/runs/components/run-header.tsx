@@ -11,33 +11,33 @@ export function RunHeader({ run }: { run: Run }) {
     <SurfaceCard contentClassName="p-5">
       <div className="flex flex-col items-center gap-4 text-center">
         <div className="w-full overflow-x-auto">
-          <div className="grid min-w-[980px] grid-cols-[1fr_auto_1fr] items-center gap-3">
-          <div className="flex flex-nowrap items-center justify-end gap-2 pr-2">
-            <Button size="sm" variant="secondary" className="shrink-0">
+          <div className="flex min-w-[940px] items-center justify-between gap-4">
+            <div className="flex flex-1 items-center justify-start gap-2">
+              <Button size="sm" variant="secondary" className="shrink-0">
               <Copy className="mr-2 h-4 w-4" />
               Клонировать конфиг
             </Button>
-            <Button size="sm" variant="secondary" className="shrink-0">
+              <Button size="sm" variant="secondary" className="shrink-0">
               <FileText className="mr-2 h-4 w-4" />
               Открыть версию датасета
             </Button>
-          </div>
-          <div className="flex justify-center">
-            <Button size="sm" className="shrink-0">
-              <SlidersHorizontal className="mr-2 h-4 w-4" />
-              Настройка гиперпараметров
-            </Button>
-          </div>
-          <div className="flex flex-nowrap items-center justify-start gap-2 pl-2">
-            <Button size="sm" variant="secondary" className="shrink-0">
-              <Download className="mr-2 h-4 w-4" />
-              Экспорт
-            </Button>
-            <Button size="sm" variant="secondary" className="shrink-0">
-              <Upload className="mr-2 h-4 w-4" />
-              Импорт
-            </Button>
-          </div>
+            </div>
+            <div className="flex shrink-0 justify-center">
+              <Button size="sm" className="shrink-0">
+                <SlidersHorizontal className="mr-2 h-4 w-4" />
+                Настройка гиперпараметров
+              </Button>
+            </div>
+            <div className="flex flex-1 items-center justify-end gap-2">
+              <Button size="sm" variant="secondary" className="shrink-0">
+                <Download className="mr-2 h-4 w-4" />
+                Экспорт
+              </Button>
+              <Button size="sm" variant="secondary" className="shrink-0">
+                <Upload className="mr-2 h-4 w-4" />
+                Импорт
+              </Button>
+            </div>
           </div>
         </div>
         <Separator />
