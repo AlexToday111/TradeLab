@@ -29,14 +29,14 @@ export const dataSources: DataSource[] = [
     name: "Moex",
     type: "Exchange",
     status: "connected",
-    iconSrc: "/MOEX.png",
+    iconSrc: "/MOEX-removebg-preview.png",
   },
   {
     id: "src-3",
     name: "ByBit",
     type: "Exchange",
     status: "connected",
-    iconSrc: "/ByBit.png",
+    iconSrc: "/ByBit-removebg-preview.png",
   },
   {
     id: "src-4",
@@ -45,7 +45,7 @@ export const dataSources: DataSource[] = [
     status: "idle",
     iconSrc: "/icon-folder.png",
   },
-  { id: "src-5", name: "FOREX", type: "Exchange", status: "connected", iconSrc: "/FOREX.png" },
+  { id: "src-5", name: "FOREX", type: "Exchange", status: "connected", iconSrc: "/FOREX-removebg-preview.png" },
 ];
 
 export const datasetVersions: DatasetVersion[] = [
