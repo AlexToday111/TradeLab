@@ -424,21 +424,22 @@ export default function DesktopPage() {
             ) : null}
 
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {projectSelectionItems.map((item) => {
-                const isProfit = item.averagePnl !== null && item.averagePnl >= 0;
-
+              {projectSelectionItems.map((item, index) => {
                 return (
                   <div
                     key={item.project.id}
-                    className="group rounded-[20px] border border-white/12 bg-[linear-gradient(155deg,rgba(20,27,38,0.95),rgba(9,13,21,0.95))] p-4 transition-all duration-300 hover:-translate-y-0.5 hover:border-white/20 hover:shadow-[0_16px_32px_rgba(0,0,0,0.36)]"
+                    className="group relative overflow-hidden rounded-[20px] border border-white/12 bg-[linear-gradient(155deg,rgba(20,27,38,0.95),rgba(9,13,21,0.95))] p-4 transition-all duration-300 hover:-translate-y-0.5 hover:border-white/20 hover:shadow-[0_16px_32px_rgba(0,0,0,0.36)]"
                   >
-                    <div className="text-base font-semibold text-foreground">
+                    <div className="pointer-events-none absolute right-4 top-3 z-0 select-none text-[82px] font-semibold leading-none text-white/[0.08]">
+                      {(index + 1).toString().padStart(2, "0")}
+                    </div>
+                    <div className="relative z-10 text-base font-semibold text-foreground">
                       {item.project.name}
                     </div>
-                    <div className="mt-1 min-h-[36px] text-xs leading-relaxed text-muted-foreground">
+                    <div className="relative z-10 mt-1 min-h-[36px] text-xs leading-relaxed text-muted-foreground">
                       {item.project.description}
                     </div>
-                    <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                    <div className="relative z-10 mt-3 grid grid-cols-2 gap-2 text-xs">
                       <div className="rounded-[12px] border border-white/10 bg-[rgba(3,6,12,0.46)] px-2.5 py-2">
                         <div className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
                           Датасет
@@ -452,23 +453,7 @@ export default function DesktopPage() {
                         <div className="mt-1 text-foreground">{item.runCount}</div>
                       </div>
                     </div>
-                    <div className="mt-3 flex items-center justify-between">
-                      <div className="text-[11px] text-muted-foreground">
-                        Ср. PnL:{" "}
-                        <span
-                          className={
-                            item.averagePnl === null
-                              ? "text-muted-foreground"
-                              : isProfit
-                                ? "font-medium text-status-success"
-                                : "font-medium text-status-failed"
-                          }
-                        >
-                          {item.averagePnl === null
-                            ? "n/a"
-                            : `${item.averagePnl >= 0 ? "+" : ""}${item.averagePnl.toFixed(1)}%`}
-                        </span>
-                      </div>
+                    <div className="relative z-10 mt-3 flex justify-end">
                       <Button
                         type="button"
                         size="sm"
