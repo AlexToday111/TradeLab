@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { Database, Download, Plus, UploadCloud } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,7 +28,7 @@ import {
   previewRows,
   type DatasetVersion,
 } from "@/lib/demo-data/datasets";
-import { getDataSourceStatusLabel, getDataSourceTypeLabel } from "@/lib/ui-text";
+import { getDataSourceTypeLabel } from "@/lib/ui-text";
 import { cn } from "@/lib/utils";
 
 type DatasetSource = "bybit" | "local";
@@ -1539,31 +1540,33 @@ export default function DataPage() {
         title="Данные"
       />
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
         {dataSources.map((source) => (
           <SurfaceCard
             key={source.id}
             className="py-0"
-            contentClassName="flex items-center justify-between p-4"
+            contentClassName="flex items-center gap-3 p-3.5"
           >
-            <div className="flex items-center gap-3">
-              <div className="rounded-[14px] border border-border bg-panel-subtle p-2">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] border border-border bg-panel-subtle">
+              {source.iconSrc ? (
+                <Image
+                  src={source.iconSrc}
+                  alt=""
+                  width={28}
+                  height={28}
+                  className="h-7 w-7 object-contain"
+                  aria-hidden="true"
+                />
+              ) : (
                 <Database className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <div>
-                <div className="text-sm font-medium text-foreground">{source.name}</div>
-                <div className="text-xs text-muted-foreground">{getDataSourceTypeLabel(source.type)}</div>
+              )}
+            </div>
+            <div className="min-w-0">
+              <div className="truncate text-sm font-medium text-foreground">{source.name}</div>
+              <div className="text-xs text-muted-foreground">
+                {getDataSourceTypeLabel(source.type)}
               </div>
             </div>
-            <Badge
-              className={
-                source.status === "connected"
-                  ? "border border-status-success/40 bg-status-success/20 text-status-success"
-                  : "border border-border bg-secondary text-muted-foreground"
-              }
-            >
-              {getDataSourceStatusLabel(source.status)}
-            </Badge>
           </SurfaceCard>
         ))}
       </div>
