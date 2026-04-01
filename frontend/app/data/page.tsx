@@ -1540,11 +1540,11 @@ export default function DataPage() {
       />
 
       <div className="overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="flex min-w-max gap-3">
+        <div className="grid min-w-[980px] grid-cols-5 gap-3">
           {dataSources.map((source) => (
             <SurfaceCard
               key={source.id}
-              className="w-[200px] flex-none py-0"
+              className="py-0"
               contentClassName="flex items-center gap-3 p-3"
             >
               <div className="flex h-12 w-12 shrink-0 items-center justify-center">
