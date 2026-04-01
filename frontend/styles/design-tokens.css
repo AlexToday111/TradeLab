@@ -1,7 +1,7 @@
 :root,
 .dark {
   color-scheme: dark;
-  --font-sans: "Inter", "Segoe UI", "Noto Sans", sans-serif;
+  --font-sans: "Sora", "Segoe UI", "Noto Sans", sans-serif;
   --font-mono: "JetBrains Mono", "SFMono-Regular", "Menlo", "Monaco", monospace;
   --background: 222 36% 5%;
   --foreground: 220 20% 96%;
