@@ -418,14 +418,6 @@ export default function DesktopPage() {
                     >
                       Создать
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="w-full"
-                      onClick={() => setIsCreateProjectOpen(false)}
-                    >
-                      Отмена
-                    </Button>
                   </div>
                 </div>
               </div>
