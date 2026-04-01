@@ -26,26 +26,26 @@ export const dataSources: DataSource[] = [
   },
   {
     id: "src-2",
-    name: "Moex",
-    type: "Exchange",
-    status: "connected",
-    iconSrc: "/MOEX-removebg-preview.png",
-  },
-  {
-    id: "src-3",
     name: "ByBit",
     type: "Exchange",
     status: "connected",
     iconSrc: "/ByBit-removebg-preview.png",
   },
   {
-    id: "src-4",
-    name: "Локальный CSV",
-    type: "CSV",
-    status: "idle",
-    iconSrc: "/icon-folder.png",
+    id: "src-3",
+    name: "Moex",
+    type: "Exchange",
+    status: "connected",
+    iconSrc: "/MOEX-removebg-preview.png",
   },
-  { id: "src-5", name: "FOREX", type: "Exchange", status: "connected", iconSrc: "/FOREX-removebg-preview.png" },
+  {
+    id: "src-4",
+    name: "FOREX",
+    type: "Exchange",
+    status: "connected",
+    iconSrc: "/FOREX-removebg-preview.png",
+  },
+  { id: "src-5", name: "Локальный CSV", type: "CSV", status: "idle", iconSrc: "/icon-folder.png" },
 ];
 
 export const datasetVersions: DatasetVersion[] = [
