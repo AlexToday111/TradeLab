@@ -742,6 +742,7 @@ export default function DataPage() {
     useState<ImportTemplate[]>(defaultImportTemplates);
   const [selectedTemplateId, setSelectedTemplateId] = useState("none");
   const [templateNameDraft, setTemplateNameDraft] = useState("");
+  const [requestedDataset, setRequestedDataset] = useState("");
 
   const selectedDataset = useMemo(
     () => datasets.find((dataset) => dataset.id === selectedDatasetId) ?? null,
@@ -850,6 +851,51 @@ export default function DataPage() {
   useEffect(() => {
     setRenameDraft(selectedDataset?.name ?? "");
   }, [selectedDataset?.id, selectedDataset?.name]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const datasetFromUrl =
+      new URLSearchParams(window.location.search).get("dataset")?.trim() ?? "";
+    setRequestedDataset(datasetFromUrl);
+  }, []);
+
+  useEffect(() => {
+    if (!requestedDataset || datasets.length === 0) {
+      return;
+    }
+
+    const normalizedRequestedDataset = requestedDataset.toLowerCase();
+    const matchingDataset =
+      datasets.find(
+        (dataset) => dataset.id === requestedDataset || dataset.name === requestedDataset
+      ) ??
+      datasets.find(
+        (dataset) =>
+          dataset.id.toLowerCase() === normalizedRequestedDataset ||
+          dataset.name.toLowerCase() === normalizedRequestedDataset
+      ) ??
+      datasets.find((dataset) =>
+        dataset.name.toLowerCase().includes(normalizedRequestedDataset)
+      );
+
+    if (!matchingDataset) {
+      if (searchQuery !== requestedDataset) {
+        setSearchQuery(requestedDataset);
+      }
+      return;
+    }
+
+    if (matchingDataset.archived && !showArchived) {
+      setShowArchived(true);
+    }
+
+    if (selectedDatasetId !== matchingDataset.id) {
+      setSelectedDatasetId(matchingDataset.id);
+    }
+  }, [datasets, requestedDataset, searchQuery, selectedDatasetId, showArchived]);
 
   const availableTimeframes = useMemo(
     () =>
@@ -2289,4 +2335,3 @@ export default function DataPage() {
     </div>
   );
 }
-

@@ -1,12 +1,20 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { Run } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Download, Copy, FileText, SlidersHorizontal, Upload } from "lucide-react";
+import { Download, SlidersHorizontal, Upload } from "lucide-react";
 import { SurfaceCard } from "@/components/shared/surface-card";
 
 export function RunHeader({ run }: { run: Run }) {
+  const router = useRouter();
+
+  const handleOpenDatasetVersion = () => {
+    const params = new URLSearchParams({ dataset: run.datasetVersion });
+    router.push(`/data?${params.toString()}`);
+  };
+
   return (
     <SurfaceCard contentClassName="p-5">
       <div className="flex flex-col items-center gap-4 text-center">
@@ -14,13 +22,16 @@ export function RunHeader({ run }: { run: Run }) {
           <div className="flex min-w-[940px] items-center justify-between gap-4">
             <div className="flex flex-1 items-center justify-start gap-2">
               <Button size="sm" variant="secondary" className="shrink-0">
-              <Copy className="mr-2 h-4 w-4" />
-              Клонировать конфиг
-            </Button>
-              <Button size="sm" variant="secondary" className="shrink-0">
-              <FileText className="mr-2 h-4 w-4" />
-              Открыть версию датасета
-            </Button>
+                Клонировать конфиг
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                className="shrink-0"
+                onClick={handleOpenDatasetVersion}
+              >
+                Открыть версию датасета
+              </Button>
             </div>
             <div className="flex shrink-0 justify-center">
               <Button size="sm" className="shrink-0">
