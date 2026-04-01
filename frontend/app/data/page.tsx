@@ -1539,32 +1539,34 @@ export default function DataPage() {
         title="Данные"
       />
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {dataSources.map((source) => (
-          <SurfaceCard
-            key={source.id}
-            className="py-0"
-            contentClassName="flex items-center gap-3 p-3.5"
-          >
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center">
-              {source.iconSrc ? (
-                <Image
-                  src={source.iconSrc}
-                  alt=""
-                  width={34}
-                  height={34}
-                  className="h-[34px] w-[34px] object-contain"
-                  aria-hidden="true"
-                />
-              ) : (
-                <Database className="h-5 w-5 text-muted-foreground" />
-              )}
-            </div>
-            <div className="min-w-0">
-              <div className="truncate text-sm font-medium text-foreground">{source.name}</div>
-            </div>
-          </SurfaceCard>
-        ))}
+      <div className="overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex min-w-max gap-3">
+          {dataSources.map((source) => (
+            <SurfaceCard
+              key={source.id}
+              className="w-[200px] flex-none py-0"
+              contentClassName="flex items-center gap-3 p-3"
+            >
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center">
+                {source.iconSrc ? (
+                  <Image
+                    src={source.iconSrc}
+                    alt=""
+                    width={34}
+                    height={34}
+                    className="h-[34px] w-[34px] object-contain"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <Database className="h-5 w-5 text-muted-foreground" />
+                )}
+              </div>
+              <div className="min-w-0">
+                <div className="truncate text-sm font-medium text-foreground">{source.name}</div>
+              </div>
+            </SurfaceCard>
+          ))}
+        </div>
       </div>
 
       <SurfaceCard
