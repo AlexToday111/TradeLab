@@ -4,11 +4,22 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Github, Settings2 } from "lucide-react";
+import { interfaceThemeOptions, type InterfaceTheme, useTheme } from "@/components/theme/theme-provider";
 import { navItems } from "@/components/shell/sidebar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
 export function Topbar() {
   const pathname = usePathname();
+  const { theme, setTheme } = useTheme();
   const primaryNavItems = navItems.filter(
     (item) => !item.gated && item.href !== "/settings"
   );
@@ -100,6 +111,64 @@ export function Topbar() {
           >
             <Github className="h-[18px] w-[18px]" />
           </a>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-transparent text-white/50 transition-all duration-200 hover:border-white/[0.06] hover:bg-white/[0.04] hover:text-white/80"
+                aria-label="Настройки интерфейса"
+              >
+                <Image
+                  src="/icons/settings.svg"
+                  alt=""
+                  width={18}
+                  height={18}
+                  className="h-[18px] w-[18px] shrink-0"
+                  aria-hidden="true"
+                />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              sideOffset={10}
+              className="w-[320px] border-[rgba(110,226,166,0.16)] bg-[linear-gradient(160deg,rgba(12,18,28,0.96),rgba(8,11,18,0.96))] p-2"
+            >
+              <DropdownMenuLabel className="px-3 pt-2 text-base text-white/92">
+                Настройки
+              </DropdownMenuLabel>
+              <div className="px-3 pb-2 text-xs text-white/52">
+                Пока здесь доступен только выбор темы интерфейса.
+              </div>
+              <DropdownMenuSeparator className="bg-white/[0.07]" />
+              <div className="px-3 pb-2 pt-1 text-[11px] uppercase tracking-[0.22em] text-white/38">
+                Тема интерфейса
+              </div>
+              <DropdownMenuRadioGroup
+                value={theme}
+                onValueChange={(value) => setTheme(value as InterfaceTheme)}
+              >
+                {interfaceThemeOptions.map((option) => (
+                  <DropdownMenuRadioItem
+                    key={option.value}
+                    value={option.value}
+                    className="cursor-pointer rounded-[12px] py-2.5 pl-8 pr-3 focus:bg-white/[0.05]"
+                  >
+                    <div className="flex min-w-0 flex-1 items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium text-white/90">{option.label}</div>
+                        <div className="text-[11px] leading-5 text-white/48">
+                          {option.description}
+                        </div>
+                      </div>
+                      <span className="shrink-0 text-[10px] uppercase tracking-[0.22em] text-white/34">
+                        {option.accentLabel}
+                      </span>
+                    </div>
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
           {isSettingsActive ? (
             <Link
               href="/settings"

@@ -26,7 +26,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ru" className="dark">
+    <html lang="ru" className="dark" data-theme="neon" suppressHydrationWarning>
       <body className={`${inter.variable} bg-background text-foreground`}>
         <Providers>
           <AppShell>{children}</AppShell>
