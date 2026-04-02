@@ -1688,7 +1688,9 @@ export default function DataPage() {
                   onClick={() => setSelectedDatasetId(dataset.id)}
                   className={cn(
                     "w-full px-4 py-3 text-left transition",
-                    isSelected ? "bg-secondary/60" : "hover:bg-panel-subtle"
+                    isSelected
+                      ? "bg-[linear-gradient(135deg,rgba(43,213,118,0.22),rgba(111,247,163,0.12))]"
+                      : "hover:bg-panel-subtle"
                   )}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -2128,7 +2130,7 @@ export default function DataPage() {
             <div className="space-y-4">
               <div className="rounded-[18px] border border-border bg-panel-subtle p-4">
                 <div className="mb-3 text-sm font-semibold text-foreground">Действия с датасетом</div>
-                <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
+                <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto_auto]">
                   <Input
                     value={renameDraft}
                     onChange={(event) => setRenameDraft(event.target.value)}
@@ -2140,11 +2142,6 @@ export default function DataPage() {
                   <Button type="button" size="sm" variant="secondary" onClick={handleDuplicateDataset}>
                     Дублировать
                   </Button>
-                  <div className="flex flex-wrap gap-2">
-                    <Button type="button" size="sm" variant="destructive" onClick={handleDeleteDataset}>
-                      Удалить
-                    </Button>
-                  </div>
                 </div>
               </div>
 
@@ -2283,22 +2280,29 @@ export default function DataPage() {
                 </div>
               </div>
 
-              {selectedDataset.mergedCsvUrl ? (
-                <div className="flex flex-wrap items-center gap-3 rounded-[14px] border border-border bg-panel-subtle p-3 text-xs">
-                  <Badge variant="secondary">Merged CSV</Badge>
+              <div className="flex flex-wrap items-center gap-3 rounded-[14px] border border-border bg-panel-subtle p-3 text-xs">
+                {selectedDataset.mergedCsvUrl ? <Badge variant="secondary">Merged CSV</Badge> : null}
+                {selectedDataset.mergedCsvUrl ? (
                   <span className="text-muted-foreground">
                     {selectedDataset.mergedCsvRows?.toLocaleString("ru-RU") ?? 0} строк
                   </span>
-                  <a
-                    href={selectedDataset.mergedCsvUrl}
-                    download={selectedDataset.mergedCsvName}
-                    className="inline-flex items-center text-primary hover:underline"
-                  >
-                    <Download className="mr-1 h-3.5 w-3.5" />
-                    Скачать файл
-                  </a>
+                ) : null}
+                <div className="ml-auto flex flex-wrap gap-2">
+                  {selectedDataset.mergedCsvUrl ? (
+                    <a
+                      href={selectedDataset.mergedCsvUrl}
+                      download={selectedDataset.mergedCsvName}
+                      className="inline-flex items-center rounded-full border border-white/10 bg-[linear-gradient(145deg,rgba(43,213,118,0.12),rgba(111,247,163,0.08))] px-3 py-1.5 text-xs text-secondary-foreground transition hover:border-[rgba(92,240,158,0.24)] hover:shadow-[0_0_20px_rgba(43,213,118,0.14)]"
+                    >
+                      <Download className="mr-1.5 h-3.5 w-3.5" />
+                      Экспорт данных
+                    </a>
+                  ) : null}
+                  <Button type="button" size="sm" variant="destructive" onClick={handleDeleteDataset}>
+                    Удалить
+                  </Button>
                 </div>
-              ) : null}
+              </div>
 
               <Table>
                 <TableHeader>
