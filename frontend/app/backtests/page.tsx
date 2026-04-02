@@ -5,7 +5,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Download, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { PageHeader } from "@/components/shared/page-header";
 import { SurfaceCard } from "@/components/shared/surface-card";
 import { RunsTable } from "@/features/runs/components/runs-table";
@@ -26,14 +32,11 @@ function parseRunDate(value: string) {
 function BacktestsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { runs, createRemoteRun } = useRuns();
+  const { runs, createRemoteRun, deleteRun } = useRuns();
 
   const [selected, setSelected] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | RunStatus>("all");
-  const [tagFilter, setTagFilter] = useState<"any" | "baseline" | "candidate" | "prod-like">(
-    "any"
-  );
   const [timeframeFilter, setTimeframeFilter] = useState<string>("all");
   const [projectFilter, setProjectFilter] = useState<string>("all");
 
@@ -48,18 +51,22 @@ function BacktestsPageContent() {
     }
   }, [searchParams]);
 
-  const availableTimeframes = useMemo(
-    () => Array.from(new Set(runs.map((run) => run.timeframe))).sort(),
+  const realRuns = useMemo(
+    () => runs.filter((run) => typeof run.backendRunId === "number"),
     [runs]
+  );
+
+  const availableTimeframes = useMemo(
+    () => Array.from(new Set(realRuns.map((run) => run.timeframe))).sort(),
+    [realRuns]
   );
 
   const filteredRuns = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
-    return runs
+    return realRuns
       .filter((run) => {
         const statusMatch = statusFilter === "all" || run.status === statusFilter;
-        const tagMatch = tagFilter === "any" || run.tags.includes(tagFilter);
         const timeframeMatch = timeframeFilter === "all" || run.timeframe === timeframeFilter;
         const projectMatch =
           projectFilter === "all" || getRunProjectId(run) === projectFilter;
@@ -69,24 +76,25 @@ function BacktestsPageContent() {
           run.strategy.toLowerCase().includes(query) ||
           run.datasetVersion.toLowerCase().includes(query);
 
-        return statusMatch && tagMatch && timeframeMatch && projectMatch && searchMatch;
+        return statusMatch && timeframeMatch && projectMatch && searchMatch;
       })
       .sort((a, b) => parseRunDate(b.createdAt) - parseRunDate(a.createdAt));
-  }, [runs, searchQuery, statusFilter, tagFilter, timeframeFilter, projectFilter]);
+  }, [projectFilter, realRuns, searchQuery, statusFilter, timeframeFilter]);
 
   const filteredIds = useMemo(() => filteredRuns.map((run) => run.id), [filteredRuns]);
   const selectedVisibleIds = selected.filter((id) => filteredIds.includes(id));
   const selectedVisibleCount = selectedVisibleIds.length;
 
-  const statusStats = useMemo(() => {
-    return {
+  const statusStats = useMemo(
+    () => ({
       total: filteredRuns.length,
       queued: filteredRuns.filter((run) => run.status === "queued").length,
       running: filteredRuns.filter((run) => run.status === "running").length,
       done: filteredRuns.filter((run) => run.status === "done").length,
       failed: filteredRuns.filter((run) => run.status === "failed").length,
-    };
-  }, [filteredRuns]);
+    }),
+    [filteredRuns]
+  );
 
   const toggleRun = (id: string) => {
     setSelected((prev) =>
@@ -94,8 +102,13 @@ function BacktestsPageContent() {
     );
   };
 
+  const handleDeleteRun = (id: string) => {
+    deleteRun(id);
+    setSelected((prev) => prev.filter((item) => item !== id));
+  };
+
   const handleBulkRerun = async () => {
-    const selectedRuns = runs.filter((run) => selectedVisibleIds.includes(run.id));
+    const selectedRuns = realRuns.filter((run) => selectedVisibleIds.includes(run.id));
 
     await Promise.all(
       selectedRuns
@@ -117,7 +130,7 @@ function BacktestsPageContent() {
   };
 
   const handleBulkExport = () => {
-    const selectedRuns = runs.filter((run) => selectedVisibleIds.includes(run.id));
+    const selectedRuns = realRuns.filter((run) => selectedVisibleIds.includes(run.id));
     const header = ["id", "status", "strategy", "dataset", "timeframe", "period", "pnl", "sharpe"];
     const rows = selectedRuns.map((run) => [
       run.id,
@@ -199,7 +212,10 @@ function BacktestsPageContent() {
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
           />
-          <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as "all" | RunStatus)}>
+          <Select
+            value={statusFilter}
+            onValueChange={(value) => setStatusFilter(value as "all" | RunStatus)}
+          >
             <SelectTrigger className="h-8 w-[160px] text-xs">
               <SelectValue />
             </SelectTrigger>
@@ -209,17 +225,6 @@ function BacktestsPageContent() {
               <SelectItem value="running">Выполняется</SelectItem>
               <SelectItem value="done">Завершен</SelectItem>
               <SelectItem value="failed">Ошибка</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={tagFilter} onValueChange={(value) => setTagFilter(value as "any" | "baseline" | "candidate" | "prod-like")}>
-            <SelectTrigger className="h-8 w-[160px] text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="any">Любой тег</SelectItem>
-              <SelectItem value="baseline">Базовый</SelectItem>
-              <SelectItem value="candidate">Кандидат</SelectItem>
-              <SelectItem value="prod-like">Как в проде</SelectItem>
             </SelectContent>
           </Select>
           <Select value={projectFilter} onValueChange={setProjectFilter}>
@@ -255,7 +260,6 @@ function BacktestsPageContent() {
             onClick={() => {
               setSearchQuery("");
               setStatusFilter("all");
-              setTagFilter("any");
               setProjectFilter("all");
               setTimeframeFilter("all");
             }}
@@ -276,6 +280,7 @@ function BacktestsPageContent() {
             selectedIds={selected}
             onToggle={toggleRun}
             onRowClick={(id) => router.push(`/runs/${id}`)}
+            onDelete={handleDeleteRun}
           />
         ) : (
           <div className="m-4 rounded-[14px] border border-dashed border-border bg-panel-subtle p-5 text-sm text-muted-foreground">

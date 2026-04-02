@@ -1,22 +1,25 @@
 "use client";
 
+import Link from "next/link";
+import { ExternalLink, Trash2 } from "lucide-react";
 import { Run } from "@/lib/types";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { RunStatusBadge } from "@/features/runs/components/run-badges";
-import { getRunTagLabel } from "@/lib/ui-text";
 
 export function RunsTable({
   runs,
   selectedIds,
   onToggle,
   onRowClick,
+  onDelete,
 }: {
   runs: Run[];
   selectedIds: string[];
   onToggle: (id: string) => void;
   onRowClick: (id: string) => void;
+  onDelete: (id: string) => void;
 }) {
   return (
     <Table>
@@ -32,7 +35,7 @@ export function RunsTable({
           <TableHead>Шарп</TableHead>
           <TableHead>Макс. просадка</TableHead>
           <TableHead>Сделки</TableHead>
-          <TableHead>Теги</TableHead>
+          <TableHead className="text-right">Действия</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -75,12 +78,30 @@ export function RunsTable({
             <TableCell className="text-xs text-muted-foreground">
               {run.metrics.trades}
             </TableCell>
-            <TableCell className="flex flex-wrap gap-1">
-              {run.tags.map((tag) => (
-                <Badge key={tag} variant="secondary" className="text-[10px]">
-                  {getRunTagLabel(tag)}
-                </Badge>
-              ))}
+            <TableCell className="w-[108px]" onClick={(event) => event.stopPropagation()}>
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="secondary"
+                  className="h-8 w-8 rounded-full"
+                  onClick={() => onDelete(run.id)}
+                  title="Удалить"
+                  aria-label="Удалить"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+                <Button
+                  asChild
+                  size="icon"
+                  variant="secondary"
+                  className="h-8 w-8 rounded-full"
+                >
+                  <Link href={`/runs/${run.id}`} aria-label="Открыть" title="Открыть">
+                    <ExternalLink className="h-4 w-4" />
+                  </Link>
+                </Button>
+              </div>
             </TableCell>
           </TableRow>
         ))}
