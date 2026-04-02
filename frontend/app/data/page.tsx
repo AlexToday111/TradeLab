@@ -1545,24 +1545,26 @@ export default function DataPage() {
             <SurfaceCard
               key={source.id}
               className="py-0"
-              contentClassName="flex items-center gap-3 p-3"
+              contentClassName="relative flex min-h-[88px] items-center overflow-hidden px-5 py-4"
             >
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center">
+              <div className="relative z-10 min-w-0 pr-12">
+                <div className="truncate text-lg font-semibold tracking-tight text-foreground">
+                  {source.name}
+                </div>
+              </div>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex aspect-square h-full translate-x-1/2 items-center justify-center">
                 {source.iconSrc ? (
                   <Image
                     src={source.iconSrc}
                     alt=""
-                    width={34}
-                    height={34}
-                    className="h-[34px] w-[34px] object-contain"
+                    width={96}
+                    height={96}
+                    className="h-full w-full object-contain opacity-90"
                     aria-hidden="true"
                   />
                 ) : (
-                  <Database className="h-5 w-5 text-muted-foreground" />
+                  <Database className="h-full w-full text-muted-foreground/90" />
                 )}
-              </div>
-              <div className="min-w-0">
-                <div className="truncate text-sm font-medium text-foreground">{source.name}</div>
               </div>
             </SurfaceCard>
           ))}
