@@ -29,6 +29,11 @@ function parseRunDate(value: string) {
   return Number.isNaN(parsed) ? 0 : parsed;
 }
 
+function extractIdSearchQuery(value: string) {
+  const match = value.trim().match(/^id\s*[:=]\s*(.+)$/i);
+  return match ? match[1].trim().toLowerCase() : null;
+}
+
 function BacktestsPageContent() {
   const searchParams = useSearchParams();
   const { runs, deleteRun } = useRuns();
@@ -62,6 +67,7 @@ function BacktestsPageContent() {
 
   const filteredRuns = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
+    const idQuery = extractIdSearchQuery(searchQuery);
 
     return realRuns
       .filter((run) => {
@@ -69,9 +75,12 @@ function BacktestsPageContent() {
         const timeframeMatch = timeframeFilter === "all" || run.timeframe === timeframeFilter;
         const projectMatch =
           projectFilter === "all" || getRunProjectId(run) === projectFilter;
+        const runId = String(run.id).toLowerCase();
         const searchMatch =
           query.length === 0 ||
-          run.id.toLowerCase().includes(query) ||
+          (idQuery !== null
+            ? runId === idQuery || runId.includes(idQuery)
+            : runId.includes(query)) ||
           run.strategy.toLowerCase().includes(query) ||
           run.datasetVersion.toLowerCase().includes(query);
 
@@ -286,7 +295,11 @@ function BacktestsPageContent() {
       <SurfaceCard
         contentClassName="p-0"
         title="Список запусков"
-        subtitle={`Показано: ${filteredRuns.length}. Выбрано: ${selectedVisibleCount}.`}
+        actions={
+          <div className="text-right text-xs text-muted-foreground">
+            Показано: {filteredRuns.length}. Выбрано: {selectedVisibleCount}.
+          </div>
+        }
       >
         {filteredRuns.length > 0 ? (
           <RunsTable
