@@ -147,24 +147,34 @@ function BacktestsPageContent() {
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <SurfaceCard className="py-0" contentClassName="p-3">
-          <div className="text-[11px] uppercase text-muted-foreground">Всего</div>
-          <div className="text-lg font-semibold text-foreground">{statusStats.total}</div>
+          <div className="text-center text-sm font-medium uppercase tracking-[0.08em] text-muted-foreground">
+            Всего
+          </div>
+          <div className="text-right text-2xl font-semibold text-foreground">{statusStats.total}</div>
         </SurfaceCard>
         <SurfaceCard className="py-0" contentClassName="p-3">
-          <div className="text-[11px] uppercase text-muted-foreground">В очереди</div>
-          <div className="text-lg font-semibold text-status-warning">{statusStats.queued}</div>
+          <div className="text-center text-sm font-medium uppercase tracking-[0.08em] text-muted-foreground">
+            В очереди
+          </div>
+          <div className="text-right text-2xl font-semibold text-status-warning">{statusStats.queued}</div>
         </SurfaceCard>
         <SurfaceCard className="py-0" contentClassName="p-3">
-          <div className="text-[11px] uppercase text-muted-foreground">Выполняется</div>
-          <div className="text-lg font-semibold text-status-running">{statusStats.running}</div>
+          <div className="text-center text-sm font-medium uppercase tracking-[0.08em] text-muted-foreground">
+            Выполняется
+          </div>
+          <div className="text-right text-2xl font-semibold text-status-running">{statusStats.running}</div>
         </SurfaceCard>
         <SurfaceCard className="py-0" contentClassName="p-3">
-          <div className="text-[11px] uppercase text-muted-foreground">Завершено</div>
-          <div className="text-lg font-semibold text-status-success">{statusStats.done}</div>
+          <div className="text-center text-sm font-medium uppercase tracking-[0.08em] text-muted-foreground">
+            Завершено
+          </div>
+          <div className="text-right text-2xl font-semibold text-status-success">{statusStats.done}</div>
         </SurfaceCard>
         <SurfaceCard className="py-0" contentClassName="p-3">
-          <div className="text-[11px] uppercase text-muted-foreground">Ошибки</div>
-          <div className="text-lg font-semibold text-status-failed">{statusStats.failed}</div>
+          <div className="text-center text-sm font-medium uppercase tracking-[0.08em] text-muted-foreground">
+            Ошибки
+          </div>
+          <div className="text-right text-2xl font-semibold text-status-failed">{statusStats.failed}</div>
         </SurfaceCard>
       </div>
 
