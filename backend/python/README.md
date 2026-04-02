@@ -34,6 +34,10 @@ backend/python/
 
 <h2 align="center">API</h2>
 
+Swagger UI: `http://localhost:8000/docs`  
+ReDoc: `http://localhost:8000/redoc`  
+OpenAPI JSON: `http://localhost:8000/openapi.json`
+
 - `GET /health`
 - `POST /internal/import/candles`
 

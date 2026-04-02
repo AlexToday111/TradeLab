@@ -4,11 +4,21 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Github, Settings2 } from "lucide-react";
+import { interfaceThemeOptions, useTheme } from "@/components/theme/theme-provider";
 import { navItems } from "@/components/shell/sidebar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
 export function Topbar() {
   const pathname = usePathname();
+  const { theme, setTheme } = useTheme();
   const primaryNavItems = navItems.filter(
     (item) => !item.gated && item.href !== "/settings"
   );
@@ -45,7 +55,7 @@ export function Topbar() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "group flex h-10 shrink-0 items-center gap-2 rounded-full border px-4 text-[13px] font-medium text-white/66 transition-all duration-200",
+                  "group flex h-10 shrink-0 items-center gap-2 rounded-full border px-4 text-[14px] font-semibold text-white/66 transition-all duration-200",
                   isActive
                     ? "border-[#c7ee51]/40 bg-[#c7ee51]/14 text-[#c7ee51] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
                     : "border-transparent bg-transparent hover:border-white/[0.04] hover:bg-white/[0.03] hover:text-white/88"
@@ -100,6 +110,70 @@ export function Topbar() {
           >
             <Github className="h-[18px] w-[18px]" />
           </a>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-transparent text-white/50 transition-all duration-200 hover:border-white/[0.06] hover:bg-white/[0.04] hover:text-white/80"
+                aria-label="Настройки интерфейса"
+              >
+                <Image
+                  src="/icons/settings.svg"
+                  alt=""
+                  width={18}
+                  height={18}
+                  className="h-[18px] w-[18px] shrink-0"
+                  aria-hidden="true"
+                />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              sideOffset={10}
+              className="w-[320px] border-[rgba(110,226,166,0.16)] bg-[linear-gradient(160deg,rgba(12,18,28,0.96),rgba(8,11,18,0.96))] p-2"
+            >
+              <DropdownMenuLabel className="px-3 pt-2 text-base text-white/92">
+                Настройки
+              </DropdownMenuLabel>
+              <div className="px-3 pb-2 text-xs text-white/52">
+                Пока здесь доступен только выбор темы интерфейса.
+              </div>
+              <DropdownMenuSeparator className="bg-white/[0.07]" />
+              <div className="px-3 pb-2 pt-1 text-[11px] uppercase tracking-[0.22em] text-white/38">
+                Тема интерфейса
+              </div>
+              <div className="space-y-1 px-1 pb-1">
+                {interfaceThemeOptions.map((option) => {
+                  const isSelected = option.value === theme;
+
+                  return (
+                    <DropdownMenuItem
+                      key={option.value}
+                      disabled={option.disabled}
+                      onSelect={(event) => {
+                        if (option.disabled) {
+                          event.preventDefault();
+                          return;
+                        }
+
+                        setTheme("black");
+                      }}
+                      className={cn(
+                        "rounded-[12px] px-3 py-2.5 text-sm font-medium focus:bg-white/[0.05]",
+                        option.disabled
+                          ? "cursor-default text-white/28"
+                          : "cursor-pointer text-white/78",
+                        isSelected &&
+                          "bg-[#c9ef4e]/12 text-[#C9EF4E] focus:bg-[#c9ef4e]/12 focus:text-[#C9EF4E]"
+                      )}
+                    >
+                      <span>{option.label}</span>
+                    </DropdownMenuItem>
+                  );
+                })}
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
           {isSettingsActive ? (
             <Link
               href="/settings"

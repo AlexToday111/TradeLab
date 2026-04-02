@@ -33,6 +33,9 @@ backend/java/
 
 <h2 align="center">Endpoints</h2>
 
+Swagger UI: `http://localhost:8080/swagger-ui/index.html`  
+OpenAPI JSON: `http://localhost:8080/v3/api-docs`
+
 - `GET /api/health`
 - `GET /api/python/health`
 - `GET /api/datasets`

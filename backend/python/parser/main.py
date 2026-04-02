@@ -3,7 +3,7 @@ import logging
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from parser.candles.repositories.candle_repository import CandleRepository
 from parser.common.config.db import get_connection, initialize_schema
@@ -26,14 +26,32 @@ logger = logging.getLogger(__name__)
 
 
 class HealthResponse(BaseModel):
-    status: str
-    service: str
+    status: str = Field(description="Service health status.", examples=["ok"])
+    service: str = Field(description="Service identifier.", examples=["python-parser"])
+
+
+class ErrorResponse(BaseModel):
+    status: str = Field(description="Error status.", examples=["error"])
+    message: str = Field(description="Human-readable error message.", examples=["Dataset was not found"])
 
 
 def create_app() -> FastAPI:
     configure_logging()
 
-    app = FastAPI(title="TradeLab Python Parser", version="0.1.0")
+    app = FastAPI(
+        title="TradeLab Python Parser API",
+        version="0.1.0",
+        description="Internal API for candle imports, strategy validation, and strategy execution.",
+        docs_url="/docs",
+        redoc_url="/redoc",
+        openapi_url="/openapi.json",
+        openapi_tags=[
+            {"name": "health", "description": "Service health endpoints."},
+            {"name": "imports", "description": "Market candle import operations."},
+            {"name": "strategies", "description": "Strategy validation endpoints."},
+            {"name": "runs", "description": "Strategy execution endpoints."},
+        ],
+    )
 
     @app.on_event("startup")
     async def on_startup() -> None:
@@ -52,11 +70,24 @@ def create_app() -> FastAPI:
         logger.exception("Application error: %s", exc.message)
         return JSONResponse(status_code=exc.status_code, content={"status": "error", "message": exc.message})
 
-    @app.get("/health", response_model=HealthResponse)
+    @app.get(
+        "/health",
+        response_model=HealthResponse,
+        tags=["health"],
+        summary="Check parser health",
+        description="Returns the current status of the Python parser service.",
+    )
     async def healthcheck() -> HealthResponse:
         return HealthResponse(status="ok", service="python-parser")
 
-    @app.post("/internal/import/candles", response_model=CandleImportResponse)
+    @app.post(
+        "/internal/import/candles",
+        response_model=CandleImportResponse,
+        tags=["imports"],
+        summary="Import candles",
+        description="Fetches candles from the configured exchange and stores them in PostgreSQL.",
+        responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}},
+    )
     async def import_candles(request: CandleImportRequest) -> CandleImportResponse:
         logger.info("Incoming candle import request")
         connection = get_connection()
@@ -67,13 +98,27 @@ def create_app() -> FastAPI:
         finally:
             connection.close()
 
-    @app.post("/internal/strategies/validate", response_model=StrategyValidationResponse)
+    @app.post(
+        "/internal/strategies/validate",
+        response_model=StrategyValidationResponse,
+        tags=["strategies"],
+        summary="Validate strategy file",
+        description="Loads a strategy file and validates its exported metadata and parameters schema.",
+        responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}},
+    )
     async def validate_strategy(request: StrategyValidationRequest) -> StrategyValidationResponse:
         logger.info("Incoming strategy validation request for %s", request.file_path)
         service = StrategyValidationService()
         return service.validate(request.file_path)
 
-    @app.post("/internal/runs/execute", response_model=RunExecuteResponse)
+    @app.post(
+        "/internal/runs/execute",
+        response_model=RunExecuteResponse,
+        tags=["runs"],
+        summary="Execute strategy run",
+        description="Executes a strategy against stored candles for the requested range and parameters.",
+        responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}},
+    )
     async def execute_run(request: RunExecuteRequest) -> RunExecuteResponse:
         logger.info("Incoming strategy run request for %s", request.strategy_file_path)
 

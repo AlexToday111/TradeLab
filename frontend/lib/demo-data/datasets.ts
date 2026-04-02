@@ -3,6 +3,7 @@ export type DataSource = {
   name: string;
   type: "Exchange" | "API" | "CSV" | "S3";
   status: "connected" | "idle";
+  iconSrc?: string;
 };
 
 export type DatasetVersion = {
@@ -16,8 +17,35 @@ export type DatasetVersion = {
 };
 
 export const dataSources: DataSource[] = [
-  { id: "src-1", name: "Binance Spot", type: "Exchange", status: "connected" },
-  { id: "src-3", name: "Локальный CSV", type: "CSV", status: "idle" },
+  {
+    id: "src-1",
+    name: "Binance Spot",
+    type: "Exchange",
+    status: "connected",
+    iconSrc: "/icon-binance-coin.png",
+  },
+  {
+    id: "src-2",
+    name: "ByBit",
+    type: "Exchange",
+    status: "connected",
+    iconSrc: "/ByBit-removebg-preview.png",
+  },
+  {
+    id: "src-3",
+    name: "Moex",
+    type: "Exchange",
+    status: "connected",
+    iconSrc: "/MOEX-removebg-preview.png",
+  },
+  {
+    id: "src-4",
+    name: "FOREX",
+    type: "Exchange",
+    status: "connected",
+    iconSrc: "/FOREX-removebg-preview.png",
+  },
+  { id: "src-5", name: "Локальный CSV", type: "CSV", status: "idle", iconSrc: "/icon-folder.png" },
 ];
 
 export const datasetVersions: DatasetVersion[] = [

@@ -8,6 +8,7 @@ type RunStore = {
   runs: Run[];
   addRun: (run: Run) => void;
   updateRun: (id: string, update: Partial<Run>) => void;
+  deleteRun: (id: string) => void;
   getRunById: (id: string) => Run | undefined;
 };
 
@@ -58,10 +59,14 @@ export function RunStoreProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
+  const deleteRun = (id: string) => {
+    setRuns((prev) => prev.filter((run) => run.id !== id));
+  };
+
   const getRunById = (id: string) => runs.find((run) => run.id === id);
 
   return (
-    <RunStoreContext.Provider value={{ runs, addRun, updateRun, getRunById }}>
+    <RunStoreContext.Provider value={{ runs, addRun, updateRun, deleteRun, getRunById }}>
       {children}
     </RunStoreContext.Provider>
   );

@@ -1,23 +1,30 @@
 package com.example.back.strategies.dto;
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
 
 import java.util.Map;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Schema(description = "Результат валидации стратегии")
 public class StrategyValidationResponse {
-    @NotNull(message = "Поле valid обязательно")
+
+    @Schema(description = "Признак валидности стратегии", example = "true")
     private Boolean valid;
-    @NotBlank(message = "Название стратегии не может быть пустым")
+
+    @Schema(description = "Название стратегии", example = "RSI Strategy")
     private String name;
-    @NotNull(message = "Схема параметров обязательна")
+
+    @Schema(
+            description = "Схема параметров стратегии",
+            example = "{\"period\":{\"type\":\"integer\",\"default\":14}}"
+    )
     private Map<String, Object> parametersSchema;
 
+    @Schema(description = "Ошибка валидации", example = "Function run(data, params) not found")
     private String error;
 }

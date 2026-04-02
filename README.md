@@ -11,6 +11,7 @@ Trade360Lab — это монорепозиторий платформы для 
 flowchart TB
     A[Trade360Lab]
 
+    A --> L[Landing]
     A --> F[Frontend]
     A --> B[Backend]
 
@@ -57,6 +58,9 @@ flowchart TB
     J --> D
     J --> P
     P --> D
+
+    %% Landing connection
+    L --> F
 ```
 
 <h2 align="center">Текущая структура проекта</h2>

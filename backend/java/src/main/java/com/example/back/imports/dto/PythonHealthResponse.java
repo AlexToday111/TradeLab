@@ -1,16 +1,23 @@
 package com.example.back.imports.dto;
 
-import jakarta.validation.constraints.NotBlank;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
 @NoArgsConstructor
+@Schema(description = "Ответ от Python parser сервиса")
 public class PythonHealthResponse {
 
-    @NotBlank(message = "Статус не может быть пустым")
+    @Schema(
+            description = "Статус сервиса",
+            example = "ok"
+    )
     private String status;
 
-    @NotBlank(message = "Название сервиса не может быть пустым")
+    @Schema(
+            description = "Название сервиса",
+            example = "python-parser"
+    )
     private String service;
 }

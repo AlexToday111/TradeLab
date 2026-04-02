@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { Database, Download, Plus, UploadCloud } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,7 +28,6 @@ import {
   previewRows,
   type DatasetVersion,
 } from "@/lib/demo-data/datasets";
-import { getDataSourceStatusLabel, getDataSourceTypeLabel } from "@/lib/ui-text";
 import { cn } from "@/lib/utils";
 
 type DatasetSource = "bybit" | "local";
@@ -742,6 +742,7 @@ export default function DataPage() {
     useState<ImportTemplate[]>(defaultImportTemplates);
   const [selectedTemplateId, setSelectedTemplateId] = useState("none");
   const [templateNameDraft, setTemplateNameDraft] = useState("");
+  const [requestedDataset, setRequestedDataset] = useState("");
 
   const selectedDataset = useMemo(
     () => datasets.find((dataset) => dataset.id === selectedDatasetId) ?? null,
@@ -850,6 +851,51 @@ export default function DataPage() {
   useEffect(() => {
     setRenameDraft(selectedDataset?.name ?? "");
   }, [selectedDataset?.id, selectedDataset?.name]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const datasetFromUrl =
+      new URLSearchParams(window.location.search).get("dataset")?.trim() ?? "";
+    setRequestedDataset(datasetFromUrl);
+  }, []);
+
+  useEffect(() => {
+    if (!requestedDataset || datasets.length === 0) {
+      return;
+    }
+
+    const normalizedRequestedDataset = requestedDataset.toLowerCase();
+    const matchingDataset =
+      datasets.find(
+        (dataset) => dataset.id === requestedDataset || dataset.name === requestedDataset
+      ) ??
+      datasets.find(
+        (dataset) =>
+          dataset.id.toLowerCase() === normalizedRequestedDataset ||
+          dataset.name.toLowerCase() === normalizedRequestedDataset
+      ) ??
+      datasets.find((dataset) =>
+        dataset.name.toLowerCase().includes(normalizedRequestedDataset)
+      );
+
+    if (!matchingDataset) {
+      if (searchQuery !== requestedDataset) {
+        setSearchQuery(requestedDataset);
+      }
+      return;
+    }
+
+    if (matchingDataset.archived && !showArchived) {
+      setShowArchived(true);
+    }
+
+    if (selectedDatasetId !== matchingDataset.id) {
+      setSelectedDatasetId(matchingDataset.id);
+    }
+  }, [datasets, requestedDataset, searchQuery, selectedDatasetId, showArchived]);
 
   const availableTimeframes = useMemo(
     () =>
@@ -1493,33 +1539,34 @@ export default function DataPage() {
         title="Данные"
       />
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {dataSources.map((source) => (
-          <SurfaceCard
-            key={source.id}
-            className="py-0"
-            contentClassName="flex items-center justify-between p-4"
-          >
-            <div className="flex items-center gap-3">
-              <div className="rounded-[14px] border border-border bg-panel-subtle p-2">
-                <Database className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <div>
-                <div className="text-sm font-medium text-foreground">{source.name}</div>
-                <div className="text-xs text-muted-foreground">{getDataSourceTypeLabel(source.type)}</div>
-              </div>
-            </div>
-            <Badge
-              className={
-                source.status === "connected"
-                  ? "border border-status-success/40 bg-status-success/20 text-status-success"
-                  : "border border-border bg-secondary text-muted-foreground"
-              }
+      <div className="overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="grid min-w-[980px] grid-cols-5 gap-3">
+          {dataSources.map((source) => (
+            <SurfaceCard
+              key={source.id}
+              className="py-0"
+              contentClassName="flex items-center gap-3 p-3"
             >
-              {getDataSourceStatusLabel(source.status)}
-            </Badge>
-          </SurfaceCard>
-        ))}
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center">
+                {source.iconSrc ? (
+                  <Image
+                    src={source.iconSrc}
+                    alt=""
+                    width={34}
+                    height={34}
+                    className="h-[34px] w-[34px] object-contain"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <Database className="h-5 w-5 text-muted-foreground" />
+                )}
+              </div>
+              <div className="min-w-0">
+                <div className="truncate text-sm font-medium text-foreground">{source.name}</div>
+              </div>
+            </SurfaceCard>
+          ))}
+        </div>
       </div>
 
       <SurfaceCard
@@ -2072,7 +2119,7 @@ export default function DataPage() {
           subtitle={
             selectedDataset
               ? "Метаданные и первые строки выбранного датасета."
-              : "Сначала выберите датасет слева."
+              : undefined
           }
         >
           {selectedDataset ? (
@@ -2289,4 +2336,3 @@ export default function DataPage() {
     </div>
   );
 }
-

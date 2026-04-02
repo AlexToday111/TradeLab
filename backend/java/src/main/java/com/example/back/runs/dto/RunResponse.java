@@ -1,7 +1,6 @@
 package com.example.back.runs.dto;
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -12,41 +11,61 @@ import java.util.Map;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Schema(description = "Информация о запуске стратегии")
 public class RunResponse {
 
-    @NotNull(message = "ID запуска не может быть пустым")
+    @Schema(description = "ID запуска", example = "1")
     private Long id;
 
-    @NotNull(message = "ID стратегии не может быть пустым")
+    @Schema(description = "ID стратегии", example = "42")
     private Long strategyId;
 
-    @NotBlank(message = "Статус не может быть пустым")
+    @Schema(description = "Статус выполнения", example = "COMPLETED")
     private String status;
 
-    @NotBlank(message = "Биржа не может быть пустой")
+    @Schema(description = "Биржа", example = "binance")
     private String exchange;
 
-    @NotBlank(message = "Символ не может быть пустым")
+    @Schema(description = "Торговая пара", example = "BTCUSDT")
     private String symbol;
 
-    @NotBlank(message = "Интервал не может быть пустым")
+    @Schema(description = "Интервал", example = "1h")
     private String interval;
 
-    @NotBlank(message = "Дата начала не может быть пустой")
+    @Schema(description = "Начало диапазона", example = "2024-01-01T00:00:00Z")
     private String from;
 
-    @NotBlank(message = "Дата окончания не может быть пустой")
+    @Schema(description = "Конец диапазона", example = "2024-01-31T23:59:59Z")
     private String to;
 
-    @NotNull(message = "Параметры не могут быть пустыми")
+    @Schema(
+            description = "Параметры стратегии",
+            example = "{\"period\": 14}"
+    )
     private Map<String, Object> params;
 
+    @Schema(
+            description = "Результирующие метрики",
+            example = "{\"profit\": 1234.56}"
+    )
     private Map<String, Object> metrics;
 
+    @Schema(description = "Сообщение об ошибке", example = "Execution timeout")
     private String errorMessage;
 
-    @NotNull(message = "Дата создания не может быть пустой")
+    @Schema(
+            description = "Дата создания",
+            example = "2024-01-01T00:00:00Z",
+            type = "string",
+            format = "date-time"
+    )
     private Instant createdAt;
 
+    @Schema(
+            description = "Дата завершения",
+            example = "2024-01-01T01:00:00Z",
+            type = "string",
+            format = "date-time"
+    )
     private Instant finishedAt;
 }

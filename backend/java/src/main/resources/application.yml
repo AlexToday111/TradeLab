@@ -26,6 +26,14 @@ spring:
     serialization:
       write-dates-as-timestamps: false
 
+  springdoc:
+    api-docs:
+      path: /v3/api-docs
+    swagger-ui:
+      path: /swagger-ui.html
+      operations-sorter: method
+      tags-sorter: alpha
+
 app:
   strategy-storage-path: ./storage/strategies
 
