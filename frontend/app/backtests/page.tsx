@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Download } from "lucide-react";
+import { Download, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -101,9 +101,9 @@ function BacktestsPageContent() {
     );
   };
 
-  const handleDeleteRun = (id: string) => {
-    deleteRun(id);
-    setSelected((prev) => prev.filter((item) => item !== id));
+  const handleBulkDelete = () => {
+    selectedVisibleIds.forEach((id) => deleteRun(id));
+    setSelected((prev) => prev.filter((id) => !selectedVisibleIds.includes(id)));
   };
 
   const handleBulkExport = () => {
@@ -138,43 +138,79 @@ function BacktestsPageContent() {
       <PageHeader
         title="Бэктесты"
         actions={
-          <Button size="sm" onClick={handleBulkExport} disabled={selectedVisibleCount === 0}>
-            <Download className="mr-2 h-4 w-4" />
-            Экспорт выбранных
-          </Button>
+          <>
+            <Button size="sm" onClick={handleBulkExport} disabled={selectedVisibleCount === 0}>
+              <Download className="mr-2 h-4 w-4" />
+              Экспорт выбранных
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={handleBulkDelete}
+              disabled={selectedVisibleCount === 0}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Удалить выбранные
+            </Button>
+          </>
         }
       />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <SurfaceCard className="py-0" contentClassName="flex min-h-[78px] items-center justify-between gap-3 px-4 py-3">
+        <SurfaceCard
+          className="py-0"
+          contentClassName="flex min-h-[78px] items-center justify-between gap-3 px-4 py-3"
+        >
           <div className="text-left text-sm font-medium uppercase tracking-[0.08em] text-muted-foreground">
             Всего
           </div>
-          <div className="text-right text-[2rem] font-semibold leading-none text-foreground">{statusStats.total}</div>
+          <div className="text-right text-[2rem] font-semibold leading-none text-foreground">
+            {statusStats.total}
+          </div>
         </SurfaceCard>
-        <SurfaceCard className="py-0" contentClassName="flex min-h-[78px] items-center justify-between gap-3 px-4 py-3">
+        <SurfaceCard
+          className="py-0"
+          contentClassName="flex min-h-[78px] items-center justify-between gap-3 px-4 py-3"
+        >
           <div className="text-left text-sm font-medium uppercase tracking-[0.08em] text-muted-foreground">
             В очереди
           </div>
-          <div className="text-right text-[2rem] font-semibold leading-none text-status-warning">{statusStats.queued}</div>
+          <div className="text-right text-[2rem] font-semibold leading-none text-status-warning">
+            {statusStats.queued}
+          </div>
         </SurfaceCard>
-        <SurfaceCard className="py-0" contentClassName="flex min-h-[78px] items-center justify-between gap-3 px-4 py-3">
+        <SurfaceCard
+          className="py-0"
+          contentClassName="flex min-h-[78px] items-center justify-between gap-3 px-4 py-3"
+        >
           <div className="text-left text-sm font-medium uppercase tracking-[0.08em] text-muted-foreground">
             Выполняется
           </div>
-          <div className="text-right text-[2rem] font-semibold leading-none text-status-running">{statusStats.running}</div>
+          <div className="text-right text-[2rem] font-semibold leading-none text-status-running">
+            {statusStats.running}
+          </div>
         </SurfaceCard>
-        <SurfaceCard className="py-0" contentClassName="flex min-h-[78px] items-center justify-between gap-3 px-4 py-3">
+        <SurfaceCard
+          className="py-0"
+          contentClassName="flex min-h-[78px] items-center justify-between gap-3 px-4 py-3"
+        >
           <div className="text-left text-sm font-medium uppercase tracking-[0.08em] text-muted-foreground">
             Завершено
           </div>
-          <div className="text-right text-[2rem] font-semibold leading-none text-status-success">{statusStats.done}</div>
+          <div className="text-right text-[2rem] font-semibold leading-none text-status-success">
+            {statusStats.done}
+          </div>
         </SurfaceCard>
-        <SurfaceCard className="py-0" contentClassName="flex min-h-[78px] items-center justify-between gap-3 px-4 py-3">
+        <SurfaceCard
+          className="py-0"
+          contentClassName="flex min-h-[78px] items-center justify-between gap-3 px-4 py-3"
+        >
           <div className="text-left text-sm font-medium uppercase tracking-[0.08em] text-muted-foreground">
             Ошибки
           </div>
-          <div className="text-right text-[2rem] font-semibold leading-none text-status-failed">{statusStats.failed}</div>
+          <div className="text-right text-[2rem] font-semibold leading-none text-status-failed">
+            {statusStats.failed}
+          </div>
         </SurfaceCard>
       </div>
 
@@ -255,7 +291,6 @@ function BacktestsPageContent() {
             runs={filteredRuns}
             selectedIds={selected}
             onToggle={toggleRun}
-            onDelete={handleDeleteRun}
           />
         ) : (
           <div className="m-4 rounded-[14px] border border-dashed border-border bg-panel-subtle p-5 text-sm text-muted-foreground">
