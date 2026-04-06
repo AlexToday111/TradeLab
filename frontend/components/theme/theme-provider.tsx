@@ -36,15 +36,14 @@ function isInterfaceTheme(value: string | null): value is InterfaceTheme {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<InterfaceTheme>("black");
-
-  useEffect(() => {
-    const savedTheme = window.localStorage.getItem(STORAGE_KEY);
-
-    if (isInterfaceTheme(savedTheme)) {
-      setTheme(savedTheme);
+  const [theme, setTheme] = useState<InterfaceTheme>(() => {
+    if (typeof window === "undefined") {
+      return "black";
     }
-  }, []);
+
+    const savedTheme = window.localStorage.getItem(STORAGE_KEY);
+    return isInterfaceTheme(savedTheme) ? savedTheme : "black";
+  });
 
   useEffect(() => {
     document.documentElement.dataset.theme = "neon";

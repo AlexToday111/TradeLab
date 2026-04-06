@@ -33,6 +33,23 @@ export default function RunDetailsPage() {
   const [isAnalyzerFullscreen, setIsAnalyzerFullscreen] = useState(false);
   const runId = Array.isArray(params?.id) ? params?.id[0] : params?.id;
   const run = runId ? getRunById(runId) : undefined;
+  const tradeSummary = useMemo(() => {
+    const wins = trades.filter((trade) => trade.pnl > 0).length;
+    const losses = trades.filter((trade) => trade.pnl <= 0).length;
+    const avgDuration =
+      trades.length > 0
+        ? trades.reduce((sum, trade) => sum + Number(trade.duration.replace("d", "")), 0) /
+          trades.length
+        : 0;
+    const totalPnl = trades.reduce((sum, trade) => sum + trade.pnl, 0);
+
+    return {
+      wins,
+      losses,
+      totalPnl,
+      avgDuration,
+    };
+  }, []);
 
   if (isLoading) {
     return <LoadingState label="Загрузка запуска..." />;
@@ -62,24 +79,6 @@ export default function RunDetailsPage() {
     null,
     2
   );
-
-  const tradeSummary = useMemo(() => {
-    const wins = trades.filter((trade) => trade.pnl > 0).length;
-    const losses = trades.filter((trade) => trade.pnl <= 0).length;
-    const avgDuration =
-      trades.length > 0
-        ? trades.reduce((sum, trade) => sum + Number(trade.duration.replace("d", "")), 0) /
-          trades.length
-        : 0;
-    const totalPnl = trades.reduce((sum, trade) => sum + trade.pnl, 0);
-
-    return {
-      wins,
-      losses,
-      totalPnl,
-      avgDuration,
-    };
-  }, []);
 
   return (
     <div className="flex h-full flex-col gap-4 2xl:gap-3">

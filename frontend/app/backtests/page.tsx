@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Download, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -42,18 +42,21 @@ function BacktestsPageContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | RunStatus>("all");
   const [timeframeFilter, setTimeframeFilter] = useState<string>("all");
-  const [projectFilter, setProjectFilter] = useState<string>("all");
+  const [projectFilterOverride, setProjectFilterOverride] = useState<string | null>(null);
 
-  useEffect(() => {
+  const projectFilterFromQuery = useMemo(() => {
     const projectFromQuery = searchParams.get("project");
     if (!projectFromQuery) {
-      return;
+      return null;
     }
 
     if (projects.some((project) => project.id === projectFromQuery)) {
-      setProjectFilter(projectFromQuery);
+      return projectFromQuery;
     }
+    return null;
   }, [searchParams]);
+
+  const projectFilter = projectFilterOverride ?? projectFilterFromQuery ?? "all";
 
   const realRuns = useMemo(
     () => runs.filter((run) => typeof run.backendRunId === "number"),
@@ -250,7 +253,7 @@ function BacktestsPageContent() {
               <SelectItem value="failed">Ошибка</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={projectFilter} onValueChange={setProjectFilter}>
+          <Select value={projectFilter} onValueChange={setProjectFilterOverride}>
             <SelectTrigger className="h-8 w-[180px] text-xs">
               <SelectValue />
             </SelectTrigger>
@@ -283,7 +286,7 @@ function BacktestsPageContent() {
             onClick={() => {
               setSearchQuery("");
               setStatusFilter("all");
-              setProjectFilter("all");
+              setProjectFilterOverride("all");
               setTimeframeFilter("all");
             }}
           >

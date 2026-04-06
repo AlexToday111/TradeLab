@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { Suspense, useMemo, useRef, useState, type ChangeEvent } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -161,7 +161,17 @@ function DesktopPageContent() {
   const strategyFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [projectOptions, setProjectOptions] = useState<Project[]>(projects);
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [selectedProjectIdOverride, setSelectedProjectId] = useState<string | null>(null);
+  const querySelectedProjectId = useMemo(() => {
+    if (!requestedProjectId) {
+      return null;
+    }
+
+    return projectOptions.some((project) => project.id === requestedProjectId)
+      ? requestedProjectId
+      : null;
+  }, [projectOptions, requestedProjectId]);
+  const selectedProjectId = selectedProjectIdOverride ?? querySelectedProjectId;
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectDescription, setNewProjectDescription] = useState("");
@@ -169,16 +179,6 @@ function DesktopPageContent() {
   const [newStrategyName, setNewStrategyName] = useState("");
   const [uploadState, setUploadState] = useState<UploadState>("idle");
   const [uploadError, setUploadError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!requestedProjectId) {
-      return;
-    }
-
-    if (projectOptions.some((project) => project.id === requestedProjectId)) {
-      setSelectedProjectId(requestedProjectId);
-    }
-  }, [projectOptions, requestedProjectId]);
 
   const project = useMemo(() => {
     if (!selectedProjectId) {

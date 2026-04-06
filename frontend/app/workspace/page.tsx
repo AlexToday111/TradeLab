@@ -47,7 +47,9 @@ export default function WorkspacePage() {
   const queuedRuns = runs.filter((run) => run.status === "queued").length;
 
   const [projectPage, setProjectPage] = useState(0);
-  const [projectsPerView, setProjectsPerView] = useState(2);
+  const [projectsPerView, setProjectsPerView] = useState(() =>
+    typeof window !== "undefined" && window.innerWidth < 1024 ? 1 : 2
+  );
 
   const projectTones = [
     {
@@ -103,18 +105,14 @@ export default function WorkspacePage() {
       setProjectsPerView(window.innerWidth < 1024 ? 1 : 2);
     };
 
-    updateProjectsPerView();
     window.addEventListener("resize", updateProjectsPerView);
     return () => window.removeEventListener("resize", updateProjectsPerView);
   }, []);
 
   const maxProjectPage = Math.max(0, projects.length - projectsPerView);
-  const canGoPrev = projectPage > 0;
-  const canGoNext = projectPage < maxProjectPage;
-
-  useEffect(() => {
-    setProjectPage((current) => Math.min(current, maxProjectPage));
-  }, [maxProjectPage]);
+  const normalizedProjectPage = Math.min(projectPage, maxProjectPage);
+  const canGoPrev = normalizedProjectPage > 0;
+  const canGoNext = normalizedProjectPage < maxProjectPage;
 
   const rankedProjects = useMemo(() => {
     return projects
@@ -146,8 +144,8 @@ export default function WorkspacePage() {
   const worstProjects = [...rankedProjects].reverse().slice(0, 3);
 
   const translateX = useMemo(
-    () => `translateX(-${(projectPage * 100) / projectsPerView}%)`,
-    [projectPage, projectsPerView]
+    () => `translateX(-${(normalizedProjectPage * 100) / projectsPerView}%)`,
+    [normalizedProjectPage, projectsPerView]
   );
 
   return (
@@ -159,7 +157,9 @@ export default function WorkspacePage() {
               variant="ghost"
               size="icon"
               className="absolute left-0 top-1/2 z-20 h-11 w-11 -translate-x-1/2 -translate-y-1/2 rounded-full border-0 bg-transparent text-foreground/70 shadow-none hover:bg-transparent hover:text-foreground"
-              onClick={() => setProjectPage((current) => Math.max(0, current - 1))}
+              onClick={() =>
+                setProjectPage((current) => Math.max(0, Math.min(current, maxProjectPage) - 1))
+              }
             >
               <ChevronLeft className="h-5 w-5" />
             </Button>
@@ -170,7 +170,9 @@ export default function WorkspacePage() {
               size="icon"
               className="absolute right-0 top-1/2 z-20 h-11 w-11 translate-x-1/2 -translate-y-1/2 rounded-full border-0 bg-transparent text-foreground/70 shadow-none hover:bg-transparent hover:text-foreground"
               onClick={() =>
-                setProjectPage((current) => Math.min(maxProjectPage, current + 1))
+                setProjectPage((current) =>
+                  Math.min(maxProjectPage, Math.min(current, maxProjectPage) + 1)
+                )
               }
             >
               <ChevronRight className="h-5 w-5" />
