@@ -42,6 +42,7 @@ __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
+backend/python/.venv/
 backend/python/.pgdata/
 backend/python/.pglog
 backend/python/.pgpassfile
