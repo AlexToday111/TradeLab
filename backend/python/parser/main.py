@@ -21,7 +21,6 @@ from parser.strategies.dto.strategy_validation_dto import (
 )
 from parser.strategies.services.strategy_validation_service import StrategyValidationService
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -32,7 +31,10 @@ class HealthResponse(BaseModel):
 
 class ErrorResponse(BaseModel):
     status: str = Field(description="Error status.", examples=["error"])
-    message: str = Field(description="Human-readable error message.", examples=["Dataset was not found"])
+    message: str = Field(
+        description="Human-readable error message.",
+        examples=["Dataset was not found"],
+    )
 
 
 def create_app() -> FastAPI:
@@ -68,7 +70,10 @@ def create_app() -> FastAPI:
     @app.exception_handler(AppError)
     async def handle_app_error(_: Request, exc: AppError) -> JSONResponse:
         logger.exception("Application error: %s", exc.message)
-        return JSONResponse(status_code=exc.status_code, content={"status": "error", "message": exc.message})
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"status": "error", "message": exc.message},
+        )
 
     @app.get(
         "/health",
@@ -103,7 +108,9 @@ def create_app() -> FastAPI:
         response_model=StrategyValidationResponse,
         tags=["strategies"],
         summary="Validate strategy file",
-        description="Loads a strategy file and validates its exported metadata and parameters schema.",
+        description=(
+            "Loads a strategy file and validates its exported metadata and parameters schema."
+        ),
         responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}},
     )
     async def validate_strategy(request: StrategyValidationRequest) -> StrategyValidationResponse:
@@ -116,7 +123,9 @@ def create_app() -> FastAPI:
         response_model=RunExecuteResponse,
         tags=["runs"],
         summary="Execute strategy run",
-        description="Executes a strategy against stored candles for the requested range and parameters.",
+        description=(
+            "Executes a strategy against stored candles for the requested range and parameters."
+        ),
         responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}},
     )
     async def execute_run(request: RunExecuteRequest) -> RunExecuteResponse:
@@ -133,7 +142,11 @@ def create_app() -> FastAPI:
             return RunExecuteResponse(success=False, metrics=None, error=exc.message)
         except Exception:  # noqa: BLE001
             logger.exception("Strategy run failed with unexpected error")
-            return RunExecuteResponse(success=False, metrics=None, error="Unexpected execution error")
+            return RunExecuteResponse(
+                success=False,
+                metrics=None,
+                error="Unexpected execution error",
+            )
         finally:
             if connection is not None:
                 connection.close()

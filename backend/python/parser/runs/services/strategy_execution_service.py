@@ -10,7 +10,6 @@ from parser.candles.models.candle import Candle
 from parser.candles.repositories.candle_repository import CandleRepository
 from parser.runs.dto.run_execute_dto import RunExecuteRequest, RunExecuteResponse
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -33,7 +32,10 @@ class StrategyExecutionService:
         strategy_path = Path(request.strategy_file_path).expanduser().resolve(strict=False)
 
         logger.info(
-            "Starting strategy run: strategy_file=%s exchange=%s symbol=%s interval=%s from=%s to=%s",
+            (
+                "Starting strategy run: strategy_file=%s exchange=%s "
+                "symbol=%s interval=%s from=%s to=%s"
+            ),
             strategy_path,
             exchange,
             symbol,
@@ -153,7 +155,9 @@ class StrategyExecutionService:
     def _serialize_candle(candle: Candle) -> dict[str, object]:
         return {
             "open_time": StrategyExecutionService._normalize_datetime(candle.open_time).isoformat(),
-            "close_time": StrategyExecutionService._normalize_datetime(candle.close_time).isoformat(),
+            "close_time": StrategyExecutionService._normalize_datetime(
+                candle.close_time
+            ).isoformat(),
             "open": float(candle.open),
             "high": float(candle.high),
             "low": float(candle.low),

@@ -5,7 +5,6 @@ import psycopg
 from parser.common.config.settings import settings
 from parser.common.exceptions import RepositoryError
 
-
 SCHEMA_PATH = Path(__file__).with_name("schema.sql")
 
 

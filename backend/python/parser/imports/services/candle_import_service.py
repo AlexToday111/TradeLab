@@ -7,7 +7,6 @@ from parser.imports.exchanges.binance.mapper import map_binance_klines
 from parser.imports.exchanges.factory import get_exchange_client
 from parser.imports.repositories.candle_import_repository import CandleImportRepository
 
-
 logger = logging.getLogger(__name__)
 
 

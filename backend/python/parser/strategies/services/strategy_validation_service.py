@@ -7,7 +7,6 @@ from uuid import uuid4
 
 from parser.strategies.dto.strategy_validation_dto import StrategyValidationResponse
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -18,12 +17,22 @@ class StrategyValidationService:
         if not resolved_path.exists():
             message = f"Strategy file not found: {resolved_path}"
             logger.warning(message)
-            return StrategyValidationResponse(valid=False, name=None, parametersSchema=None, error=message)
+            return StrategyValidationResponse(
+                valid=False,
+                name=None,
+                parametersSchema=None,
+                error=message,
+            )
 
         if not resolved_path.is_file():
             message = f"Strategy path is not a file: {resolved_path}"
             logger.warning(message)
-            return StrategyValidationResponse(valid=False, name=None, parametersSchema=None, error=message)
+            return StrategyValidationResponse(
+                valid=False,
+                name=None,
+                parametersSchema=None,
+                error=message,
+            )
 
         module_name = f"strategy_validation_{uuid4().hex}"
 
@@ -48,13 +57,21 @@ class StrategyValidationService:
             try:
                 parameters_schema = parameters_method()
             except Exception as exc:  # noqa: BLE001
-                logger.warning("Strategy.parameters() execution failed for %s", resolved_path, exc_info=True)
+                logger.warning(
+                    "Strategy.parameters() execution failed for %s",
+                    resolved_path,
+                    exc_info=True,
+                )
                 return self._invalid(f"Strategy.parameters() failed: {exc}")
 
             if not isinstance(parameters_schema, dict):
                 return self._invalid("Strategy.parameters() must return dict")
 
-            logger.info("Strategy validation succeeded for %s with name '%s'", resolved_path, strategy_name)
+            logger.info(
+                "Strategy validation succeeded for %s with name '%s'",
+                resolved_path,
+                strategy_name,
+            )
             return StrategyValidationResponse(
                 valid=True,
                 name=strategy_name,
@@ -81,4 +98,9 @@ class StrategyValidationService:
     @staticmethod
     def _invalid(error: str) -> StrategyValidationResponse:
         logger.warning("Strategy validation failed: %s", error)
-        return StrategyValidationResponse(valid=False, name=None, parametersSchema=None, error=error)
+        return StrategyValidationResponse(
+            valid=False,
+            name=None,
+            parametersSchema=None,
+            error=error,
+        )

@@ -18,7 +18,11 @@ class StrategyValidationResponse(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     valid: bool = Field(description="Whether the strategy file passed validation.", examples=[True])
-    name: str | None = Field(default=None, description="Resolved strategy name.", examples=["EMA Cross"])
+    name: str | None = Field(
+        default=None,
+        description="Resolved strategy name.",
+        examples=["EMA Cross"],
+    )
     parameters_schema: dict[str, Any] | None = Field(
         alias="parametersSchema",
         serialization_alias="parametersSchema",
@@ -26,4 +30,8 @@ class StrategyValidationResponse(BaseModel):
         description="JSON schema of strategy parameters.",
         examples=[{"type": "object", "properties": {"fast_period": {"type": "integer"}}}],
     )
-    error: str | None = Field(default=None, description="Validation error message.", examples=[None])
+    error: str | None = Field(
+        default=None,
+        description="Validation error message.",
+        examples=[None],
+    )
