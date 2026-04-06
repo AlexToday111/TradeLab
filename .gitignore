@@ -23,6 +23,7 @@
 /frontend/build
 /landing/dist
 /backend/dist
+/backend/java/target/
 
 # misc
 .DS_Store
