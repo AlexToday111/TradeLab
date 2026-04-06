@@ -30,7 +30,7 @@ public class CandleEntity {
     @Column(nullable = false, length = 32)
     private String symbol;
 
-    @Column(name = "interval", nullable = false, length = 16)
+    @Column(name = "\"interval\"", nullable = false, length = 16)
     private String interval;
 
     @Column(name = "open_time", nullable = false)

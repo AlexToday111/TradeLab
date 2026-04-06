@@ -1,6 +1,13 @@
 package com.example.back.runs.entity;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -27,7 +34,7 @@ public class RunEntity {
     @Column(nullable = false)
     private String symbol;
 
-    @Column(nullable = false)
+    @Column(name = "\"interval\"", nullable = false)
     private String interval;
 
     @Column(nullable = false)
