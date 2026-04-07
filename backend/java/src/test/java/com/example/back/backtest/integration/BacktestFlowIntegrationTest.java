@@ -52,9 +52,6 @@ class BacktestFlowIntegrationTest {
     private StrategyFileRepository strategyFileRepository;
 
     @Autowired
-    private CandleRepository candleRepository;
-
-    @Autowired
     private RunRepository runRepository;
 
     @Autowired
@@ -66,6 +63,9 @@ class BacktestFlowIntegrationTest {
     @MockBean
     private PythonBacktestExecutor pythonBacktestExecutor;
 
+    @MockBean
+    private CandleRepository candleRepository;
+
     private Long strategyId;
 
     @BeforeEach
@@ -73,7 +73,6 @@ class BacktestFlowIntegrationTest {
         backtestEquityPointRepository.deleteAll();
         backtestTradeRepository.deleteAll();
         runRepository.deleteAll();
-        candleRepository.deleteAll();
         strategyFileRepository.deleteAll();
 
         StrategyFileEntity strategy = new StrategyFileEntity();
@@ -81,17 +80,25 @@ class BacktestFlowIntegrationTest {
         strategy.setFileName("ema.py");
         strategy.setStoragePath("/tmp/ema.py");
         strategy.setStatus(StrategyFileEntity.StrategyStatus.VALID);
-        strategyId = strategyFileRepository.save(strategy).getId();
+        strategyId = strategyFileRepository.saveAndFlush(strategy).getId();
 
-        candleRepository.saveAll(List.of(
-                candle("2024-01-01T00:00:00Z"),
-                candle("2024-01-01T01:00:00Z"),
-                candle("2024-01-01T02:00:00Z")
-        ));
     }
 
     @Test
     void fullBacktestFlowPersistsAndReturnsArtifacts() throws Exception {
+        when(candleRepository
+                .findByExchangeAndSymbolAndIntervalAndOpenTimeGreaterThanEqualAndOpenTimeLessThanEqualOrderByOpenTimeAsc(
+                        any(),
+                        any(),
+                        any(),
+                        any(),
+                        any()
+                ))
+                .thenReturn(List.of(
+                        candle("2024-01-01T00:00:00Z"),
+                        candle("2024-01-01T01:00:00Z"),
+                        candle("2024-01-01T02:00:00Z")
+                ));
         when(pythonBacktestExecutor.execute(any())).thenReturn(backtestResult());
 
         String responseBody = mockMvc.perform(post("/backtests")
