@@ -33,6 +33,6 @@ class BacktestTradeRepositoryTest {
         trade.setFee(0.1);
         backtestTradeRepository.save(trade);
 
-        assertThat(backtestTradeRepository.findByRunId(1L)).hasSize(1);
+        assertThat(backtestTradeRepository.findByRunIdOrderByEntryTimeAsc(1L)).hasSize(1);
     }
 }
