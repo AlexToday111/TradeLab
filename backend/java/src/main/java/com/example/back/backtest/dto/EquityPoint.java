@@ -10,8 +10,8 @@ import lombok.Data;
 public class EquityPoint {
     private Instant timestamp;
     private double equity;
-    private double cash;
+    private Double cash;
 
     @JsonProperty("position_size")
-    private double positionSize;
+    private Double positionSize;
 }

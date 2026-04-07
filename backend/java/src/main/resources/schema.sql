@@ -25,6 +25,24 @@ CREATE INDEX IF NOT EXISTS idx_strategy_files_created_at
     ON strategy_files (created_at DESC);
 
 
+CREATE TABLE IF NOT EXISTS candles (
+                                        id BIGSERIAL PRIMARY KEY,
+                                        exchange VARCHAR(32) NOT NULL,
+    symbol VARCHAR(32) NOT NULL,
+    interval VARCHAR(16) NOT NULL,
+    open_time TIMESTAMPTZ NOT NULL,
+    close_time TIMESTAMPTZ NOT NULL,
+    open NUMERIC(20, 8) NOT NULL,
+    high NUMERIC(20, 8) NOT NULL,
+    low NUMERIC(20, 8) NOT NULL,
+    close NUMERIC(20, 8) NOT NULL,
+    volume NUMERIC(28, 8) NOT NULL
+    );
+
+CREATE INDEX IF NOT EXISTS idx_candles_market_range
+    ON candles (exchange, symbol, interval, open_time);
+
+
 CREATE TABLE IF NOT EXISTS runs (
                                     id BIGSERIAL PRIMARY KEY,
                                     strategy_id BIGINT NOT NULL REFERENCES strategy_files(id) ON DELETE RESTRICT,
