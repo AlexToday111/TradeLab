@@ -7,6 +7,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.example.back.backtest.model.BacktestStatus;
 import com.example.back.imports.client.PythonParserClient;
 import com.example.back.runs.dto.CreateRunRequest;
 import com.example.back.runs.dto.PythonRunExecuteResponse;
@@ -67,7 +68,7 @@ class RunServiceTest {
 
         var response = runService.createRun(createRunRequest());
 
-        assertThat(response.getStatus()).isEqualTo(RunEntity.RunStatus.COMPLETED.name());
+        assertThat(response.getStatus()).isEqualTo(BacktestStatus.COMPLETED.name());
         assertThat(response.getMetrics()).containsEntry("profit", 42);
         verify(runRepository, times(3)).save(any(RunEntity.class));
     }
@@ -83,7 +84,7 @@ class RunServiceTest {
 
         var response = runService.createRun(createRunRequest());
 
-        assertThat(response.getStatus()).isEqualTo(RunEntity.RunStatus.FAILED.name());
+        assertThat(response.getStatus()).isEqualTo(BacktestStatus.FAILED.name());
         assertThat(response.getErrorMessage()).isEqualTo("execution failed");
     }
 
@@ -116,7 +117,7 @@ class RunServiceTest {
         RunEntity run = new RunEntity();
         run.setId(1L);
         run.setStrategyId(1L);
-        run.setStatus(RunEntity.RunStatus.COMPLETED);
+        run.setStatus(BacktestStatus.COMPLETED);
         run.setExchange("binance");
         run.setSymbol("BTCUSDT");
         run.setInterval("1h");

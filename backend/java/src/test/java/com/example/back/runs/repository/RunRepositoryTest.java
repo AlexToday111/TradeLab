@@ -2,6 +2,7 @@ package com.example.back.runs.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.example.back.backtest.model.BacktestStatus;
 import com.example.back.runs.entity.RunEntity;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
@@ -24,7 +25,7 @@ class RunRepositoryTest {
     void savesAndLoadsRunEntity() {
         RunEntity entity = new RunEntity();
         entity.setStrategyId(1L);
-        entity.setStatus(RunEntity.RunStatus.PENDING);
+        entity.setStatus(BacktestStatus.PENDING);
         entity.setExchange("binance");
         entity.setSymbol("BTCUSDT");
         entity.setInterval("1h");
@@ -36,6 +37,6 @@ class RunRepositoryTest {
 
         assertThat(runRepository.findById(saved.getId())).isPresent();
         assertThat(runRepository.findById(saved.getId()).orElseThrow().getStatus())
-            .isEqualTo(RunEntity.RunStatus.PENDING);
+            .isEqualTo(BacktestStatus.PENDING);
     }
 }

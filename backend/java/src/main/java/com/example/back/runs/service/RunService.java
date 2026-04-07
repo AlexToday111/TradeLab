@@ -1,6 +1,7 @@
 package com.example.back.runs.service;
 
 import com.example.back.imports.client.PythonParserClient;
+import com.example.back.backtest.model.BacktestStatus;
 import com.example.back.runs.dto.CreateRunRequest;
 import com.example.back.runs.dto.PythonRunExecuteRequest;
 import com.example.back.runs.dto.PythonRunExecuteResponse;
@@ -12,18 +13,17 @@ import com.example.back.strategies.repository.StrategyFileRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.Instant;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-
-import java.time.Instant;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -52,7 +52,7 @@ public class RunService {
 
         RunEntity run = new RunEntity();
         run.setStrategyId(strategy.getId());
-        run.setStatus(RunEntity.RunStatus.PENDING);
+        run.setStatus(BacktestStatus.PENDING);
         run.setExchange(request.getExchange());
         run.setSymbol(request.getSymbol());
         run.setInterval(request.getInterval());
@@ -73,17 +73,17 @@ public class RunService {
             pythonRequest.setTo(request.getTo());
             pythonRequest.setParams(request.getParams());
 
-            run.setStatus(RunEntity.RunStatus.RUNNING);
+            run.setStatus(BacktestStatus.RUNNING);
             run = runRepository.save(run);
 
             PythonRunExecuteResponse pythonResponse = pythonParserClient.executeRun(pythonRequest);
 
             if (pythonResponse != null && pythonResponse.getSuccess()) {
-                run.setStatus(RunEntity.RunStatus.COMPLETED);
+                run.setStatus(BacktestStatus.COMPLETED);
                 run.setMetricsJson(writeJson(pythonResponse.getMetrics()));
                 run.setFinishedAt(Instant.now());
             } else {
-                run.setStatus(RunEntity.RunStatus.FAILED);
+                run.setStatus(BacktestStatus.FAILED);
                 run.setErrorMessage(
                         pythonResponse != null ? pythonResponse.getError() : "Python сервис вернул пустой ответ"
                 );
@@ -92,7 +92,7 @@ public class RunService {
 
         } catch (Exception e) {
             log.error("Ошибка при вызове Python сервиса", e);
-            run.setStatus(RunEntity.RunStatus.FAILED);
+            run.setStatus(BacktestStatus.FAILED);
             run.setErrorMessage("Ошибка при выполнении: " + e.getMessage());
             run.setFinishedAt(Instant.now());
         }
