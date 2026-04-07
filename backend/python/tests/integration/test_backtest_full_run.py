@@ -12,13 +12,62 @@ from backtesting.models.order import PositionSizingMode
 def write_market_data(tmp_path: Path) -> Path:
     data = pd.DataFrame(
         [
-            {"timestamp": "2024-01-01T00:00:00Z", "open": 10, "high": 10, "low": 10, "close": 10, "volume": 100},
-            {"timestamp": "2024-01-02T00:00:00Z", "open": 10, "high": 10, "low": 10, "close": 10, "volume": 100},
-            {"timestamp": "2024-01-03T00:00:00Z", "open": 10, "high": 11, "low": 10, "close": 11, "volume": 100},
-            {"timestamp": "2024-01-04T00:00:00Z", "open": 11, "high": 12, "low": 11, "close": 12, "volume": 100},
-            {"timestamp": "2024-01-05T00:00:00Z", "open": 9, "high": 9, "low": 9, "close": 9, "volume": 100},
-            {"timestamp": "2024-01-06T00:00:00Z", "open": 9, "high": 9, "low": 8, "close": 8, "volume": 100},
-            {"timestamp": "2024-01-07T00:00:00Z", "open": 10, "high": 10, "low": 10, "close": 10, "volume": 100},
+            {
+                "timestamp": "2024-01-01T00:00:00Z",
+                "open": 10,
+                "high": 10,
+                "low": 10,
+                "close": 10,
+                "volume": 100,
+            },
+            {
+                "timestamp": "2024-01-02T00:00:00Z",
+                "open": 10,
+                "high": 10,
+                "low": 10,
+                "close": 10,
+                "volume": 100,
+            },
+            {
+                "timestamp": "2024-01-03T00:00:00Z",
+                "open": 10,
+                "high": 11,
+                "low": 10,
+                "close": 11,
+                "volume": 100,
+            },
+            {
+                "timestamp": "2024-01-04T00:00:00Z",
+                "open": 11,
+                "high": 12,
+                "low": 11,
+                "close": 12,
+                "volume": 100,
+            },
+            {
+                "timestamp": "2024-01-05T00:00:00Z",
+                "open": 9,
+                "high": 9,
+                "low": 9,
+                "close": 9,
+                "volume": 100,
+            },
+            {
+                "timestamp": "2024-01-06T00:00:00Z",
+                "open": 9,
+                "high": 9,
+                "low": 8,
+                "close": 8,
+                "volume": 100,
+            },
+            {
+                "timestamp": "2024-01-07T00:00:00Z",
+                "open": 10,
+                "high": 10,
+                "low": 10,
+                "close": 10,
+                "volume": 100,
+            },
         ]
     )
     path = tmp_path / "market.csv"
