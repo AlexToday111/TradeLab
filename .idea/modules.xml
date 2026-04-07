@@ -3,7 +3,6 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/Trade360Lab.iml" filepath="$PROJECT_DIR$/.idea/Trade360Lab.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/TradeLab.iml" filepath="$PROJECT_DIR$/.idea/TradeLab.iml" />
     </modules>
   </component>
 </project>
