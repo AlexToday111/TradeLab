@@ -2,7 +2,9 @@
 
 from backtesting.strategy.base import Strategy
 from backtesting.strategy.context import StrategyContext
-from backtesting.strategy.loader import StrategyLoadError, StrategyLoader
+from backtesting.strategy.loader import (
+    StrategyLoader,
+    StrategyLoadError,
+)
 
 __all__ = ["Strategy", "StrategyContext", "StrategyLoadError", "StrategyLoader"]
-

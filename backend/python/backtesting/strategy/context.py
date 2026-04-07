@@ -41,7 +41,12 @@ class StrategyContext:
     def historical_data(self) -> pd.DataFrame:
         return self._historical_data.copy()
 
-    def update_market_state(self, *, historical_data: pd.DataFrame, current_bar_time: datetime) -> None:
+    def update_market_state(
+        self,
+        *,
+        historical_data: pd.DataFrame,
+        current_bar_time: datetime,
+    ) -> None:
         self._historical_data = historical_data.copy()
         self._current_bar_time = current_bar_time
 
@@ -121,4 +126,3 @@ class StrategyContext:
                 metadata=metadata or {},
             )
         )
-

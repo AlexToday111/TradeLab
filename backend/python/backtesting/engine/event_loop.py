@@ -56,7 +56,8 @@ class EventLoop:
             for fill in fills:
                 logs.append(
                     "Executed "
-                    f"{fill.side} {fill.quantity:.8f} @ {fill.price:.8f} on {fill.executed_at.isoformat()}"
+                    f"{fill.side} {fill.quantity:.8f} @ {fill.price:.8f} "
+                    f"on {fill.executed_at.isoformat()}"
                 )
 
             portfolio.mark_to_market(Decimal(str(bar.close)))
@@ -81,7 +82,8 @@ class EventLoop:
         discarded_intents = len(pending_intents) + len(final_intents)
         if discarded_intents:
             warnings.append(
-                f"{discarded_intents} order intents were not executed because no next candle was available"
+                f"{discarded_intents} order intents were not executed because "
+                "no next candle was available"
             )
 
         return EventLoopResult(equity_curve=equity_curve, logs=logs, warnings=warnings)
