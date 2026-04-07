@@ -47,17 +47,16 @@ def validate_ohlcv_dataframe(
             raise DataValidationError("Duplicate timestamps detected")
         normalized = normalized.loc[~duplicates]
 
-    required_nulls = normalized.loc[:, list(REQUIRED_COLUMNS)].isna().any(axis=1)
-    if required_nulls.any():
-        if strict:
-            raise DataValidationError("Missing values detected in required fields")
-        normalized = normalized.loc[~required_nulls]
-
     ohlc_nulls = normalized.loc[:, ["open", "high", "low", "close"]].isna().any(axis=1)
     if ohlc_nulls.any():
         if strict:
             raise DataValidationError("NaN values detected in OHLC columns")
         normalized = normalized.loc[~ohlc_nulls]
 
-    return normalized.reset_index(drop=True)
+    required_nulls = normalized.loc[:, list(REQUIRED_COLUMNS)].isna().any(axis=1)
+    if required_nulls.any():
+        if strict:
+            raise DataValidationError("Missing values detected in required fields")
+        normalized = normalized.loc[~required_nulls]
 
+    return normalized.reset_index(drop=True)

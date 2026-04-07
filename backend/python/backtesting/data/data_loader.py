@@ -25,6 +25,8 @@ class DataLoader:
             utc=True,
             errors="coerce",
         )
+        for column in ("open", "high", "low", "close", "volume"):
+            if column in dataframe.columns:
+                dataframe[column] = pd.to_numeric(dataframe[column], errors="coerce")
 
         return validate_ohlcv_dataframe(dataframe, strict=self.strict)
-
