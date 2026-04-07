@@ -19,7 +19,7 @@ public class BacktestEquityPointEntity {
     @Column(name = "run_id", nullable = false)
     private Long runId;
 
-    @Column(nullable = false)
+    @Column(name = "timestamp", nullable = false)
     private Instant timestamp;
 
     @Column(nullable = false)

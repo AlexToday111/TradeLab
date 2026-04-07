@@ -1,31 +1,37 @@
 package com.example.back.backtest.dto;
 
-import jakarta.validation.constraints.NotNull;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
 import lombok.Data;
-
 import java.util.Map;
 
 @Data
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class BacktestRequest {
 
-    @NotNull
+    @NotBlank
+    @JsonProperty("strategy_path")
     private String strategyPath;
 
-    @NotNull
-    private String symbol;
+    @NotBlank
+    @JsonProperty("data_path")
+    private String dataPath;
 
-    @NotNull
-    private String timeframe;
-
-    private String dateFrom;
-    private String dateTo;
-
+    @JsonProperty("strategy_params")
     private Map<String, Object> strategyParams;
 
     @Positive
-    private double initialCapital;
+    @JsonProperty("initial_cash")
+    private double initialCash = 10_000.0;
 
-    private double fee;
-    private double slippage;
+    @JsonProperty("fee_rate")
+    private double feeRate;
+
+    @JsonProperty("slippage_bps")
+    private double slippageBps;
+
+    @JsonProperty("strict_data")
+    private boolean strictData = true;
 }

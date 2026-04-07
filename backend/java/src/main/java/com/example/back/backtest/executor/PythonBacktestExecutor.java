@@ -3,38 +3,55 @@ package com.example.back.backtest.executor;
 import com.example.back.backtest.dto.BacktestRequest;
 import com.example.back.backtest.dto.BacktestResult;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import java.io.*;
-import java.nio.charset.StandardCharsets;
-
+@Slf4j
 @Component
-@RequiredArgsConstructor
 public class PythonBacktestExecutor {
 
     private final ObjectMapper objectMapper;
+    private final ProcessLauncher processLauncher;
+    private final String pythonExecutable;
+    private final String scriptPath;
 
-    private final String pythonExecutable = "python";
-    private final String scriptPath = "python/backtesting/run_backtest.py";
+    public PythonBacktestExecutor(
+            ObjectMapper objectMapper,
+            ProcessLauncher processLauncher,
+            @Value("${python.backtest.executable:python}") String pythonExecutable,
+            @Value("${python.backtest.script:../python/backtesting/run_backtest.py}") String scriptPath
+    ) {
+        this.objectMapper = objectMapper;
+        this.processLauncher = processLauncher;
+        this.pythonExecutable = pythonExecutable;
+        this.scriptPath = scriptPath;
+    }
 
     public BacktestResult execute(BacktestRequest request) {
+        String inputJson = serializeRequest(request);
+        List<String> command = List.of(pythonExecutable, scriptPath);
+
         try {
-            String inputJson = objectMapper.writeValueAsString(request);
-
-            ProcessBuilder processBuilder = new ProcessBuilder(
-                    pythonExecutable,
-                    scriptPath
-            );
-
-            Process process = processBuilder.start();
-
+            Process process = processLauncher.start(command);
             writeToStdin(process, inputJson);
 
-            String stdout = readStream(process.getInputStream());
-            String stderr = readStream(process.getErrorStream());
+            CompletableFuture<String> stdoutFuture = readStreamAsync(process.getInputStream());
+            CompletableFuture<String> stderrFuture = readStreamAsync(process.getErrorStream());
 
             int exitCode = process.waitFor();
+
+            String stdout = getFuture(stdoutFuture, "stdout");
+            String stderr = getFuture(stderrFuture, "stderr");
 
             if (exitCode != 0) {
                 throw new PythonExecutionException(
@@ -46,7 +63,7 @@ public class PythonBacktestExecutor {
                 throw new PythonExecutionException("Python process returned empty stdout");
             }
 
-            return objectMapper.readValue(stdout, BacktestResult.class);
+            return parseResult(stdout, stderr);
 
         } catch (PythonExecutionException e) {
             throw e;
@@ -55,11 +72,69 @@ public class PythonBacktestExecutor {
         }
     }
 
+    private String serializeRequest(BacktestRequest request) {
+        try {
+            return objectMapper.writeValueAsString(request);
+        } catch (Exception e) {
+            throw new PythonExecutionException("Failed to serialize backtest request", e);
+        }
+    }
+
+    private BacktestResult parseResult(String stdout, String stderr) {
+        String trimmed = stdout.trim();
+        try {
+            return objectMapper.readValue(trimmed, BacktestResult.class);
+        } catch (Exception e) {
+            String candidate = extractJsonCandidate(trimmed);
+            if (candidate != null) {
+                try {
+                    return objectMapper.readValue(candidate, BacktestResult.class);
+                } catch (Exception ignored) {
+                    log.debug("Failed to parse JSON candidate from stdout: {}", candidate);
+                }
+            }
+            throw new PythonExecutionException(
+                    "Python process returned invalid JSON. stdout: " + trimmed + ". stderr: " + stderr,
+                    e
+            );
+        }
+    }
+
+    private String extractJsonCandidate(String stdout) {
+        List<String> lines = stdout.lines()
+                .map(String::trim)
+                .filter(line -> !line.isBlank())
+                .toList();
+        for (int i = lines.size() - 1; i >= 0; i--) {
+            String line = lines.get(i);
+            if (line.startsWith("{") && line.endsWith("}")) {
+                return line;
+            }
+        }
+
+        int start = stdout.indexOf('{');
+        int end = stdout.lastIndexOf('}');
+        if (start >= 0 && end > start) {
+            return stdout.substring(start, end + 1);
+        }
+        return null;
+    }
+
     private void writeToStdin(Process process, String inputJson) throws IOException {
         try (OutputStream os = process.getOutputStream()) {
             os.write(inputJson.getBytes(StandardCharsets.UTF_8));
             os.flush();
         }
+    }
+
+    private CompletableFuture<String> readStreamAsync(InputStream inputStream) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                return readStream(inputStream);
+            } catch (IOException e) {
+                throw new PythonExecutionException("Failed to read process stream", e);
+            }
+        });
     }
 
     private String readStream(InputStream inputStream) throws IOException {
@@ -74,6 +149,15 @@ public class PythonBacktestExecutor {
             }
 
             return sb.toString().trim();
+        }
+    }
+
+    private String getFuture(CompletableFuture<String> future, String label)
+            throws ExecutionException, InterruptedException {
+        try {
+            return future.get();
+        } catch (ExecutionException e) {
+            throw new PythonExecutionException("Failed to read process " + label, e.getCause());
         }
     }
 }
