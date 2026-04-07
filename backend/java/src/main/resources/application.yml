@@ -40,3 +40,6 @@ app:
 python:
   parser:
     base-url: ${PYTHON_PARSER_BASE_URL:http://127.0.0.1:8000}
+  backtest:
+    executable: ${PYTHON_BACKTEST_EXECUTABLE:python}
+    script: ${PYTHON_BACKTEST_SCRIPT:../python/backtesting/run_backtest.py}
