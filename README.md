@@ -154,3 +154,10 @@ mvn spring-boot:run
 <p align="center">
   <img src="./frontend/public/png2.jpg" alt="TradeLab Logo" />
 </p>
+
+---
+
+<p align="center">
+  Copyright (C) 2026 AlexToday111 <br/>
+  This project is licensed under the GNU General Public License v3.0
+</p>
