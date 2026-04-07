@@ -81,30 +81,6 @@ TradeLab/
 `-- docker-compose.yml      # Оркестрация всего стека
 ```
 
-<h2 align="center">Стек технологий</h2>
-
-<h3 align="center">Фронтенд</h3>
-
-<p align="center">
-  <img alt="Next.js" src="https://img.shields.io/badge/Next.js-16-000000?logo=next.js&logoColor=white" />
-  <img alt="React" src="https://img.shields.io/badge/React-18-20232A?logo=react&logoColor=61DAFB" />
-  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white" />
-  <img alt="Tailwind CSS" src="https://img.shields.io/badge/Tailwind_CSS-06B6D4?logo=tailwindcss&logoColor=white" />
-  <img alt="Radix UI" src="https://img.shields.io/badge/Radix_UI-161618?logo=radixui&logoColor=white" />
-  <img alt="Recharts" src="https://img.shields.io/badge/Recharts-22C55E?logo=chartdotjs&logoColor=white" />
-</p>
-
-<h3 align="center">Бэкенд</h3>
-
-<p align="center">
-  <img alt="Java" src="https://img.shields.io/badge/Java-17-ED8B00?logo=openjdk&logoColor=white" />
-  <img alt="Spring Boot" src="https://img.shields.io/badge/Spring_Boot-3-6DB33F?logo=springboot&logoColor=white" />
-  <img alt="Python" src="https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white" />
-  <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white" />
-  <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white" />
-  <img alt="Docker" src="https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white" />
-</p>
-
 <h2 align="center">Быстрый старт</h2>
 
 <h3 align="center">Вариант A: весь стек в Docker (рекомендуется)</h3>
