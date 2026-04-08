@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 public class TelegramCommandService {
 
     private static final int RECENT_RUNS_LIMIT = 5;
+    private static final String WELCOME_IMAGE_RESOURCE = "telegram/welcome.png";
 
     private final RunQueryService runQueryService;
     private final TelegramBotProperties telegramBotProperties;
@@ -24,7 +25,7 @@ public class TelegramCommandService {
         String normalized = normalize(messageText);
 
         return switch (normalized) {
-            case "/start" -> withMainMenu(telegramMessageFormatter.formatStartMessage());
+            case "/start" -> withMainMenuPhoto(telegramMessageFormatter.formatStartMessage(), WELCOME_IMAGE_RESOURCE);
             case "/help", TelegramKeyboardFactory.BUTTON_HELP -> withMainMenu(telegramMessageFormatter.formatHelpMessage());
             case "/runs", TelegramKeyboardFactory.BUTTON_RUNS -> buildRecentRunsResponse();
             case "/last", TelegramKeyboardFactory.BUTTON_LAST_RUN -> buildLastRunResponse();
@@ -121,6 +122,10 @@ public class TelegramCommandService {
 
     private TelegramCommandResponse withMainMenu(String text) {
         return new TelegramCommandResponse(text, telegramKeyboardFactory.createMainMenuKeyboard());
+    }
+
+    private TelegramCommandResponse withMainMenuPhoto(String text, String photoResourcePath) {
+        return new TelegramCommandResponse(text, telegramKeyboardFactory.createMainMenuKeyboard(), photoResourcePath);
     }
 
     private Long parseRunId(String rawValue) {

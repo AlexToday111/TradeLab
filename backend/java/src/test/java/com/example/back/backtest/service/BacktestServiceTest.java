@@ -26,8 +26,10 @@ import com.example.back.candles.repository.CandleRepository;
 import com.example.back.runs.entity.RunEntity;
 import com.example.back.runs.repository.RunRepository;
 import com.example.back.runs.service.RunFailureStateService;
+import com.example.back.runs.service.RunQueryService;
 import com.example.back.strategies.entity.StrategyFileEntity;
 import com.example.back.strategies.repository.StrategyFileRepository;
+import com.example.back.telegram.service.TelegramNotificationService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.nio.file.Files;
@@ -55,6 +57,8 @@ class BacktestServiceTest {
     private final BacktestEquityPointRepository backtestEquityPointRepository = mock(BacktestEquityPointRepository.class);
     private final PythonBacktestExecutor pythonBacktestExecutor = mock(PythonBacktestExecutor.class);
     private final RunFailureStateService runFailureStateService = mock(RunFailureStateService.class);
+    private final RunQueryService runQueryService = mock(RunQueryService.class);
+    private final TelegramNotificationService telegramNotificationService = mock(TelegramNotificationService.class);
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     private BacktestService backtestService;
@@ -69,6 +73,8 @@ class BacktestServiceTest {
                 backtestEquityPointRepository,
                 pythonBacktestExecutor,
                 runFailureStateService,
+                runQueryService,
+                telegramNotificationService,
                 objectMapper,
                 transactionManager()
         );

@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS candles (
                                         id BIGSERIAL PRIMARY KEY,
                                         exchange VARCHAR(32) NOT NULL,
     symbol VARCHAR(32) NOT NULL,
-    interval VARCHAR(16) NOT NULL,
+    "interval" VARCHAR(16) NOT NULL,
     open_time TIMESTAMPTZ NOT NULL,
     close_time TIMESTAMPTZ NOT NULL,
     open NUMERIC(20, 8) NOT NULL,
@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS candles (
     );
 
 CREATE INDEX IF NOT EXISTS idx_candles_market_range
-    ON candles (exchange, symbol, interval, open_time);
+    ON candles (exchange, symbol, "interval", open_time);
 
 
 CREATE TABLE IF NOT EXISTS runs (
@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS runs (
     status VARCHAR(32) NOT NULL,
     exchange VARCHAR(64) NOT NULL,
     symbol VARCHAR(64) NOT NULL,
-    interval VARCHAR(32) NOT NULL,
+    "interval" VARCHAR(32) NOT NULL,
     date_from TIMESTAMPTZ NOT NULL,
     date_to TIMESTAMPTZ NOT NULL,
     params_json TEXT,

@@ -35,7 +35,7 @@ public class RunEntity {
     @Column(nullable = false)
     private String symbol;
 
-    @Column(name = "interval", nullable = false)
+    @Column(name = "\"interval\"", nullable = false)
     private String interval;
 
     @Column(nullable = false)
