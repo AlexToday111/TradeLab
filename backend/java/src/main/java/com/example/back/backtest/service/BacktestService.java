@@ -19,8 +19,10 @@ import com.example.back.candles.repository.CandleRepository;
 import com.example.back.runs.entity.RunEntity;
 import com.example.back.runs.repository.RunRepository;
 import com.example.back.runs.service.RunFailureStateService;
+import com.example.back.runs.service.RunQueryService;
 import com.example.back.strategies.entity.StrategyFileEntity;
 import com.example.back.strategies.repository.StrategyFileRepository;
+import com.example.back.telegram.service.TelegramNotificationService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -55,6 +57,8 @@ public class BacktestService {
     private final BacktestEquityPointRepository backtestEquityPointRepository;
     private final PythonBacktestExecutor pythonBacktestExecutor;
     private final RunFailureStateService runFailureStateService;
+    private final RunQueryService runQueryService;
+    private final TelegramNotificationService telegramNotificationService;
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transactionTemplate;
 
@@ -66,6 +70,8 @@ public class BacktestService {
             BacktestEquityPointRepository backtestEquityPointRepository,
             PythonBacktestExecutor pythonBacktestExecutor,
             RunFailureStateService runFailureStateService,
+            RunQueryService runQueryService,
+            TelegramNotificationService telegramNotificationService,
             ObjectMapper objectMapper,
             PlatformTransactionManager transactionManager
     ) {
@@ -76,6 +82,8 @@ public class BacktestService {
         this.backtestEquityPointRepository = backtestEquityPointRepository;
         this.pythonBacktestExecutor = pythonBacktestExecutor;
         this.runFailureStateService = runFailureStateService;
+        this.runQueryService = runQueryService;
+        this.telegramNotificationService = telegramNotificationService;
         this.objectMapper = objectMapper;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -113,12 +121,14 @@ public class BacktestService {
         Path csvPath = null;
 
         markRunning(runId);
+        sendRunStartedNotification(runId);
 
         try {
             List<CandleEntity> candles = loadCandles(run);
             csvPath = writeCandlesCsv(runId, candles);
             BacktestResult result = pythonBacktestExecutor.execute(toExecutorRequest(strategy, storedRequest, csvPath));
             persistSuccessfulRun(runId, result);
+            sendRunCompletedNotification(runId);
             return getRun(runId);
         } catch (RuntimeException ex) {
             markFailed(runId, ex);
@@ -287,6 +297,16 @@ public class BacktestService {
             failure.addSuppressed(ex);
             log.error("Failed to persist FAILED status for run {}", runId, ex);
         }
+    }
+
+    private void sendRunStartedNotification(Long runId) {
+        runQueryService.findRun(runId)
+                .ifPresent(telegramNotificationService::sendRunStarted);
+    }
+
+    private void sendRunCompletedNotification(Long runId) {
+        runQueryService.findRun(runId)
+                .ifPresent(telegramNotificationService::sendRunCompleted);
     }
 
     private BacktestTradeEntity toTradeEntity(Long runId, BacktestTrade trade) {
