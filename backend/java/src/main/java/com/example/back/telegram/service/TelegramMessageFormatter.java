@@ -41,6 +41,30 @@ public class TelegramMessageFormatter {
                 """;
     }
 
+    public String formatRunLookupHint() {
+        return "Send /run <id>";
+    }
+
+    public String formatOptimizationSoon() {
+        return "Optimization UI is coming soon";
+    }
+
+    public String formatRunNotFound(Long runId) {
+        return "Run not found: #" + runId;
+    }
+
+    public String formatRunsModeNotImplemented() {
+        return "Notification mode persistence is not implemented yet.";
+    }
+
+    public String formatUnknownCommand() {
+        return """
+                Unknown command.
+                
+                Use /help to see available actions.
+                """;
+    }
+
     public String formatRunStarted(RunResponse run) {
         return """
                 TradeLab • Run Started
