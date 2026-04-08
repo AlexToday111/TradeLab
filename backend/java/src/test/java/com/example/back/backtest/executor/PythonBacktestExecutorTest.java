@@ -6,6 +6,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.example.back.backtest.dto.BacktestRequest;
 import com.example.back.backtest.dto.BacktestResult;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
@@ -19,33 +21,43 @@ import org.junit.jupiter.api.Test;
 class PythonBacktestExecutorTest {
 
     @Test
-    void parsesJsonFromStdoutEvenWithLogs() {
+    void parsesWrappedJsonFromStdoutEvenWithLogs() throws Exception {
+        Path tradesFile = Files.createTempFile("python-backtest-trades-", ".json");
+        Files.writeString(tradesFile, """
+            [
+              {
+                "entry_time": "2024-01-01T00:00:00Z",
+                "exit_time": "2024-01-01T01:00:00Z",
+                "entry_price": 100.0,
+                "exit_price": 110.0,
+                "qty": 1.5,
+                "pnl": 10.0,
+                "fee": 0.1
+              }
+            ]
+            """);
+        Path equityFile = Files.createTempFile("python-backtest-equity-", ".json");
+        Files.writeString(equityFile, """
+            [
+              {
+                "timestamp": "2024-01-01T00:00:00Z",
+                "cash": 10000.0,
+                "equity": 10000.0,
+                "position_size": 0.0
+              }
+            ]
+            """);
         String json = """
             {
-              "summary": {"profit": 12.5},
-              "trades": [
-                {
-                  "entry_time": "2024-01-01T00:00:00Z",
-                  "exit_time": "2024-01-01T01:00:00Z",
-                  "entry_price": 100.0,
-                  "exit_price": 110.0,
-                  "qty": 1.5,
-                  "pnl": 10.0,
-                  "fee": 0.1
-                }
-              ],
-              "equity_curve": [
-                {
-                  "timestamp": "2024-01-01T00:00:00Z",
-                  "cash": 10000.0,
-                  "equity": 10000.0,
-                  "position_size": 0.0
-                }
-              ],
-              "logs": ["started"],
-              "warnings": []
+              "status": "SUCCESS",
+              "metrics": {"netProfit": 12.5, "trades": 1},
+              "errorMessage": null,
+              "artifacts": {
+                "tradesPath": "%s",
+                "equityCurvePath": "%s"
+              }
             }
-            """;
+            """.formatted(tradesFile.toString().replace("\\", "\\\\"), equityFile.toString().replace("\\", "\\\\"));
         String stdout = "INFO: warmup\n" + json + "\n";
         FakeProcess process = new FakeProcess(stdout, "", 0);
         PythonBacktestExecutor executor = executorFor(process);
@@ -57,7 +69,7 @@ class PythonBacktestExecutorTest {
 
         BacktestResult result = executor.execute(request);
 
-        assertThat(result.getSummary()).containsEntry("profit", 12.5);
+        assertThat(result.getSummary()).containsEntry("netProfit", 12.5);
         assertThat(result.getTrades()).hasSize(1);
         assertThat(result.getTrades().get(0).getQuantity()).isEqualTo(1.5);
         assertThat(result.getTrades().get(0).getEntryTime())
@@ -66,13 +78,18 @@ class PythonBacktestExecutorTest {
     }
 
     @Test
-    void throwsOnNonZeroExitCode() {
-        FakeProcess process = new FakeProcess("{\"summary\":{}}", "boom", 1);
+    void throwsOnNonZeroExitCodeButUsesJsonErrorMessage() {
+        FakeProcess process = new FakeProcess(
+            "{\"status\":\"FAILED\",\"metrics\":null,\"errorMessage\":\"Indicator period must be greater than 0\",\"artifacts\":null}",
+            "boom",
+            1
+        );
         PythonBacktestExecutor executor = executorFor(process);
 
         assertThatThrownBy(() -> executor.execute(minimalRequest()))
             .isInstanceOf(PythonExecutionException.class)
             .hasMessageContaining("exit code 1")
+            .hasMessageContaining("Indicator period must be greater than 0")
             .hasMessageContaining("boom");
     }
 
@@ -94,6 +111,20 @@ class PythonBacktestExecutorTest {
         assertThatThrownBy(() -> executor.execute(minimalRequest()))
             .isInstanceOf(PythonExecutionException.class)
             .hasMessageContaining("invalid JSON");
+    }
+
+    @Test
+    void throwsWhenJsonStatusIsFailedEvenWithZeroExitCode() {
+        FakeProcess process = new FakeProcess(
+            "{\"status\":\"FAILED\",\"metrics\":null,\"errorMessage\":\"bad params\",\"artifacts\":null}",
+            "",
+            0
+        );
+        PythonBacktestExecutor executor = executorFor(process);
+
+        assertThatThrownBy(() -> executor.execute(minimalRequest()))
+            .isInstanceOf(PythonExecutionException.class)
+            .hasMessageContaining("bad params");
     }
 
     private PythonBacktestExecutor executorFor(FakeProcess process) {
