@@ -4,11 +4,13 @@ type BackendRunResponse = {
   id: number;
   strategyId: number;
   status: string;
+  startedAt?: string | null;
   exchange: string;
   symbol: string;
   interval: string;
   from: string;
   to: string;
+  parameters?: Record<string, unknown> | null;
   params?: Record<string, unknown> | null;
   metrics?: Record<string, unknown> | null;
   errorMessage?: string | null;
@@ -93,6 +95,7 @@ function toFrontendStatus(status: string): RunStatus {
       return "queued";
     case "RUNNING":
       return "running";
+    case "SUCCESS":
     case "COMPLETED":
       return "done";
     case "FAILED":
@@ -179,15 +182,18 @@ function normalizeBackendRun(payload: unknown): BackendRunResponse | null {
     from: candidate.from,
     to: candidate.to,
     params:
-      candidate.params && typeof candidate.params === "object"
-        ? (candidate.params as Record<string, unknown>)
-        : null,
+      candidate.parameters && typeof candidate.parameters === "object"
+        ? (candidate.parameters as Record<string, unknown>)
+        : candidate.params && typeof candidate.params === "object"
+          ? (candidate.params as Record<string, unknown>)
+          : null,
     metrics:
       candidate.metrics && typeof candidate.metrics === "object"
         ? (candidate.metrics as Record<string, unknown>)
         : null,
     errorMessage: typeof candidate.errorMessage === "string" ? candidate.errorMessage : null,
     createdAt: candidate.createdAt,
+    startedAt: typeof candidate.startedAt === "string" ? candidate.startedAt : null,
     finishedAt: typeof candidate.finishedAt === "string" ? candidate.finishedAt : null,
   };
 }
