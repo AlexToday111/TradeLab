@@ -34,6 +34,12 @@ spring:
       operations-sorter: method
       tags-sorter: alpha
 
+telegram:
+  enabled: ${TELEGRAM_ENABLED:false}
+  bot-token: ${TELEGRAM_BOT_TOKEN:}
+  bot-username: ${TELEGRAM_BOT_USERNAME:}
+  default-chat-id: ${TELEGRAM_CHAT_ID:}
+
 app:
   strategy-storage-path: ./storage/strategies
 
