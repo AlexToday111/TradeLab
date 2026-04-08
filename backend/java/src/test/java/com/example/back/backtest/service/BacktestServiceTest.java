@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -24,6 +25,7 @@ import com.example.back.candles.entity.CandleEntity;
 import com.example.back.candles.repository.CandleRepository;
 import com.example.back.runs.entity.RunEntity;
 import com.example.back.runs.repository.RunRepository;
+import com.example.back.runs.service.RunFailureStateService;
 import com.example.back.strategies.entity.StrategyFileEntity;
 import com.example.back.strategies.repository.StrategyFileRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -52,6 +54,7 @@ class BacktestServiceTest {
     private final BacktestTradeRepository backtestTradeRepository = mock(BacktestTradeRepository.class);
     private final BacktestEquityPointRepository backtestEquityPointRepository = mock(BacktestEquityPointRepository.class);
     private final PythonBacktestExecutor pythonBacktestExecutor = mock(PythonBacktestExecutor.class);
+    private final RunFailureStateService runFailureStateService = mock(RunFailureStateService.class);
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     private BacktestService backtestService;
@@ -65,6 +68,7 @@ class BacktestServiceTest {
                 backtestTradeRepository,
                 backtestEquityPointRepository,
                 pythonBacktestExecutor,
+                runFailureStateService,
                 objectMapper,
                 transactionManager()
         );
@@ -149,6 +153,12 @@ class BacktestServiceTest {
                 .thenReturn(List.of(candle("2024-01-01T00:00:00Z")));
         when(pythonBacktestExecutor.execute(any(BacktestRequest.class)))
                 .thenThrow(new PythonExecutionException("boom"));
+        doAnswer(invocation -> {
+            run.setStatus(BacktestStatus.FAILED);
+            run.setErrorMessage(invocation.getArgument(1));
+            run.setFinishedAt(Instant.now());
+            return null;
+        }).when(runFailureStateService).markFailedInNewTransaction(eq(11L), eq("boom"));
 
         assertThatThrownBy(() -> backtestService.executeRun(11L))
                 .isInstanceOf(PythonExecutionException.class)
@@ -157,6 +167,7 @@ class BacktestServiceTest {
         assertThat(run.getStatus()).isEqualTo(BacktestStatus.FAILED);
         assertThat(run.getFinishedAt()).isNotNull();
         assertThat(run.getErrorMessage()).contains("boom");
+        verify(runFailureStateService).markFailedInNewTransaction(11L, "boom");
         verify(runRepository, atLeastOnce()).save(run);
     }
 

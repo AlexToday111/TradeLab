@@ -18,6 +18,7 @@ import com.example.back.candles.entity.CandleEntity;
 import com.example.back.candles.repository.CandleRepository;
 import com.example.back.runs.entity.RunEntity;
 import com.example.back.runs.repository.RunRepository;
+import com.example.back.runs.service.RunFailureStateService;
 import com.example.back.strategies.entity.StrategyFileEntity;
 import com.example.back.strategies.repository.StrategyFileRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -53,6 +54,7 @@ public class BacktestService {
     private final BacktestTradeRepository backtestTradeRepository;
     private final BacktestEquityPointRepository backtestEquityPointRepository;
     private final PythonBacktestExecutor pythonBacktestExecutor;
+    private final RunFailureStateService runFailureStateService;
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transactionTemplate;
 
@@ -63,6 +65,7 @@ public class BacktestService {
             BacktestTradeRepository backtestTradeRepository,
             BacktestEquityPointRepository backtestEquityPointRepository,
             PythonBacktestExecutor pythonBacktestExecutor,
+            RunFailureStateService runFailureStateService,
             ObjectMapper objectMapper,
             PlatformTransactionManager transactionManager
     ) {
@@ -72,6 +75,7 @@ public class BacktestService {
         this.backtestTradeRepository = backtestTradeRepository;
         this.backtestEquityPointRepository = backtestEquityPointRepository;
         this.pythonBacktestExecutor = pythonBacktestExecutor;
+        this.runFailureStateService = runFailureStateService;
         this.objectMapper = objectMapper;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -117,10 +121,10 @@ public class BacktestService {
             persistSuccessfulRun(runId, result);
             return getRun(runId);
         } catch (RuntimeException ex) {
-            markFailed(runId, ex.getMessage());
+            markFailed(runId, ex);
             throw ex;
         } catch (Exception ex) {
-            markFailed(runId, ex.getMessage());
+            markFailed(runId, ex);
             throw new IllegalStateException("Failed to execute backtest", ex);
         } finally {
             deleteQuietly(csvPath);
@@ -276,25 +280,13 @@ public class BacktestService {
         });
     }
 
-    private void markFailed(Long runId, String message) {
+    private void markFailed(Long runId, Exception failure) {
         try {
-            transactionTemplate.executeWithoutResult(status -> {
-                RunEntity run = findRunEntity(runId);
-                run.setStatus(BacktestStatus.FAILED);
-                run.setErrorMessage(normalizeError(message));
-                run.setFinishedAt(Instant.now());
-                runRepository.save(run);
-            });
+            runFailureStateService.markFailedInNewTransaction(runId, failure.getMessage());
         } catch (RuntimeException ex) {
+            failure.addSuppressed(ex);
             log.error("Failed to persist FAILED status for run {}", runId, ex);
         }
-    }
-
-    private String normalizeError(String message) {
-        if (message == null || message.isBlank()) {
-            return "Backtest execution failed";
-        }
-        return message;
     }
 
     private BacktestTradeEntity toTradeEntity(Long runId, BacktestTrade trade) {
