@@ -27,7 +27,7 @@ flowchart LR
   - запуска импорта (`/api/imports/candles`)
   - health (`/api/health`, `/api/python/health`)
 - Работа с PostgreSQL (датасеты, чтение свечей)
-- Интеграция с Python parser по HTTP
+- Интеграция с Python parser по HTTP 
 
 <h3 align="center">Python parser (`backend/python`)</h3>
 
