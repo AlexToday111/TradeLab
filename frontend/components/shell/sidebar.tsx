@@ -73,8 +73,8 @@ export function Sidebar() {
                   className={cn(
                     "group flex items-center gap-3 rounded-xl border border-transparent px-3 py-2 text-sm transition-all duration-300",
                     isActive
-                      ? "border-primary/45 bg-[linear-gradient(135deg,rgba(152,102,255,0.32),rgba(76,45,138,0.16))] text-foreground shadow-[0_0_18px_rgba(146,92,255,0.35)]"
-                      : "text-muted-foreground hover:border-primary/30 hover:bg-[linear-gradient(135deg,rgba(120,82,210,0.22),rgba(44,28,84,0.1))] hover:text-foreground hover:shadow-[0_0_16px_rgba(136,86,243,0.24)]"
+                      ? "border-[hsl(var(--primary)/0.34)] bg-[linear-gradient(135deg,hsl(var(--primary)/0.18),hsl(var(--accent)/0.1))] text-foreground shadow-[0_0_18px_hsl(var(--primary)/0.14)]"
+                      : "text-muted-foreground hover:border-[hsl(var(--tl-border-1)/0.8)] hover:bg-[hsl(var(--tl-bg-2)/0.78)] hover:text-foreground"
                   )}
                 >
                   {item.iconSrc ? (

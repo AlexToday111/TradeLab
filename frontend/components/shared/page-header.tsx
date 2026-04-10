@@ -24,7 +24,7 @@ export function PageHeader({
   return (
     <section
       className={cn(
-        "relative overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(135deg,rgba(43,213,118,0.18),rgba(111,247,163,0.1)_42%,rgba(12,16,27,0.96)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_22px_48px_rgba(0,0,0,0.44),0_0_0_1px_rgba(43,213,118,0.05)]",
+        "relative overflow-hidden rounded-[32px] border border-[hsl(var(--tl-border-1)/0.68)] bg-[linear-gradient(135deg,hsl(var(--primary)/0.18),hsl(var(--accent)/0.1)_42%,hsl(var(--tl-bg-1)/0.96)_100%)] shadow-[inset_0_1px_0_hsl(var(--tl-glass-highlight)/0.08),0_22px_48px_rgba(0,0,0,0.14),0_0_0_1px_rgba(43,213,118,0.05)]",
         className
       )}
     >

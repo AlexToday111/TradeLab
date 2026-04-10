@@ -26,7 +26,7 @@ export function Topbar() {
     pathname === "/settings" || pathname.startsWith("/settings/");
 
   return (
-    <header className="relative z-20 border-b border-white/[0.05] bg-[linear-gradient(180deg,rgba(11,13,20,0.98),rgba(9,11,18,0.98))] px-4 py-4 md:px-6">
+    <header className="relative z-20 border-b border-[hsl(var(--tl-border-1)/0.48)] bg-[linear-gradient(180deg,hsl(var(--tl-bg-1)/0.98),hsl(var(--tl-bg-0)/0.98))] px-4 py-4 md:px-6">
       <div className="flex items-center gap-5">
         <Link
           href="/workspace"
@@ -55,10 +55,10 @@ export function Topbar() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "group flex h-10 shrink-0 items-center gap-2 rounded-full border px-4 text-[14px] font-semibold text-white/66 transition-all duration-200",
+                  "group flex h-10 shrink-0 items-center gap-2 rounded-full border px-4 text-[14px] font-semibold text-muted-foreground transition-all duration-200",
                   isActive
                     ? "border-[#c7ee51]/40 bg-[#c7ee51]/14 text-[#c7ee51] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
-                    : "border-transparent bg-transparent hover:border-white/[0.04] hover:bg-white/[0.03] hover:text-white/88"
+                    : "border-transparent bg-transparent hover:border-[hsl(var(--tl-border-1)/0.46)] hover:bg-[hsl(var(--tl-bg-2)/0.78)] hover:text-foreground"
                 )}
               >
                 {item.iconSrc ? (
@@ -74,7 +74,7 @@ export function Topbar() {
                     <Icon
                       className={cn(
                         "h-4 w-4 shrink-0",
-                        isActive ? "text-[#c7ee51]" : "text-white/42 group-hover:text-white/70"
+                        isActive ? "text-[#c7ee51]" : "text-muted-foreground group-hover:text-foreground"
                       )}
                     />
                 ) : null}
@@ -89,7 +89,7 @@ export function Topbar() {
             href="https://t.me/trading360l"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-transparent text-white/50 transition-all duration-200 hover:border-white/[0.06] hover:bg-white/[0.04] hover:text-white/80"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-transparent text-muted-foreground transition-all duration-200 hover:border-[hsl(var(--tl-border-1)/0.52)] hover:bg-[hsl(var(--tl-bg-2)/0.82)] hover:text-foreground"
             aria-label="Telegram"
           >
             <Image
@@ -105,7 +105,7 @@ export function Topbar() {
             href="https://github.com/AlexToday111/TradeLab.git"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-transparent text-white/50 transition-all duration-200 hover:border-white/[0.06] hover:bg-white/[0.04] hover:text-white/80"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-transparent text-muted-foreground transition-all duration-200 hover:border-[hsl(var(--tl-border-1)/0.52)] hover:bg-[hsl(var(--tl-bg-2)/0.82)] hover:text-foreground"
             aria-label="GitHub"
           >
             <Github className="h-[18px] w-[18px]" />
@@ -114,7 +114,7 @@ export function Topbar() {
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-transparent text-white/50 transition-all duration-200 hover:border-white/[0.06] hover:bg-white/[0.04] hover:text-white/80"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-transparent text-muted-foreground transition-all duration-200 hover:border-[hsl(var(--tl-border-1)/0.52)] hover:bg-[hsl(var(--tl-bg-2)/0.82)] hover:text-foreground"
                 aria-label="Настройки интерфейса"
               >
                 <Image
@@ -130,16 +130,16 @@ export function Topbar() {
             <DropdownMenuContent
               align="end"
               sideOffset={10}
-              className="w-[320px] border-[rgba(110,226,166,0.16)] bg-[linear-gradient(160deg,rgba(12,18,28,0.96),rgba(8,11,18,0.96))] p-2"
+              className="w-[320px] border-[hsl(var(--primary)/0.16)] bg-[linear-gradient(160deg,hsl(var(--popover)/0.98),hsl(var(--tl-bg-2)/0.95))] p-2"
             >
-              <DropdownMenuLabel className="px-3 pt-2 text-base text-white/92">
+              <DropdownMenuLabel className="px-3 pt-2 text-base text-foreground">
                 Настройки
               </DropdownMenuLabel>
-              <div className="px-3 pb-2 text-xs text-white/52">
+              <div className="px-3 pb-2 text-xs text-muted-foreground">
                 Пока здесь доступен только выбор темы интерфейса.
               </div>
-              <DropdownMenuSeparator className="bg-white/[0.07]" />
-              <div className="px-3 pb-2 pt-1 text-[11px] uppercase tracking-[0.22em] text-white/38">
+              <DropdownMenuSeparator className="bg-border/80" />
+              <div className="px-3 pb-2 pt-1 text-[11px] uppercase tracking-[0.22em] text-muted-foreground/80">
                 Тема интерфейса
               </div>
               <div className="space-y-1 px-1 pb-1">
@@ -159,10 +159,10 @@ export function Topbar() {
                         setTheme("black");
                       }}
                       className={cn(
-                        "rounded-[12px] px-3 py-2.5 text-sm font-medium focus:bg-white/[0.05]",
+                        "rounded-[12px] px-3 py-2.5 text-sm font-medium focus:bg-[hsl(var(--tl-bg-2)/0.9)]",
                         option.disabled
-                          ? "cursor-default text-white/28"
-                          : "cursor-pointer text-white/78",
+                          ? "cursor-default text-muted-foreground/40"
+                          : "cursor-pointer text-foreground/80",
                         isSelected &&
                           "bg-[#c9ef4e]/12 text-[#C9EF4E] focus:bg-[#c9ef4e]/12 focus:text-[#C9EF4E]"
                       )}
@@ -177,7 +177,7 @@ export function Topbar() {
           {isSettingsActive ? (
             <Link
               href="/settings"
-              className="inline-flex h-10 items-center rounded-[12px] border border-[rgba(110,226,166,0.16)] bg-[rgba(43,213,118,0.08)] px-4 text-[13px] text-white/86"
+              className="inline-flex h-10 items-center rounded-[12px] border border-[hsl(var(--primary)/0.18)] bg-[hsl(var(--primary)/0.08)] px-4 text-[13px] text-foreground"
             >
               <Settings2 className="mr-2 h-4 w-4" />
               {"\u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438"}

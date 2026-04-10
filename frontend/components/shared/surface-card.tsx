@@ -23,13 +23,13 @@ export function SurfaceCard({
   return (
     <section
       className={cn(
-        "rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(20,25,39,0.86),rgba(11,15,24,0.92))] backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_24px_56px_rgba(0,0,0,0.42),0_0_0_1px_rgba(43,213,118,0.05)]",
+        "rounded-[28px] border border-[hsl(var(--tl-border-1)/0.72)] bg-[linear-gradient(180deg,hsl(var(--tl-bg-1)/0.96),hsl(var(--tl-bg-2)/0.92))] backdrop-blur-xl shadow-[inset_0_1px_0_hsl(var(--tl-glass-highlight)/0.08),0_24px_56px_rgba(0,0,0,0.14),0_0_0_1px_rgba(43,213,118,0.05)]",
         overflow === "visible" ? "overflow-visible" : "overflow-hidden",
         className
       )}
     >
       {title || subtitle || actions ? (
-        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-white/10 bg-[linear-gradient(145deg,rgba(43,213,118,0.1),rgba(111,247,163,0.06)_48%,rgba(255,255,255,0.02))] px-5 py-4">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[hsl(var(--tl-border-1)/0.62)] bg-[linear-gradient(145deg,hsl(var(--primary)/0.1),hsl(var(--accent)/0.06)_48%,hsl(var(--tl-bg-1)/0.92))] px-5 py-4">
           <div className="min-w-0 flex-1">
             {title ? (
               <div className="text-sm font-semibold text-foreground">{title}</div>

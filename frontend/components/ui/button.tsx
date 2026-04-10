@@ -14,11 +14,11 @@ const buttonVariants = cva(
         destructive:
           "border border-destructive/50 bg-destructive text-destructive-foreground shadow-[0_10px_24px_rgba(191,63,83,0.35)] hover:-translate-y-0.5 hover:bg-destructive/90",
         outline:
-          "border border-white/10 bg-[linear-gradient(145deg,rgba(20,25,39,0.86),rgba(12,16,27,0.92))] text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] hover:border-[rgba(92,240,158,0.24)] hover:text-foreground hover:shadow-[0_0_18px_rgba(43,213,118,0.16)]",
+          "border border-[hsl(var(--tl-border-1)/0.8)] bg-[linear-gradient(145deg,hsl(var(--tl-bg-1)/0.98),hsl(var(--tl-bg-2)/0.92))] text-foreground shadow-[inset_0_1px_0_hsl(var(--tl-glass-highlight)/0.08)] hover:border-[hsl(var(--primary)/0.24)] hover:text-foreground hover:shadow-[0_0_18px_rgba(43,213,118,0.16)]",
         secondary:
-          "border border-white/10 bg-[linear-gradient(145deg,rgba(43,213,118,0.12),rgba(111,247,163,0.08))] text-secondary-foreground hover:border-[rgba(92,240,158,0.24)] hover:shadow-[0_0_20px_rgba(43,213,118,0.14)]",
+          "border border-[hsl(var(--primary)/0.14)] bg-[linear-gradient(145deg,hsl(var(--primary)/0.12),hsl(var(--accent)/0.08))] text-secondary-foreground hover:border-[hsl(var(--primary)/0.24)] hover:shadow-[0_0_20px_rgba(43,213,118,0.14)]",
         ghost:
-          "text-muted-foreground hover:bg-[linear-gradient(135deg,rgba(43,213,118,0.12),rgba(111,247,163,0.08))] hover:text-foreground",
+          "text-muted-foreground hover:bg-[hsl(var(--tl-bg-2)/0.9)] hover:text-foreground",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {

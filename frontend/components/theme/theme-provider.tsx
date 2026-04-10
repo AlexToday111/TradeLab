@@ -2,10 +2,10 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
-export type InterfaceTheme = "black";
+export type InterfaceTheme = "black" | "white";
 
 type ThemeOption = {
-  value: InterfaceTheme | "white";
+  value: InterfaceTheme;
   label: string;
   disabled?: boolean;
 };
@@ -32,7 +32,7 @@ export const interfaceThemeOptions: ThemeOption[] = [
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 function isInterfaceTheme(value: string | null): value is InterfaceTheme {
-  return value === "black";
+  return value === "black" || value === "white";
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
@@ -46,7 +46,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
-    document.documentElement.dataset.theme = "neon";
+    document.documentElement.dataset.theme = theme === "white" ? "white" : "neon";
     window.localStorage.setItem(STORAGE_KEY, theme);
   }, [theme]);
 
