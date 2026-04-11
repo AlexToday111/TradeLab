@@ -156,7 +156,7 @@ export function Topbar() {
                           return;
                         }
 
-                        setTheme("black");
+                        setTheme(option.value);
                       }}
                       className={cn(
                         "rounded-[12px] px-3 py-2.5 text-sm font-medium focus:bg-[hsl(var(--tl-bg-2)/0.9)]",

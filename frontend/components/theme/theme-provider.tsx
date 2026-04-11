@@ -25,7 +25,6 @@ export const interfaceThemeOptions: ThemeOption[] = [
   {
     value: "white",
     label: "White",
-    disabled: true,
   },
 ];
 
