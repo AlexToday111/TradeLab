@@ -142,7 +142,7 @@ function getDesktopStatusPresentation(run: Run) {
   if (isInvalidStrategyRun(run)) {
     return {
       label: "Ошибка",
-      className: "border border-status-failed/35 bg-status-failed/15 text-status-failed",
+      className: "border border-status-error/35 bg-status-error/15 text-status-error",
       action: "restart" as const,
     };
   }
@@ -221,8 +221,8 @@ function DesktopPageContent() {
 
   const isProjectProfitable = primaryRun ? primaryRun.metrics.pnl > 0 : false;
   const desktopSurfaceToneClassName = isProjectProfitable
-    ? "border-[rgba(93,187,99,0.28)] bg-[linear-gradient(180deg,rgba(93,187,99,0.14),rgba(11,15,24,0.93)_24%,rgba(11,15,24,0.96))] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_24px_56px_rgba(0,0,0,0.42),0_0_0_1px_rgba(93,187,99,0.16)]"
-    : "border-[rgba(179,0,0,0.34)] bg-[linear-gradient(180deg,rgba(179,0,0,0.14),rgba(11,15,24,0.93)_24%,rgba(11,15,24,0.96))] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_24px_56px_rgba(0,0,0,0.42),0_0_0_1px_rgba(179,0,0,0.22)]";
+    ? "border-[hsl(var(--tl-success)/0.28)] bg-[linear-gradient(180deg,hsl(var(--tl-success)/0.14),hsl(var(--tl-bg-1)/0.96)_24%,hsl(var(--tl-bg-2)/0.94))] shadow-[inset_0_1px_0_hsl(var(--tl-glass-highlight)/0.08),0_24px_56px_rgba(0,0,0,0.16),0_0_0_1px_hsl(var(--tl-success)/0.16)]"
+    : "border-[hsl(var(--tl-error)/0.3)] bg-[linear-gradient(180deg,hsl(var(--tl-error)/0.14),hsl(var(--tl-bg-1)/0.96)_24%,hsl(var(--tl-bg-2)/0.94))] shadow-[inset_0_1px_0_hsl(var(--tl-glass-highlight)/0.08),0_24px_56px_rgba(0,0,0,0.16),0_0_0_1px_hsl(var(--tl-error)/0.18)]";
 
   const canCreateProject = newProjectName.trim().length > 0;
   const canAddStrategy = newStrategyName.trim().length > 0;
@@ -410,7 +410,7 @@ function DesktopPageContent() {
   if (!project) {
     return (
       <div className="flex h-full flex-col gap-5">
-        <SurfaceCard className="border-white/12 bg-[linear-gradient(140deg,rgba(16,22,32,0.96),rgba(9,13,21,0.94))]">
+        <SurfaceCard className="border-border/80 bg-[linear-gradient(140deg,hsl(var(--tl-bg-1)/0.98),hsl(var(--tl-bg-2)/0.94))]">
           <div className="space-y-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -432,21 +432,21 @@ function DesktopPageContent() {
             </div>
 
             {isCreateProjectOpen ? (
-              <div className="rounded-[18px] border border-white/12 bg-[rgba(8,12,20,0.68)] p-4">
+              <div className="rounded-[18px] border border-border/80 bg-[hsl(var(--tl-bg-2)/0.82)] p-4">
                 <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px]">
                   <div className="space-y-3">
                     <input
                       value={newProjectName}
                       onChange={(event) => setNewProjectName(event.target.value)}
                       placeholder="Название проекта"
-                      className="h-10 w-full rounded-[12px] border border-white/12 bg-[rgba(14,18,28,0.82)] px-3 text-sm text-foreground placeholder:text-muted-foreground/80 outline-none transition-colors focus:border-[hsl(var(--tl-glow)/0.5)]"
+                      className="h-10 w-full rounded-[12px] border border-border/80 bg-[hsl(var(--tl-bg-1)/0.9)] px-3 text-sm text-foreground placeholder:text-muted-foreground/80 outline-none transition-colors focus:border-[hsl(var(--tl-glow)/0.5)]"
                     />
                     <textarea
                       value={newProjectDescription}
                       onChange={(event) => setNewProjectDescription(event.target.value)}
                       placeholder="Краткое описание проекта"
                       rows={3}
-                      className="w-full resize-none rounded-[12px] border border-white/12 bg-[rgba(14,18,28,0.82)] px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/80 outline-none transition-colors focus:border-[hsl(var(--tl-glow)/0.5)]"
+                      className="w-full resize-none rounded-[12px] border border-border/80 bg-[hsl(var(--tl-bg-1)/0.9)] px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/80 outline-none transition-colors focus:border-[hsl(var(--tl-glow)/0.5)]"
                     />
                   </div>
                   <div className="flex items-end gap-2 lg:flex-col lg:justify-end">
@@ -468,9 +468,9 @@ function DesktopPageContent() {
                 return (
                   <div
                     key={item.project.id}
-                    className="group relative overflow-hidden rounded-[20px] border border-white/12 bg-[linear-gradient(155deg,rgba(20,27,38,0.95),rgba(9,13,21,0.95))] p-4 transition-all duration-300 hover:-translate-y-0.5 hover:border-white/20 hover:shadow-[0_16px_32px_rgba(0,0,0,0.36)]"
+                    className="group relative overflow-hidden rounded-[20px] border border-border/80 bg-[linear-gradient(155deg,hsl(var(--tl-bg-1)/0.98),hsl(var(--tl-bg-2)/0.95))] p-4 transition-all duration-300 hover:-translate-y-0.5 hover:border-border hover:shadow-[0_16px_32px_rgba(0,0,0,0.16)]"
                   >
-                    <div className="pointer-events-none absolute right-4 top-3 z-0 select-none text-[82px] font-semibold leading-none text-white/[0.08]">
+                    <div className="pointer-events-none absolute right-4 top-3 z-0 select-none text-[82px] font-semibold leading-none text-foreground/10">
                       {(index + 1).toString().padStart(2, "0")}
                     </div>
                     <div className="relative z-10 text-base font-semibold text-foreground">
@@ -480,13 +480,13 @@ function DesktopPageContent() {
                       {item.project.description}
                     </div>
                     <div className="relative z-10 mt-3 grid grid-cols-2 gap-2 text-xs">
-                      <div className="rounded-[12px] border border-white/10 bg-[rgba(3,6,12,0.46)] px-2.5 py-2">
+                      <div className="rounded-[12px] border border-border/70 bg-[hsl(var(--tl-bg-1)/0.64)] px-2.5 py-2">
                         <div className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
                           Датасет
                         </div>
                         <div className="mt-1 text-foreground">{item.project.lastDataset}</div>
                       </div>
-                      <div className="rounded-[12px] border border-white/10 bg-[rgba(3,6,12,0.46)] px-2.5 py-2">
+                      <div className="rounded-[12px] border border-border/70 bg-[hsl(var(--tl-bg-1)/0.64)] px-2.5 py-2">
                         <div className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
                           Запуски
                         </div>
@@ -576,13 +576,13 @@ function DesktopPageContent() {
             </div>
 
             {isAddStrategyOpen ? (
-              <div className="rounded-[18px] border border-white/12 bg-[rgba(8,12,20,0.68)] p-4">
+              <div className="rounded-[18px] border border-border/80 bg-[hsl(var(--tl-bg-2)/0.82)] p-4">
                 <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px]">
                   <input
                     value={newStrategyName}
                     onChange={(event) => setNewStrategyName(event.target.value)}
                     placeholder="Имя стратегии (например, atlas_breakout.py)"
-                    className="h-10 w-full rounded-[12px] border border-white/12 bg-[rgba(14,18,28,0.82)] px-3 text-sm text-foreground placeholder:text-muted-foreground/80 outline-none transition-colors focus:border-[hsl(var(--tl-glow)/0.5)]"
+                    className="h-10 w-full rounded-[12px] border border-border/80 bg-[hsl(var(--tl-bg-1)/0.9)] px-3 text-sm text-foreground placeholder:text-muted-foreground/80 outline-none transition-colors focus:border-[hsl(var(--tl-glow)/0.5)]"
                   />
                   <div className="flex items-end gap-2 lg:flex-col lg:justify-end">
                     <Button
@@ -608,7 +608,7 @@ function DesktopPageContent() {
           </div>
           <div className="grid gap-4 xl:grid-cols-[minmax(0,0.92fr)_minmax(320px,0.68fr)]">
             <div className="grid gap-3">
-              <div className="group relative overflow-hidden rounded-[22px] border border-white/15 bg-[linear-gradient(145deg,rgba(34,39,51,0.96),rgba(16,20,30,0.94))] p-4 shadow-[0_14px_36px_rgba(0,0,0,0.34)]">
+              <div className="group relative overflow-hidden rounded-[22px] border border-border/80 bg-[linear-gradient(145deg,hsl(var(--tl-bg-1)/0.98),hsl(var(--tl-bg-2)/0.94))] p-4 shadow-[0_14px_36px_rgba(0,0,0,0.14)]">
                 <div
                   className="pointer-events-none absolute inset-y-0 left-0 w-4"
                   style={{
@@ -621,19 +621,19 @@ function DesktopPageContent() {
                   style={{ backgroundColor: "rgba(49, 214, 51, 0.32)" }}
                 />
                 <div className="relative pl-4">
-                  <div className="text-lg font-semibold leading-tight text-white">
+                  <div className="text-lg font-semibold leading-tight text-foreground">
                     Последний датасет
                   </div>
-                  <div className="mt-2 text-xs leading-relaxed text-white/65">
+                  <div className="mt-2 text-xs leading-relaxed text-muted-foreground">
                     Текущая версия данных для основного сценария
                   </div>
-                  <div className="mt-4 text-sm font-medium text-white/90">
+                  <div className="mt-4 text-sm font-medium text-foreground">
                     {project.lastDataset}
                   </div>
                 </div>
               </div>
 
-              <div className="group relative overflow-hidden rounded-[22px] border border-white/15 bg-[linear-gradient(145deg,rgba(34,39,51,0.96),rgba(16,20,30,0.94))] p-4 shadow-[0_14px_36px_rgba(0,0,0,0.34)]">
+              <div className="group relative overflow-hidden rounded-[22px] border border-border/80 bg-[linear-gradient(145deg,hsl(var(--tl-bg-1)/0.98),hsl(var(--tl-bg-2)/0.94))] p-4 shadow-[0_14px_36px_rgba(0,0,0,0.14)]">
                 <div
                   className="pointer-events-none absolute inset-y-0 left-0 w-4"
                   style={{
@@ -646,21 +646,21 @@ function DesktopPageContent() {
                   style={{ backgroundColor: "rgba(93, 149, 72, 0.3)" }}
                 />
                 <div className="relative pl-4">
-                  <div className="text-lg font-semibold leading-tight text-white">
+                  <div className="text-lg font-semibold leading-tight text-foreground">
                     Последняя активность
                   </div>
-                  <div className="mt-2 text-xs leading-relaxed text-white/65">
+                  <div className="mt-2 text-xs leading-relaxed text-muted-foreground">
                     Когда проект обновлялся в последний раз
                   </div>
-                  <div className="mt-4 text-sm font-medium text-white/90">
+                  <div className="mt-4 text-sm font-medium text-foreground">
                     {project.lastActive}
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-[22px] border border-white/12 bg-[rgba(8,11,18,0.46)] p-4">
-              <div className="mb-3 text-sm font-semibold text-white">Контекст проекта</div>
+            <div className="rounded-[22px] border border-border/80 bg-[hsl(var(--tl-bg-2)/0.78)] p-4">
+              <div className="mb-3 text-sm font-semibold text-foreground">Контекст проекта</div>
               <div className="space-y-3 text-xs">
                 <div className="rounded-[18px] border border-border bg-panel-subtle p-4">
                   <div className="mb-1 flex items-center gap-2 text-foreground">
@@ -689,11 +689,11 @@ function DesktopPageContent() {
         </div>
       </SurfaceCard>
 
-      <div className="overflow-hidden rounded-[18px] border border-white/10 bg-[#0F141E]">
+      <div className="overflow-hidden rounded-[18px] border border-border/80 bg-[linear-gradient(180deg,hsl(var(--tl-bg-1)/0.98),hsl(var(--tl-bg-2)/0.92))]">
         <div className="overflow-x-auto">
           <table className="min-w-[860px] w-full text-xs">
             <thead className="bg-[linear-gradient(135deg,hsl(var(--tl-glow)/0.22),hsl(var(--tl-glow-soft)/0.16))] text-foreground/90">
-              <tr className="border-b border-white/10">
+              <tr className="border-b border-border/70">
                 <th className="px-4 py-3 text-left text-[11px] font-medium uppercase tracking-[0.14em]">
                   Название
                 </th>
@@ -731,7 +731,7 @@ function DesktopPageContent() {
                   const statusPresentation = getDesktopStatusPresentation(run);
 
                   return (
-                    <tr key={run.id} className="border-b border-white/10 last:border-b-0">
+                    <tr key={run.id} className="border-b border-border/70 last:border-b-0">
                       <td className="px-4 py-3 align-middle">
                         <div className="font-medium text-foreground">
                           {formatStrategyName(run.strategy)}
@@ -748,7 +748,7 @@ function DesktopPageContent() {
                           className={
                             isProfit
                               ? "font-semibold text-status-success"
-                              : "font-semibold text-status-failed"
+                              : "font-semibold text-status-error"
                           }
                         >
                           {isProfit ? "+" : ""}

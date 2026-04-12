@@ -204,7 +204,7 @@ export default function WorkspacePage() {
                     className="shrink-0 px-2 first:pl-0 last:pr-0"
                     style={{ flex: `0 0 ${100 / projectsPerView}%` }}
                   >
-                    <div className="group relative flex min-h-[430px] flex-col overflow-hidden rounded-[24px] border border-white/10 bg-[linear-gradient(150deg,rgba(21,27,39,0.96),rgba(9,13,22,0.95)_78%)] transition-all duration-300 hover:-translate-y-0.5 hover:border-white/20 hover:shadow-[0_22px_44px_rgba(0,0,0,0.45)]">
+                    <div className="group relative flex min-h-[430px] flex-col overflow-hidden rounded-[24px] border border-border/80 bg-[linear-gradient(150deg,hsl(var(--tl-bg-1)/0.98),hsl(var(--tl-bg-2)/0.95)_78%)] transition-all duration-300 hover:-translate-y-0.5 hover:border-border hover:shadow-[0_22px_44px_rgba(0,0,0,0.16)]">
                       <div
                         className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
                         style={{
@@ -231,12 +231,12 @@ export default function WorkspacePage() {
                           </defs>
                           <path
                             d={`M 0 78 H ${CHART_WIDTH}`}
-                            stroke="rgba(255,255,255,0.06)"
+                            stroke="hsl(var(--tl-border-1) / 0.72)"
                             strokeDasharray="5 6"
                           />
                           <path
                             d={`M 0 152 H ${CHART_WIDTH}`}
-                            stroke="rgba(255,255,255,0.05)"
+                            stroke="hsl(var(--tl-border-1) / 0.55)"
                             strokeDasharray="5 6"
                           />
                           <path
@@ -254,10 +254,10 @@ export default function WorkspacePage() {
                           />
                         </svg>
                       </div>
-                      <div className="pointer-events-none absolute right-4 top-3 z-0 select-none text-[82px] font-semibold leading-none text-white/[0.08]">
+                      <div className="pointer-events-none absolute right-4 top-3 z-0 select-none text-[82px] font-semibold leading-none text-foreground/10">
                         {(index + 1).toString().padStart(2, "0")}
                       </div>
-                      <div className="relative z-10 border-b border-white/10 px-4 py-4">
+                      <div className="relative z-10 border-b border-border/70 px-4 py-4">
                         <div
                           className="pointer-events-none absolute inset-y-0 left-0 w-1"
                           style={{ backgroundColor: tone.accent }}
@@ -278,20 +278,20 @@ export default function WorkspacePage() {
                       <div className="relative z-10 flex flex-1 flex-col px-4 pb-0 pt-4">
                         <div className="grid grid-cols-2 gap-3">
                           <div className="flex flex-col gap-3">
-                            <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-xs">
+                            <div className="rounded-xl border border-border/70 bg-[hsl(var(--tl-bg-1)/0.58)] px-3 py-3 text-xs">
                               <div className="mb-1 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
                                 Последняя активность
                               </div>
                               <div className="text-foreground">{project.lastActive}</div>
                             </div>
-                            <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-xs">
+                            <div className="rounded-xl border border-border/70 bg-[hsl(var(--tl-bg-1)/0.58)] px-3 py-3 text-xs">
                               <div className="mb-1 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
                                 Датасет
                               </div>
                               <div className="text-foreground">{project.lastDataset}</div>
                             </div>
                           </div>
-                          <div className="self-start rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-xs">
+                          <div className="self-start rounded-xl border border-border/70 bg-[hsl(var(--tl-bg-1)/0.58)] px-3 py-3 text-xs">
                             <div className="mb-1 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
                               Запуски
                             </div>
@@ -322,12 +322,12 @@ export default function WorkspacePage() {
         </div>
       </SurfaceCard>
 
-      <div className="rounded-[28px] border border-white/10 p-2">
+      <div className="rounded-[28px] border border-border/80 p-2">
         <div className="grid gap-2 md:grid-cols-3">
           {summaryCards.map((card) => (
             <SurfaceCard
               key={card.label}
-              className="w-full rounded-[22px] border-white/10 bg-[#0F141E] shadow-none"
+              className="w-full rounded-[22px] border-border/80 bg-[linear-gradient(180deg,hsl(var(--tl-bg-1)/0.98),hsl(var(--tl-bg-2)/0.92))] shadow-none"
               contentClassName="p-0"
             >
               <div className="relative min-h-[112px] overflow-hidden">
@@ -338,7 +338,7 @@ export default function WorkspacePage() {
                   height={172}
                   className="pointer-events-none absolute -left-[58px] top-1/2 h-[172px] w-[172px] -translate-y-1/2 select-none opacity-25"
                 />
-                <div className="pointer-events-none absolute inset-y-0 left-0 w-[46%] bg-[linear-gradient(90deg,rgba(10,14,22,0.08),rgba(10,14,22,0))]" />
+                <div className="pointer-events-none absolute inset-y-0 left-0 w-[46%] bg-[linear-gradient(90deg,hsl(var(--tl-bg-0)/0.18),transparent)]" />
                 <div className="relative ml-[34%] py-3 pl-3 pr-3">
                   <div className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
                     {card.label}
@@ -355,8 +355,8 @@ export default function WorkspacePage() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
-        <div className="overflow-hidden rounded-[18px] border border-white/10 bg-[#0F141E]">
-          <div className="grid grid-cols-2 border-b border-white/10 bg-[linear-gradient(135deg,hsl(var(--tl-glow)/0.22),hsl(var(--tl-glow-soft)/0.16))] text-foreground/90">
+        <div className="overflow-hidden rounded-[18px] border border-border/80 bg-[linear-gradient(180deg,hsl(var(--tl-bg-1)/0.98),hsl(var(--tl-bg-2)/0.92))]">
+          <div className="grid grid-cols-2 border-b border-border/70 bg-[linear-gradient(135deg,hsl(var(--tl-glow)/0.22),hsl(var(--tl-glow-soft)/0.16))] text-foreground/90">
             <div className="px-4 py-3 text-left text-[11px] font-medium uppercase tracking-[0.14em]">
               Лучшие проекты
             </div>
@@ -367,14 +367,14 @@ export default function WorkspacePage() {
           <div className="grid gap-4 p-4 md:grid-cols-2">
             <div className="space-y-2">
               {topProjects.length === 0 ? (
-                <div className="rounded-[12px] border border-white/10 bg-[rgba(3,5,10,0.46)] px-3 py-3 text-xs text-muted-foreground">
+                <div className="rounded-[12px] border border-border/70 bg-[hsl(var(--tl-bg-1)/0.64)] px-3 py-3 text-xs text-muted-foreground">
                   Пока нет данных по запускам.
                 </div>
               ) : (
                 topProjects.map((item) => (
                   <div
                     key={`top-${item.project.id}`}
-                    className="flex items-center justify-between rounded-[12px] border border-white/10 bg-[rgba(3,5,10,0.46)] px-3 py-2"
+                    className="flex items-center justify-between rounded-[12px] border border-border/70 bg-[hsl(var(--tl-bg-1)/0.64)] px-3 py-2"
                   >
                     <div>
                       <div className="text-sm font-medium text-foreground">
@@ -403,14 +403,14 @@ export default function WorkspacePage() {
             </div>
             <div className="space-y-2">
               {worstProjects.length === 0 ? (
-                <div className="rounded-[12px] border border-white/10 bg-[rgba(3,5,10,0.46)] px-3 py-3 text-xs text-muted-foreground">
+                <div className="rounded-[12px] border border-border/70 bg-[hsl(var(--tl-bg-1)/0.64)] px-3 py-3 text-xs text-muted-foreground">
                   Пока нет данных по запускам.
                 </div>
               ) : (
                 worstProjects.map((item) => (
                   <div
                     key={`worst-${item.project.id}`}
-                    className="flex items-center justify-between rounded-[12px] border border-white/10 bg-[rgba(3,5,10,0.46)] px-3 py-2"
+                    className="flex items-center justify-between rounded-[12px] border border-border/70 bg-[hsl(var(--tl-bg-1)/0.64)] px-3 py-2"
                   >
                     <div>
                       <div className="text-sm font-medium text-foreground">
@@ -425,7 +425,7 @@ export default function WorkspacePage() {
                         className={
                           item.averagePnl >= 0
                             ? "text-sm font-semibold text-status-success"
-                            : "text-sm font-semibold text-status-failed"
+                            : "text-sm font-semibold text-status-error"
                         }
                       >
                         {item.averagePnl >= 0 ? "+" : ""}
@@ -447,15 +447,15 @@ export default function WorkspacePage() {
           </div>
         </div>
 
-        <div className="rounded-[18px] border border-white/10 bg-[#0F141E] p-4">
+        <div className="rounded-[18px] border border-border/80 bg-[linear-gradient(180deg,hsl(var(--tl-bg-1)/0.98),hsl(var(--tl-bg-2)/0.92))] p-4">
           <div className="mb-2 border-b border-[hsl(var(--tl-glow)/0.45)] pb-2 text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
             Курсы валют
           </div>
-          <div className="mt-3 space-y-2 rounded-[14px] border border-[hsl(var(--tl-glow)/0.32)] bg-[linear-gradient(160deg,hsl(var(--tl-glow)/0.24),hsl(var(--tl-glow-soft)/0.12)_58%,rgba(7,9,15,0.82))] p-2">
+          <div className="mt-3 space-y-2 rounded-[14px] border border-[hsl(var(--tl-glow)/0.32)] bg-[linear-gradient(160deg,hsl(var(--tl-glow)/0.18),hsl(var(--tl-glow-soft)/0.08)_58%,hsl(var(--tl-bg-1)/0.92))] p-2">
             {fxRates.map((rate) => (
               <div
                 key={rate.pair}
-                className="flex items-center justify-between rounded-[12px] border border-white/10 bg-[rgba(3,5,10,0.46)] px-3 py-2"
+                className="flex items-center justify-between rounded-[12px] border border-border/70 bg-[hsl(var(--tl-bg-1)/0.64)] px-3 py-2"
               >
                 <div className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
                   {rate.pair}
