@@ -1574,7 +1574,7 @@ export default function DataPage() {
       <SurfaceCard
         title="Теги и поиск"
         subtitle="Фильтруйте датасеты по источнику, рынку, таймфрейму и символу."
-        className="bg-[linear-gradient(135deg,rgba(31,46,87,0.28),rgba(20,24,35,1)_70%)]"
+        className="border-border/80 bg-[linear-gradient(140deg,hsl(var(--tl-bg-1)/0.98),hsl(var(--tl-bg-2)/0.94))]"
         actions={
           <Button
             size="sm"

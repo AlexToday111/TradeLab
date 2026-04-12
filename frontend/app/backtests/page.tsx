@@ -229,7 +229,7 @@ function BacktestsPageContent() {
       </div>
 
       <SurfaceCard
-        className="bg-[linear-gradient(130deg,rgba(29,41,79,0.34),rgba(19,24,35,0.95)_72%)]"
+        className="border-border/80 bg-[linear-gradient(140deg,hsl(var(--tl-bg-1)/0.98),hsl(var(--tl-bg-2)/0.94))]"
       >
         <div className="flex flex-wrap items-center justify-center gap-2">
           <Input
