@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"
+      - "${POSTGRES_HOST_PORT:-55432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
@@ -26,7 +26,7 @@ services:
       BINANCE_API_SECRET: ""
       PYTHON_SERVICE_PORT: 8000
     ports:
-      - "8000:8000"
+      - "${PYTHON_PARSER_HOST_PORT:-18000}:8000"
     depends_on:
       - postgres
     volumes:
@@ -46,7 +46,7 @@ services:
       TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
     ports:
-      - "8080:8080"
+      - "${JAVA_API_HOST_PORT:-18080}:8080"
     depends_on:
       - postgres
       - python-parser
@@ -61,7 +61,7 @@ services:
       BACKEND_API_BASE_URL: http://java-api:8080
       NODE_ENV: production
     ports:
-      - "3000:3000"
+      - "${FRONTEND_HOST_PORT:-3000}:3000"
     depends_on:
       - java-api
 

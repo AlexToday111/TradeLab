@@ -90,10 +90,10 @@ docker compose up --build
 ```
 
 Сервисы:
-- Frontend: `http://localhost:3000`
-- Java API: `http://localhost:8080`
-- Python parser: `http://localhost:8000`
-- PostgreSQL: `localhost:5432`
+- Frontend: `http://localhost:3000` (или `${FRONTEND_HOST_PORT}`)
+- Java API: `http://localhost:18080` (или `${JAVA_API_HOST_PORT}`)
+- Python parser: `http://localhost:18000` (или `${PYTHON_PARSER_HOST_PORT}`)
+- PostgreSQL: `localhost:55432` (или `${POSTGRES_HOST_PORT}`, если переопределён)
 
 <h3 align="center">Вариант B: локальная разработка</h3>
 
