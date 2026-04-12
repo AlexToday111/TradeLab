@@ -409,7 +409,7 @@ function DesktopPageContent() {
 
   if (!project) {
     return (
-      <div className="flex h-full flex-col gap-5">
+      <div className="flex min-h-full flex-col gap-5">
         <SurfaceCard className="border-border/80 bg-[linear-gradient(140deg,hsl(var(--tl-bg-1)/0.98),hsl(var(--tl-bg-2)/0.94))]">
           <div className="space-y-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -515,7 +515,7 @@ function DesktopPageContent() {
   }
 
   return (
-    <div className="flex h-full flex-col gap-5">
+    <div className="flex min-h-full flex-col gap-5">
       <PageHeader
         title="Рабочий стол"
         actions={

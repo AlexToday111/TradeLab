@@ -146,7 +146,7 @@ function BacktestsPageContent() {
   };
 
   return (
-    <div className="flex h-full flex-col gap-5">
+    <div className="flex min-h-full flex-col gap-5">
       <PageHeader
         title="Бэктесты"
         actions={

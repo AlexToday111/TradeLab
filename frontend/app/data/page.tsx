@@ -1534,7 +1534,7 @@ export default function DataPage() {
   const showMergePanel = datasetSource === "local" && localCsvMode === "merge";
 
   return (
-    <div className="flex h-full flex-col gap-5">
+    <div className="flex min-h-full flex-col gap-5">
       <PageHeader
         title="Данные"
       />

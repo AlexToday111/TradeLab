@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/shared/page-header";
 
 export default function BotsPage() {
   return (
-    <div className="flex h-full flex-col gap-5">
+    <div className="flex min-h-full flex-col gap-5">
       <PageHeader
         eyebrow="Боты"
         title="Боты"

@@ -81,7 +81,7 @@ export default function RunDetailsPage() {
   );
 
   return (
-    <div className="flex h-full flex-col gap-4 2xl:gap-3">
+    <div className="flex min-h-full flex-col gap-4 2xl:gap-3">
       <PageHeader
         eyebrow="Детали запуска"
         title={`Запуск ${run.id}`}
