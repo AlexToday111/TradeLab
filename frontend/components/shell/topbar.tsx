@@ -55,7 +55,7 @@ export function Topbar() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "group flex h-10 shrink-0 items-center gap-2 rounded-full border px-4 text-[14px] font-semibold text-muted-foreground transition-all duration-200",
+                  "group flex h-10 shrink-0 items-center gap-2.5 rounded-full border px-4 text-[15px] font-semibold text-muted-foreground transition-all duration-200",
                   isActive
                     ? "border-[#c7ee51]/40 bg-[#c7ee51]/14 text-[#c7ee51] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
                     : "border-transparent bg-transparent hover:border-[hsl(var(--tl-border-1)/0.46)] hover:bg-[hsl(var(--tl-bg-2)/0.78)] hover:text-foreground"
@@ -65,15 +65,15 @@ export function Topbar() {
                   <Image
                     src={item.iconSrc}
                     alt=""
-                    width={16}
-                    height={16}
-                    className="h-4 w-4 shrink-0"
+                    width={18}
+                    height={18}
+                    className="h-[18px] w-[18px] shrink-0"
                     aria-hidden="true"
                   />
                 ) : Icon ? (
                     <Icon
                       className={cn(
-                        "h-4 w-4 shrink-0",
+                        "h-[18px] w-[18px] shrink-0",
                         isActive ? "text-[#c7ee51]" : "text-muted-foreground group-hover:text-foreground"
                       )}
                     />
@@ -95,9 +95,9 @@ export function Topbar() {
             <Image
               src="/icons/Telegram--Streamline-Core.svg"
               alt=""
-              width={22}
-              height={22}
-              className="h-[22px] w-[22px] shrink-0"
+              width={24}
+              height={24}
+              className="h-6 w-6 shrink-0"
               aria-hidden="true"
             />
           </a>
@@ -108,7 +108,7 @@ export function Topbar() {
             className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-transparent text-muted-foreground transition-all duration-200 hover:border-[hsl(var(--tl-border-1)/0.52)] hover:bg-[hsl(var(--tl-bg-2)/0.82)] hover:text-foreground"
             aria-label="GitHub"
           >
-            <Github className="h-[18px] w-[18px]" />
+            <Github className="h-5 w-5" />
           </a>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -120,9 +120,9 @@ export function Topbar() {
                 <Image
                   src="/icons/settings.svg"
                   alt=""
-                  width={18}
-                  height={18}
-                  className="h-[18px] w-[18px] shrink-0"
+                  width={20}
+                  height={20}
+                  className="h-5 w-5 shrink-0"
                   aria-hidden="true"
                 />
               </button>
@@ -177,9 +177,9 @@ export function Topbar() {
           {isSettingsActive ? (
             <Link
               href="/settings"
-              className="inline-flex h-10 items-center rounded-[12px] border border-[hsl(var(--primary)/0.18)] bg-[hsl(var(--primary)/0.08)] px-4 text-[13px] text-foreground"
+              className="inline-flex h-10 items-center rounded-[12px] border border-[hsl(var(--primary)/0.18)] bg-[hsl(var(--primary)/0.08)] px-4 text-[14px] font-medium text-foreground"
             >
-              <Settings2 className="mr-2 h-4 w-4" />
+              <Settings2 className="mr-2 h-[18px] w-[18px]" />
               {"\u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438"}
             </Link>
           ) : null}
