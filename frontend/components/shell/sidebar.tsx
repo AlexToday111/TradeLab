@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bot, Rocket, Settings } from "lucide-react";
+import { Rocket, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LogoPlaceholder } from "@/components/shell/logo-placeholder";
 
@@ -38,7 +38,7 @@ export const navItems = [
   {
     label: "\u0411\u043e\u0442\u044b",
     href: "/bots",
-    icon: Bot,
+    iconSrc: "/bot.png",
   },
   {
     label: "\u0414\u0435\u043f\u043b\u043e\u0439",
