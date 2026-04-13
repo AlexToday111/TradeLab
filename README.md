@@ -3,7 +3,7 @@
 </p>
 <h1 align="center">Trade360Lab</h1>
 
-Trade360Lab — это монорепозиторий платформы для исследования, подготовки данных, запуска и сравнения торговых сценариев. Основной интерфейс находится во `frontend` и построен на Next.js: в нём собраны рабочее пространство, экран данных, бэктесты, карточки запусков и сравнение результатов. Папка `backend` содержит серверный scaffold для дальнейшего развития API и служебной логики. Дополнительно в репозитории есть `docs` с проектной документацией и `archive` с архивными материалами, которые не участвуют в активной сборке. 
+Trade360Lab — это монорепозиторий платформы для исследования, подготовки данных, запуска и сравнения торговых сценариев. Основной интерфейс находится во `frontend` и построен на Next.js: в нём собраны рабочее пространство, экран данных, бэктесты, карточки запусков и сравнение результатов. Папка `backend` содержит Java API и Python parser/backtesting сервис. В репозитории также есть `docs` с проектной документацией.
 
 <h2 align="center">Архитектура</h2>
 
@@ -11,7 +11,6 @@ Trade360Lab — это монорепозиторий платформы для 
 flowchart TB
     A[Trade360Lab]
 
-    A --> L[Landing]
     A --> F[Frontend]
     A --> B[Backend]
 
@@ -59,14 +58,12 @@ flowchart TB
     J --> P
     P --> D
 
-    %% Landing connection
-    L --> F
 ```
 
 <h2 align="center">Текущая структура проекта</h2>
 
 ```text
-TradeLab/
+Trade360Lab/
 |-- frontend/               # Next.js приложение (UI + API proxy)
 |   |-- app/
 |   |-- components/
@@ -77,7 +74,7 @@ TradeLab/
 |   |-- java/               # Spring Boot API
 |   `-- python/             # FastAPI parser/import service
 |-- docs/                   # Проектная документация
-|-- archive/                # Архивные материалы
+|-- .github/workflows/      # CI пайплайн
 `-- docker-compose.yml      # Оркестрация всего стека
 ```
 
@@ -108,7 +105,7 @@ npm run dev
 ```bash
 cd backend/python
 python -m venv .venv
-.venv\Scripts\activate
+source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn parser.main:app --host 0.0.0.0 --port 8000
 ```
@@ -125,6 +122,7 @@ mvn spring-boot:run
 - Обзор бэкенда: [`backend/README.md`](./backend/README.md)
 - Java API: [`backend/java/README.md`](./backend/java/README.md)
 - Python parser: [`backend/python/README.md`](./backend/python/README.md)
+- Release checklist: [`docs/release-checklist.md`](./docs/release-checklist.md)
 
 --- 
 <p align="center">

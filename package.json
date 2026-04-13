@@ -8,14 +8,9 @@
     "start": "npm --prefix frontend run start",
     "lint": "npm --prefix frontend run lint",
     "typecheck": "npm --prefix frontend run typecheck",
+    "test": "npm --prefix frontend run test:ci",
     "dev:frontend": "npm --prefix frontend run dev",
-    "dev:landing": "npm --prefix landing run dev",
-    "dev:backend": "npm --prefix backend run dev",
     "install:frontend": "npm --prefix frontend install",
-    "install:landing": "npm --prefix landing install",
-    "install:backend": "npm --prefix backend install",
-    "build:landing": "npm --prefix landing run build",
-    "preview:landing": "npm --prefix landing run preview",
-    "install:all": "npm run install:frontend && npm run install:landing && npm run install:backend"
+    "install:all": "npm run install:frontend"
   }
 }
