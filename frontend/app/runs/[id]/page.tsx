@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { Expand, Minimize2 } from "lucide-react";
+import { AlertCircle, Expand, Minimize2, Play, RotateCcw } from "lucide-react";
 import { ChartCard } from "@/components/shared/chart-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { LoadingState } from "@/components/shared/loading-state";
@@ -26,13 +26,16 @@ import { Badge } from "@/components/ui/badge";
 import { previewRows } from "@/lib/demo-data/datasets";
 import { logLines } from "@/lib/demo-data/logs";
 import { trades } from "@/lib/demo-data/trades";
+import { fetchStrategyById } from "@/lib/api/strategies";
 
 export default function RunDetailsPage() {
   const params = useParams();
-  const { getRunById, isLoading } = useRuns();
+  const { getRunById, isLoading, createRemoteRun } = useRuns();
   const [isAnalyzerFullscreen, setIsAnalyzerFullscreen] = useState(false);
   const runId = Array.isArray(params?.id) ? params?.id[0] : params?.id;
   const run = runId ? getRunById(runId) : undefined;
+  const [runActionState, setRunActionState] = useState<"idle" | "running" | "error">("idle");
+  const [runActionError, setRunActionError] = useState<string | null>(null);
   const tradeSummary = useMemo(() => {
     const wins = trades.filter((trade) => trade.pnl > 0).length;
     const losses = trades.filter((trade) => trade.pnl <= 0).length;
@@ -66,6 +69,70 @@ export default function RunDetailsPage() {
     );
   }
 
+  const hasRunMetrics = run.status === "done";
+  const isLaunchAction = run.status === "queued";
+  const runActionLabel = isLaunchAction ? "Запуск" : "Перезапуск";
+
+  const handleRunAction = async () => {
+    if (!run.strategyId) {
+      setRunActionState("error");
+      setRunActionError("Для этого запуска не найден strategyId. Загрузите стратегию заново.");
+      return;
+    }
+
+    setRunActionState("running");
+    setRunActionError(null);
+
+    try {
+      const strategy = run.strategyParams !== undefined ? null : await fetchStrategyById(run.strategyId);
+      const strategyParams =
+        run.strategyParams ??
+        (strategy?.parametersSchema
+          ? Object.fromEntries(
+              Object.entries(strategy.parametersSchema).map(([key, value]) => [
+                key,
+                value && typeof value === "object" && "default" in value
+                  ? (value as { default?: unknown }).default ?? null
+                  : null,
+              ])
+            )
+          : {});
+
+      await createRemoteRun(
+        {
+          strategyId: run.strategyId,
+          exchange: run.exchange ?? "binance",
+          symbol: run.symbol ?? "BTCUSDT",
+          interval: run.timeframe && run.timeframe !== "1D" ? run.timeframe : "1h",
+          from: run.from ?? "2024-01-01T00:00:00Z",
+          to: run.to ?? "2024-01-03T00:00:00Z",
+          params: strategyParams,
+        },
+        {
+          replaceRunId: run.backendRunId ? undefined : run.id,
+          preserveFields: {
+            strategy: run.strategy,
+            tags: run.tags,
+            artifacts: run.artifacts,
+            config: run.config,
+            commit: run.commit,
+            diff: run.diff,
+            datasetVersion: run.datasetVersion,
+            strategyParams,
+          },
+        }
+      );
+      setRunActionState("idle");
+    } catch (error) {
+      setRunActionState("error");
+      setRunActionError(
+        error instanceof Error && error.message.trim().length > 0
+          ? error.message
+          : "Не удалось выполнить запуск."
+      );
+    }
+  };
+
   const configJson = JSON.stringify(
     {
       fees: run.params.fees,
@@ -85,50 +152,94 @@ export default function RunDetailsPage() {
       <PageHeader
         eyebrow="Детали запуска"
         title={`Запуск ${run.id}`}
+        actions={
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleRunAction}
+            disabled={runActionState === "running"}
+          >
+            {isLaunchAction ? (
+              <Play className="mr-2 h-4 w-4" />
+            ) : (
+              <RotateCcw className="mr-2 h-4 w-4" />
+            )}
+            {runActionState === "running" ? "Выполняется..." : runActionLabel}
+          </Button>
+        }
       />
       <RunHeader run={run} />
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
-        <MetricCard label="PnL" value={`${run.metrics.pnl.toFixed(1)}%`} tone="profit" />
-        <MetricCard label="Шарп" value={run.metrics.sharpe.toFixed(2)} />
-        <MetricCard label="Макс. просадка" value={`${run.metrics.maxDrawdown.toFixed(1)}%`} tone="loss" />
-        <MetricCard label="Винрейт" value={`${run.metrics.winrate.toFixed(1)}%`} />
-        <MetricCard label="Сделки" value={`${run.metrics.trades}`} />
-        <MetricCard label="Влияние комиссий" value={`${run.metrics.feesImpact.toFixed(1)}%`} />
-      </div>
+      {runActionState === "error" && runActionError ? (
+        <SurfaceCard className="border-status-error/35 bg-status-error/10">
+          <div className="flex items-start gap-2.5">
+            <AlertCircle className="mt-0.5 h-4 w-4 text-status-error" />
+            <div className="text-xs text-status-error">{runActionError}</div>
+          </div>
+        </SurfaceCard>
+      ) : null}
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-4">
-        <ChartCard
-          title="Кривая капитала"
-          subtitle="Рост портфеля во времени"
-          chartClassName="h-56 xl:h-60 2xl:h-64"
-        >
-          <EquityChart />
-        </ChartCard>
-        <ChartCard
-          title="Просадка"
-          subtitle="Снижение от пика до минимума"
-          chartClassName="h-56 xl:h-60 2xl:h-64"
-        >
-          <DrawdownChart />
-        </ChartCard>
-        <ChartCard
-          title="Отставание от пика"
-          subtitle="Отклонение от максимума капитала"
-          chartClassName="h-56 xl:h-60 2xl:h-64"
-        >
-          <UnderwaterChart />
-        </ChartCard>
-        <ChartCard
-          title="Гистограмма доходности"
-          subtitle="Распределение доходностей"
-          chartClassName="h-56 xl:h-60 2xl:h-64"
-        >
-          <ReturnsHistogramChart />
-        </ChartCard>
-      </div>
+      {hasRunMetrics ? (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
+          <MetricCard label="PnL" value={`${run.metrics.pnl.toFixed(1)}%`} tone="profit" />
+          <MetricCard label="Шарп" value={run.metrics.sharpe.toFixed(2)} />
+          <MetricCard label="Макс. просадка" value={`${run.metrics.maxDrawdown.toFixed(1)}%`} tone="loss" />
+          <MetricCard label="Винрейт" value={`${run.metrics.winrate.toFixed(1)}%`} />
+          <MetricCard label="Сделки" value={`${run.metrics.trades}`} />
+          <MetricCard label="Влияние комиссий" value={`${run.metrics.feesImpact.toFixed(1)}%`} />
+        </div>
+      ) : (
+        <SurfaceCard className="border-status-warning/35 bg-status-warning/10">
+          <div className="flex items-start gap-2.5">
+            <AlertCircle className="mt-0.5 h-4 w-4 text-status-warning" />
+            <div>
+              <div className="text-sm font-medium text-foreground">
+                Метрики и графики появятся после первого завершенного запуска
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                Сейчас доступен запуск стратегии. После завершения расчета здесь отобразятся
+                показатели PnL, Sharpe, просадка и анализ сделок.
+              </div>
+            </div>
+          </div>
+        </SurfaceCard>
+      )}
 
-      <div className="grid grid-cols-1 gap-3 2xl:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
+      {hasRunMetrics ? (
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-4">
+          <ChartCard
+            title="Кривая капитала"
+            subtitle="Рост портфеля во времени"
+            chartClassName="h-56 xl:h-60 2xl:h-64"
+          >
+            <EquityChart />
+          </ChartCard>
+          <ChartCard
+            title="Просадка"
+            subtitle="Снижение от пика до минимума"
+            chartClassName="h-56 xl:h-60 2xl:h-64"
+          >
+            <DrawdownChart />
+          </ChartCard>
+          <ChartCard
+            title="Отставание от пика"
+            subtitle="Отклонение от максимума капитала"
+            chartClassName="h-56 xl:h-60 2xl:h-64"
+          >
+            <UnderwaterChart />
+          </ChartCard>
+          <ChartCard
+            title="Гистограмма доходности"
+            subtitle="Распределение доходностей"
+            chartClassName="h-56 xl:h-60 2xl:h-64"
+          >
+            <ReturnsHistogramChart />
+          </ChartCard>
+        </div>
+      ) : null}
+
+      {hasRunMetrics ? (
+        <div className="grid grid-cols-1 gap-3 2xl:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
         <ChartCard
           title="Анализатор сделок"
           actions={
@@ -177,7 +288,8 @@ export default function RunDetailsPage() {
             <TradesTable rows={trades} />
           </div>
         </SurfaceCard>
-      </div>
+        </div>
+      ) : null}
 
       {isAnalyzerFullscreen ? (
         <div className="fixed inset-0 z-[100] bg-background/88 p-4 backdrop-blur-sm md:p-6">

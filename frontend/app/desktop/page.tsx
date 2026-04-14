@@ -5,8 +5,11 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   Activity,
+  AlertCircle,
+  CheckCircle2,
   Database,
   ExternalLink,
+  Loader2,
   Play,
   Plus,
   RotateCcw,
@@ -154,6 +157,41 @@ function getDesktopStatusPresentation(run: Run) {
   };
 }
 
+function NotificationBanner({
+  tone,
+  title,
+  description,
+}: {
+  tone: "info" | "success" | "error";
+  title: string;
+  description?: string | null;
+}) {
+  const toneClassName =
+    tone === "success"
+      ? "border-status-success/35 bg-status-success/12 text-status-success"
+      : tone === "error"
+        ? "border-status-error/35 bg-status-error/12 text-status-error"
+        : "border-status-warning/35 bg-status-warning/12 text-status-warning";
+
+  return (
+    <div className={`rounded-[14px] border px-3 py-2.5 ${toneClassName}`}>
+      <div className="flex items-start gap-2.5">
+        {tone === "success" ? (
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+        ) : tone === "error" ? (
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+        ) : (
+          <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" />
+        )}
+        <div>
+          <div className="text-xs font-medium">{title}</div>
+          {description ? <div className="mt-0.5 text-xs opacity-90">{description}</div> : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function DesktopPageContent() {
   const { runs, addRun, createRemoteRun, deleteRun } = useRuns();
   const searchParams = useSearchParams();
@@ -214,6 +252,7 @@ function DesktopPageContent() {
   }, [project, runs]);
 
   const recentProjectRuns = projectRuns.slice(0, 5);
+  const hasCompletedProjectRun = projectRuns.some((run) => run.status === "done");
   const primaryRun =
     projectRuns.find((run) => !isImportedStrategyRun(run) || run.status !== "queued") ??
     projectRuns[0] ??
@@ -417,9 +456,6 @@ function DesktopPageContent() {
                 <div className="text-2xl font-semibold tracking-tight text-foreground">
                   Выберите проект
                 </div>
-                <div className="mt-1 text-sm text-muted-foreground">
-                  Откройте существующий проект или создайте новый.
-                </div>
               </div>
               <Button
                 size="sm"
@@ -569,11 +605,27 @@ function DesktopPageContent() {
               className="hidden"
               onChange={handleStrategyFileSelect}
             />
-            <div className="text-xs text-muted-foreground">
-              {uploadState === "uploading" ? "Файл загружается и валидируется..." : null}
-              {uploadState === "success" ? "Стратегия успешно загружена." : null}
-              {uploadState === "error" ? uploadError : null}
-            </div>
+            {uploadState === "uploading" ? (
+              <NotificationBanner
+                tone="info"
+                title="Файл загружается и валидируется..."
+                description="Это может занять несколько секунд."
+              />
+            ) : null}
+            {uploadState === "success" ? (
+              <NotificationBanner
+                tone="success"
+                title="Стратегия успешно загружена."
+                description="Теперь её можно запустить из таблицы ниже."
+              />
+            ) : null}
+            {uploadState === "error" ? (
+              <NotificationBanner
+                tone="error"
+                title="Не удалось обработать стратегию."
+                description={uploadError}
+              />
+            ) : null}
 
             {isAddStrategyOpen ? (
               <div className="rounded-[18px] border border-border/80 bg-[hsl(var(--tl-bg-2)/0.82)] p-4">
@@ -744,20 +796,30 @@ function DesktopPageContent() {
                         {run.datasetVersion}
                       </td>
                       <td className="px-4 py-3 align-middle">
-                        <span
-                          className={
-                            isProfit
-                              ? "font-semibold text-status-success"
-                              : "font-semibold text-status-error"
-                          }
-                        >
-                          {isProfit ? "+" : ""}
-                          {run.metrics.pnl.toFixed(1)}%
-                        </span>
+                        {run.status === "done" ? (
+                          <span
+                            className={
+                              isProfit
+                                ? "font-semibold text-status-success"
+                                : "font-semibold text-status-error"
+                            }
+                          >
+                            {isProfit ? "+" : ""}
+                            {run.metrics.pnl.toFixed(1)}%
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
                       </td>
                       <td className="px-4 py-3 align-middle text-muted-foreground">
-                        {formatUsdAmount(balanceBefore)} {"\u2192"}{" "}
-                        {formatUsdAmount(balanceAfter)}
+                        {run.status === "done" ? (
+                          <>
+                            {formatUsdAmount(balanceBefore)} {"\u2192"}{" "}
+                            {formatUsdAmount(balanceAfter)}
+                          </>
+                        ) : (
+                          "—"
+                        )}
                       </td>
                       <td className="px-4 py-3 align-middle">
                         <span
@@ -825,14 +887,31 @@ function DesktopPageContent() {
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <ChartCard title="Динамика капитала">
-          <EquityChart />
-        </ChartCard>
-        <ChartCard title="Текущая просадка">
-          <DrawdownChart />
-        </ChartCard>
-      </div>
+      {hasCompletedProjectRun ? (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <ChartCard title="Динамика капитала">
+            <EquityChart />
+          </ChartCard>
+          <ChartCard title="Текущая просадка">
+            <DrawdownChart />
+          </ChartCard>
+        </div>
+      ) : (
+        <SurfaceCard className="border-status-warning/35 bg-[linear-gradient(145deg,hsl(var(--tl-bg-1)/0.98),hsl(var(--tl-bg-2)/0.94))]">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="mt-0.5 h-5 w-5 text-status-warning" />
+            <div>
+              <div className="text-sm font-semibold text-foreground">
+                Метрики появятся после первого завершенного запуска
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                Пока проект в режиме подготовки: доступны загрузка стратегии и запуск, а показатели
+                и графики будут рассчитаны после получения результатов.
+              </div>
+            </div>
+          </div>
+        </SurfaceCard>
+      )}
     </div>
   );
 }
