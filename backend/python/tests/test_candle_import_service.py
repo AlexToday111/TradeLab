@@ -93,3 +93,96 @@ def test_import_candles_rejects_invalid_time_range():
                 }
             )
         )
+
+
+def test_import_candles_supports_bybit_category(monkeypatch):
+    repository = Mock()
+    repository.save_all.return_value = 1
+
+    client = Mock()
+    client.load_klines_raw.return_value = [["1704067200000", "1", "2", "0.5", "1.5", "10", "15"]]
+    candles = [
+        Candle(
+            exchange="bybit",
+            symbol="BTCUSDT",
+            interval="5m",
+            open_time=datetime(2024, 1, 1, 0, 0, 0, tzinfo=UTC),
+            close_time=datetime(2024, 1, 1, 0, 5, 0, tzinfo=UTC),
+            open=1,
+            high=2,
+            low=0.5,
+            close=1.5,
+            volume=10,
+        )
+    ]
+
+    monkeypatch.setattr(
+        "parser.imports.services.candle_import_service.get_exchange_client",
+        lambda exchange: client,
+    )
+    monkeypatch.setattr(
+        "parser.imports.services.candle_import_service.map_bybit_klines",
+        lambda symbol, interval, raw_klines: candles,
+    )
+
+    service = CandleImportService(repository)
+    response = service.import_candles(
+        build_request(exchange="bybit", interval="5m", category="linear")
+    )
+
+    assert response.exchange == "bybit"
+    assert response.dataset["lineage"]["sourceOptions"]["category"] == "linear"
+    client.load_klines_raw.assert_called_once()
+    assert client.load_klines_raw.call_args.kwargs["interval"] == "5"
+
+
+def test_import_candles_supports_moex_options(monkeypatch):
+    repository = Mock()
+    repository.save_all.return_value = 1
+
+    client = Mock()
+    client.load_klines_raw.return_value = [
+        ["open", "close", "high", "low", "volume", "begin", "end"],
+        ["1", "1.5", "2", "0.5", "10", "2024-01-01T00:00:00", "2024-01-01T01:00:00"],
+    ]
+    candles = [
+        Candle(
+            exchange="moex",
+            symbol="GAZP",
+            interval="1h",
+            open_time=datetime(2024, 1, 1, 0, 0, 0, tzinfo=UTC),
+            close_time=datetime(2024, 1, 1, 1, 0, 0, tzinfo=UTC),
+            open=1,
+            high=2,
+            low=0.5,
+            close=1.5,
+            volume=10,
+        )
+    ]
+
+    monkeypatch.setattr(
+        "parser.imports.services.candle_import_service.get_exchange_client",
+        lambda exchange: client,
+    )
+    monkeypatch.setattr(
+        "parser.imports.services.candle_import_service.map_moex_klines",
+        lambda symbol, interval, raw_klines: candles,
+    )
+
+    service = CandleImportService(repository)
+    response = service.import_candles(
+        build_request(
+            exchange="moex",
+            symbol="gazp",
+            interval="1h",
+            engine="stock",
+            market="shares",
+            board="TQBR",
+        )
+    )
+
+    assert response.exchange == "moex"
+    assert response.symbol == "GAZP"
+    assert response.dataset["lineage"]["sourceOptions"]["board"] == "TQBR"
+    client.load_klines_raw.assert_called_once()
+    assert client.load_klines_raw.call_args.kwargs["board"] == "TQBR"

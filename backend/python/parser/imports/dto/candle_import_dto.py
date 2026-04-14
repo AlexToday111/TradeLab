@@ -22,6 +22,26 @@ class CandleImportRequest(BaseModel):
         description="Inclusive range end in UTC.",
         examples=["2024-01-10T00:00:00Z"],
     )
+    category: str | None = Field(
+        default=None,
+        description="Optional exchange-specific category, e.g. Bybit spot/linear/inverse.",
+        examples=["spot"],
+    )
+    engine: str | None = Field(
+        default=None,
+        description="Optional MOEX engine identifier.",
+        examples=["stock"],
+    )
+    market: str | None = Field(
+        default=None,
+        description="Optional exchange-specific market segment, e.g. MOEX shares.",
+        examples=["shares"],
+    )
+    board: str | None = Field(
+        default=None,
+        description="Optional MOEX board identifier.",
+        examples=["TQBR"],
+    )
 
 
 class CandleImportResponse(BaseModel):

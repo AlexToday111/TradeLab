@@ -8,8 +8,10 @@ from parser.imports.dto.candle_import_dto import (
     make_dataset_fingerprint,
     make_dataset_id,
 )
-from parser.imports.exchanges.binance.mapper import map_binance_klines
 from parser.imports.exchanges.factory import get_exchange_client
+from parser.imports.exchanges.binance.mapper import map_binance_klines
+from parser.imports.exchanges.bybit.mapper import map_bybit_klines
+from parser.imports.exchanges.moex.mapper import map_moex_klines
 from parser.imports.repositories.candle_import_repository import CandleImportRepository
 
 logger = logging.getLogger(__name__)
@@ -41,12 +43,17 @@ class CandleImportService:
         client = get_exchange_client(exchange)
         raw_klines = client.load_klines_raw(
             symbol=symbol,
-            interval=interval,
+            interval=self._normalize_interval(exchange, interval),
             start_time=from_time,
             end_time=to_time,
+            category=request.category,
+            engine=request.engine,
+            market=request.market,
+            board=request.board,
         )
-        candles = map_binance_klines(symbol=symbol, interval=interval, raw_klines=raw_klines)
+        candles = self._map_klines(exchange=exchange, symbol=symbol, interval=interval, raw_klines=raw_klines)
         imported_at = datetime.now(tz=UTC)
+        raw_rows_count = self._count_raw_rows(exchange, raw_klines)
         dataset_metadata = self._build_dataset_metadata(
             exchange=exchange,
             symbol=symbol,
@@ -55,7 +62,13 @@ class CandleImportService:
             to_time=to_time,
             imported_at=imported_at,
             candles=candles,
-            raw_rows=len(raw_klines),
+            raw_rows=raw_rows_count,
+            source_options={
+                "category": request.category,
+                "engine": request.engine,
+                "market": request.market,
+                "board": request.board,
+            },
         )
         imported = self.candle_repository.save_all(candles)
 
@@ -100,6 +113,7 @@ class CandleImportService:
         imported_at: datetime,
         candles: list,
         raw_rows: int,
+        source_options: dict[str, object | None],
     ) -> dict[str, object]:
         rows_count = len(candles)
         start_at = self._normalize_datetime(candles[0].open_time) if candles else from_time
@@ -137,6 +151,7 @@ class CandleImportService:
                 },
                 "rawRows": raw_rows,
                 "exchangeClient": exchange,
+                "sourceOptions": {key: value for key, value in source_options.items() if value is not None},
             },
         }
 
@@ -166,3 +181,44 @@ class CandleImportService:
             flags.append("non_monotonic_open_time")
 
         return flags
+
+    def _map_klines(
+        self,
+        *,
+        exchange: str,
+        symbol: str,
+        interval: str,
+        raw_klines: list,
+    ) -> list:
+        if exchange == "binance":
+            return map_binance_klines(symbol=symbol, interval=interval, raw_klines=raw_klines)
+        if exchange == "bybit":
+            return map_bybit_klines(symbol=symbol, interval=interval, raw_klines=raw_klines)
+        if exchange == "moex":
+            return map_moex_klines(symbol=symbol, interval=interval, raw_klines=raw_klines)
+        raise ValidationError(f"Unsupported exchange mapper: {exchange}")
+
+    def _normalize_interval(self, exchange: str, interval: str) -> str:
+        normalized = interval.strip().lower()
+        if exchange == "bybit":
+            mapping = {
+                "1m": "1",
+                "3m": "3",
+                "5m": "5",
+                "15m": "15",
+                "30m": "30",
+                "1h": "60",
+                "4h": "240",
+                "1d": "D",
+                "1w": "W",
+                "1mo": "M",
+            }
+            if normalized not in mapping:
+                raise ValidationError(f"Unsupported Bybit interval: {interval}")
+            return mapping[normalized]
+        return normalized
+
+    def _count_raw_rows(self, exchange: str, raw_klines: list) -> int:
+        if exchange == "moex" and raw_klines:
+            return max(0, len(raw_klines) - 1)
+        return len(raw_klines)

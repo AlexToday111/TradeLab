@@ -16,9 +16,12 @@ class Settings:
     binance_base_url: str
     binance_api_key: str
     binance_api_secret: str
+    bybit_base_url: str
+    moex_base_url: str
     python_service_port: int
     request_timeout_seconds: int
     binance_klines_page_limit: int
+    bybit_klines_page_limit: int
     binance_max_retries: int
     binance_retry_backoff_seconds: float
 
@@ -43,9 +46,12 @@ def load_settings() -> Settings:
         binance_base_url=os.getenv("BINANCE_BASE_URL", "https://api.binance.com"),
         binance_api_key=os.getenv("BINANCE_API_KEY", ""),
         binance_api_secret=os.getenv("BINANCE_API_SECRET", ""),
+        bybit_base_url=os.getenv("BYBIT_BASE_URL", "https://api.bybit.com"),
+        moex_base_url=os.getenv("MOEX_BASE_URL", "https://iss.moex.com/iss"),
         python_service_port=int(os.getenv("PYTHON_SERVICE_PORT", "8000")),
         request_timeout_seconds=int(os.getenv("REQUEST_TIMEOUT_SECONDS", "15")),
         binance_klines_page_limit=int(os.getenv("BINANCE_KLINES_PAGE_LIMIT", "1000")),
+        bybit_klines_page_limit=int(os.getenv("BYBIT_KLINES_PAGE_LIMIT", "1000")),
         binance_max_retries=int(os.getenv("BINANCE_MAX_RETRIES", "3")),
         binance_retry_backoff_seconds=float(os.getenv("BINANCE_RETRY_BACKOFF_SECONDS", "1.0")),
     )
