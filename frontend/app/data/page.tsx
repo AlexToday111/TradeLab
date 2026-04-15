@@ -30,11 +30,13 @@ import {
 } from "@/lib/demo-data/datasets";
 import { cn } from "@/lib/utils";
 
-type DatasetSource = "bybit" | "local";
-type MarketType = "spot" | "futures";
+type ExchangeSource = "binance" | "bybit" | "moex";
+type DatasetSource = ExchangeSource | "local";
+type MarketType = "spot" | "futures" | "shares";
 type LocalCsvMode = "merge" | "separate";
 type DatasetLoadStatus = "queued" | "processing" | "ready" | "error";
 type BinanceLoadMode = "latest" | "range";
+type UiTimeframe = "5M" | "1H" | "1D";
 
 type CsvValidation = {
   isValid: boolean;
@@ -151,7 +153,7 @@ type ImportTemplate = {
   source: DatasetSource;
   marketType: MarketType;
   symbolsInput: string;
-  timeframe: (typeof bybitTimeframes)[number];
+  timeframe: UiTimeframe;
   binanceLoadMode: BinanceLoadMode;
   recentCandles: string;
   dateFrom: string;
@@ -160,17 +162,24 @@ type ImportTemplate = {
 };
 
 const sourceLabels: Record<DatasetSource, string> = {
-  bybit: "Binance",
+  binance: "Binance",
+  bybit: "Bybit",
+  moex: "MOEX",
   local: "Локально",
 };
 
 const marketTypeLabels: Record<MarketType, string> = {
   spot: "Spot",
   futures: "Futures",
+  shares: "Shares",
 };
 
-const bybitTimeframes = ["5M", "1H", "1D"] as const;
-const backendIntervalByTimeframe: Record<(typeof bybitTimeframes)[number], string> = {
+const exchangeTimeframes: Record<ExchangeSource, UiTimeframe[]> = {
+  binance: ["5M", "1H", "1D"],
+  bybit: ["5M", "1H", "1D"],
+  moex: ["1H", "1D"],
+};
+const backendIntervalByTimeframe: Record<UiTimeframe, string> = {
   "5M": "5m",
   "1H": "1h",
   "1D": "1d",
@@ -178,9 +187,9 @@ const backendIntervalByTimeframe: Record<(typeof bybitTimeframes)[number], strin
 const requiredCsvColumns = ["timestamp", "open", "high", "low", "close", "volume"];
 const defaultImportTemplates: ImportTemplate[] = [
   {
-    id: "tpl-bybit-btc-1h",
+    id: "tpl-binance-btc-1h",
     name: "Binance BTCUSDT 1H",
-    source: "bybit",
+    source: "binance",
     marketType: "spot",
     symbolsInput: "BTCUSDT",
     timeframe: "1H",
@@ -192,7 +201,7 @@ const defaultImportTemplates: ImportTemplate[] = [
   },
   {
     id: "tpl-bybit-futures-5m",
-    name: "Binance Futures 5M",
+    name: "Bybit Futures 5M",
     source: "bybit",
     marketType: "futures",
     symbolsInput: "BTCUSDT, ETHUSDT",
@@ -200,6 +209,19 @@ const defaultImportTemplates: ImportTemplate[] = [
     binanceLoadMode: "range",
     recentCandles: "2000",
     dateFrom: "2025-02-01",
+    dateTo: "2025-03-01",
+    localCsvMode: "separate",
+  },
+  {
+    id: "tpl-moex-shares-1d",
+    name: "MOEX Shares 1D",
+    source: "moex",
+    marketType: "shares",
+    symbolsInput: "GAZP, SBER",
+    timeframe: "1D",
+    binanceLoadMode: "range",
+    recentCandles: "250",
+    dateFrom: "2025-01-01",
     dateTo: "2025-03-01",
     localCsvMode: "separate",
   },
@@ -289,11 +311,11 @@ function formatTimestampLabel(value: string) {
   return new Date(timestamp).toISOString().replace(".000Z", "Z");
 }
 
-function normalizeUiTimeframeToApi(timeframe: (typeof bybitTimeframes)[number]) {
+function normalizeUiTimeframeToApi(timeframe: UiTimeframe) {
   return backendIntervalByTimeframe[timeframe];
 }
 
-function parseTimeframeMinutes(timeframe: (typeof bybitTimeframes)[number]) {
+function parseTimeframeMinutes(timeframe: UiTimeframe) {
   if (timeframe === "5M") {
     return 5;
   }
@@ -303,7 +325,7 @@ function parseTimeframeMinutes(timeframe: (typeof bybitTimeframes)[number]) {
   return 1440;
 }
 
-function alignUtcDateToTimeframe(date: Date, timeframe: (typeof bybitTimeframes)[number]) {
+function alignUtcDateToTimeframe(date: Date, timeframe: UiTimeframe) {
   const aligned = new Date(date);
   aligned.setUTCSeconds(0, 0);
 
@@ -321,7 +343,7 @@ function alignUtcDateToTimeframe(date: Date, timeframe: (typeof bybitTimeframes)
   return aligned;
 }
 
-function buildLatestRange(timeframe: (typeof bybitTimeframes)[number], count: number) {
+function buildLatestRange(timeframe: UiTimeframe, count: number) {
   const to = alignUtcDateToTimeframe(new Date(), timeframe);
   const minutes = parseTimeframeMinutes(timeframe);
   const from = new Date(to.getTime() - (count - 1) * minutes * 60_000);
@@ -381,7 +403,7 @@ function mapCandleToRow(candle: CandleApiResponse): CandleTableRow {
 
 function buildProfileFromCandles(
   candles: CandleApiResponse[],
-  timeframe: (typeof bybitTimeframes)[number]
+  timeframe: UiTimeframe
 ): DatasetProfile {
   const sorted = [...candles].sort(
     (left, right) => Date.parse(left.openTime) - Date.parse(right.openTime)
@@ -407,8 +429,20 @@ function sanitizeDatasetForPersistence(dataset: UiDataset): PersistedDatasetPayl
 }
 
 function hydrateDataset(dataset: PersistedDatasetPayload): UiDataset {
+  const normalizedSource =
+    dataset.source === "bybit" &&
+    dataset.backendRequest?.exchange === "binance"
+      ? "binance"
+      : dataset.source;
+  const normalizedMarketType =
+    normalizedSource === "moex" && dataset.marketType === "spot"
+      ? "shares"
+      : dataset.marketType;
+
   return {
     ...dataset,
+    source: normalizedSource,
+    marketType: normalizedMarketType,
     archived: dataset.archived ?? false,
     loadStatus: dataset.loadStatus ?? "ready",
   };
@@ -520,11 +554,11 @@ function buildBacktestCompatibility(params: {
   source: DatasetSource;
   validation: CsvValidation | null;
 }): BacktestCompatibility {
-  if (params.source === "bybit") {
+  if (params.source !== "local") {
     return {
       compatible: true,
       missingFields: [],
-      notes: ["Формат ожидается от API-коннектора Binance"],
+      notes: [`Формат ожидается от API-коннектора ${sourceLabels[params.source]}`],
     };
   }
 
@@ -537,6 +571,38 @@ function buildBacktestCompatibility(params: {
         ? ["CSV содержит обязательные поля для бэктеста"]
         : ["Нужно дополнить CSV обязательными колонками"],
   };
+}
+
+function getMarketTypeOptions(source: DatasetSource): MarketType[] {
+  if (source === "moex") {
+    return ["shares", "futures"];
+  }
+  if (source === "local") {
+    return ["spot", "futures", "shares"];
+  }
+  return ["spot", "futures"];
+}
+
+function getSourceRequestOptions(source: ExchangeSource, marketType: MarketType) {
+  if (source === "binance") {
+    return {};
+  }
+  if (source === "bybit") {
+    return {
+      category: marketType === "futures" ? "linear" : "spot",
+    };
+  }
+
+  return marketType === "futures"
+    ? {
+        engine: "futures",
+        market: "forts",
+      }
+    : {
+        engine: "stock",
+        market: "shares",
+        board: "TQBR",
+      };
 }
 
 async function validateCsvFiles(files: File[]): Promise<CsvValidationResult> {
@@ -722,10 +788,10 @@ export default function DataPage() {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [datasetName, setDatasetName] = useState("");
-  const [datasetSource, setDatasetSource] = useState<DatasetSource>("bybit");
+  const [datasetSource, setDatasetSource] = useState<DatasetSource>("binance");
   const [marketType, setMarketType] = useState<MarketType>("spot");
   const [symbolsInput, setSymbolsInput] = useState("BTCUSDT");
-  const [timeframe, setTimeframe] = useState<(typeof bybitTimeframes)[number]>("1H");
+  const [timeframe, setTimeframe] = useState<UiTimeframe>("1H");
   const [binanceLoadMode, setBinanceLoadMode] = useState<BinanceLoadMode>("latest");
   const [recentCandles, setRecentCandles] = useState("500");
   const [dateFrom, setDateFrom] = useState("");
@@ -763,6 +829,18 @@ export default function DataPage() {
           })),
     [selectedDataset]
   );
+
+  useEffect(() => {
+    const allowedTimeframes = datasetSource === "local" ? exchangeTimeframes.binance : exchangeTimeframes[datasetSource];
+    if (!allowedTimeframes.includes(timeframe)) {
+      setTimeframe(allowedTimeframes[0]);
+    }
+
+    const allowedMarkets = getMarketTypeOptions(datasetSource);
+    if (!allowedMarkets.includes(marketType)) {
+      setMarketType(allowedMarkets[0]);
+    }
+  }, [datasetSource, timeframe, marketType]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1000,7 +1078,7 @@ export default function DataPage() {
     }
 
     setDatasetName("");
-    setDatasetSource("bybit");
+    setDatasetSource("binance");
     setMarketType("spot");
     setSymbolsInput("BTCUSDT");
     setTimeframe("1H");
@@ -1030,7 +1108,7 @@ export default function DataPage() {
     setLocalCsvMode(template.source === "local" ? template.localCsvMode : null);
     setMergeError(null);
 
-    if (template.source === "bybit") {
+    if (template.source !== "local") {
       if (mergedCsv?.url) {
         URL.revokeObjectURL(mergedCsv.url);
       }
@@ -1060,7 +1138,7 @@ export default function DataPage() {
       name:
         normalizedName.length > 0
           ? normalizedName
-          : `${datasetSource === "bybit" ? "Binance" : "CSV"} preset ${importTemplates.length + 1}`,
+          : `${datasetSource === "local" ? "CSV" : sourceLabels[datasetSource]} preset ${importTemplates.length + 1}`,
       source: datasetSource,
       marketType,
       symbolsInput,
@@ -1225,17 +1303,17 @@ export default function DataPage() {
       return;
     }
 
-    if (datasetSource === "bybit" && binanceLoadMode === "latest" && !hasValidRecentCandles) {
+    if (datasetSource !== "local" && binanceLoadMode === "latest" && !hasValidRecentCandles) {
       setMergeError("Укажите корректное количество последних свечей (N > 0).");
       return;
     }
 
-    if (datasetSource === "bybit" && binanceLoadMode === "range" && (!dateFrom || !dateTo)) {
+    if (datasetSource !== "local" && binanceLoadMode === "range" && (!dateFrom || !dateTo)) {
       setMergeError("Для режима диапазона заполните даты from и to.");
       return;
     }
 
-    if (datasetSource === "bybit" && binanceLoadMode === "range" && dateFrom > dateTo) {
+    if (datasetSource !== "local" && binanceLoadMode === "range" && dateFrom > dateTo) {
       setMergeError("Дата from не может быть позже даты to.");
       return;
     }
@@ -1245,7 +1323,7 @@ export default function DataPage() {
       .map((symbol) => symbol.trim())
       .filter(Boolean);
 
-    if (datasetSource === "bybit" && symbols.length === 0) {
+    if (datasetSource !== "local" && symbols.length === 0) {
       setMergeError("Укажите хотя бы один символ.");
       return;
     }
@@ -1254,14 +1332,15 @@ export default function DataPage() {
 
     const datasetId = `custom-${Date.now()}`;
     const isLocal = datasetSource === "local";
-    const isBinanceLatestMode = datasetSource === "bybit" && binanceLoadMode === "latest";
+    const isExchangeLatestMode = datasetSource !== "local" && binanceLoadMode === "latest";
     const isMergeMode = isLocal && localCsvMode === "merge";
     const apiInterval = normalizeUiTimeframeToApi(timeframe);
 
     if (!isLocal) {
-      const requestRange = isBinanceLatestMode
+      const requestRange = isExchangeLatestMode
         ? buildLatestRange(timeframe, normalizedRecentCandles)
         : buildRangeFromDateInputs(dateFrom, dateTo);
+      const sourceRequestOptions = getSourceRequestOptions(datasetSource, marketType);
 
       setMergeError(null);
       setIsImportingCandles(true);
@@ -1277,18 +1356,19 @@ export default function DataPage() {
               "content-type": "application/json",
             },
             body: JSON.stringify({
-              exchange: "binance",
+              exchange: datasetSource,
               symbol,
               interval: apiInterval,
               from: requestRange.from,
               to: requestRange.to,
+              ...sourceRequestOptions,
             }),
           });
           const importPayload = await readJsonOrThrow<ImportCandlesApiResponse>(importResponse);
           importedCount += importPayload.imported;
 
           const query = new URLSearchParams({
-            exchange: "binance",
+            exchange: datasetSource,
             symbol,
             interval: apiInterval,
             from: requestRange.from,
@@ -1305,7 +1385,7 @@ export default function DataPage() {
           (left, right) => Date.parse(left.openTime) - Date.parse(right.openTime)
         );
         const candleRows = sortedCandles.map(mapCandleToRow);
-        const periodLabel = isBinanceLatestMode
+        const periodLabel = isExchangeLatestMode
           ? `Последние ${normalizedRecentCandles.toLocaleString("ru-RU")} свечей`
           : `${dateFrom} -> ${dateTo}`;
         const newDataset: UiDataset = {
@@ -1315,7 +1395,7 @@ export default function DataPage() {
           timeframe,
           symbols,
           size: `${sortedCandles.length.toLocaleString("ru-RU")} свечей`,
-          pipelineHash: "api_binance_candles",
+          pipelineHash: `api_${datasetSource}_candles`,
           source: datasetSource,
           marketType,
           loadStatus: "ready",
@@ -1329,7 +1409,7 @@ export default function DataPage() {
           rowsHint: `Импортировано ${importedCount.toLocaleString("ru-RU")} свечей`,
           candleRows,
           backendRequest: {
-            exchange: "binance",
+            exchange: datasetSource,
             interval: apiInterval,
             from: requestRange.from,
             to: requestRange.to,
@@ -1362,7 +1442,7 @@ export default function DataPage() {
 
     const periodLabel = isLocal
       ? "Локальный импорт"
-      : isBinanceLatestMode
+      : isExchangeLatestMode
         ? `Последние ${normalizedRecentCandles.toLocaleString("ru-RU")} свечей`
         : `${dateFrom} -> ${dateTo}`;
     const compatibility = buildBacktestCompatibility({
@@ -1528,7 +1608,7 @@ export default function DataPage() {
     }
   }
 
-  const isBybitForm = datasetSource === "bybit";
+  const isExchangeForm = datasetSource !== "local";
   const shouldAskLocalCsvMode =
     datasetSource === "local" && uploadedCsvFiles.length > 1;
   const showMergePanel = datasetSource === "local" && localCsvMode === "merge";
@@ -1605,7 +1685,9 @@ export default function DataPage() {
               </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Все</SelectItem>
-                  <SelectItem value="bybit">Binance</SelectItem>
+                  <SelectItem value="binance">Binance</SelectItem>
+                  <SelectItem value="bybit">Bybit</SelectItem>
+                  <SelectItem value="moex">MOEX</SelectItem>
                   <SelectItem value="local">Локально</SelectItem>
                 </SelectContent>
               </Select>
@@ -1728,7 +1810,7 @@ export default function DataPage() {
               {createOpen ? (
         <SurfaceCard
           title="Добавление датасета"
-          subtitle="Источник: Binance или локальные файлы. Для Binance выберите один режим загрузки, для CSV можно выбрать merge/отдельно."
+          subtitle="Источник: Binance, Bybit, MOEX или локальные файлы. Для API-источников выберите режим загрузки, для CSV можно выбрать merge/отдельно."
           overflow="visible"
           contentClassName="p-5 pb-6"
           actions={
@@ -1765,7 +1847,7 @@ export default function DataPage() {
                 <Input
                   value={templateNameDraft}
                   onChange={(event) => setTemplateNameDraft(event.target.value)}
-                  placeholder="Например: Binance ETH 1D"
+                  placeholder="Например: Bybit ETH 1D или MOEX GAZP 1D"
                 />
               </div>
               <div className="flex items-end gap-2">
@@ -1795,12 +1877,12 @@ export default function DataPage() {
                   return (
                     <>
                       <Badge variant="secondary">
-                        {activeTemplate.source === "bybit" ? "Binance" : "CSV Upload"}
+                        {activeTemplate.source === "local" ? "CSV Upload" : sourceLabels[activeTemplate.source]}
                       </Badge>
                       <Badge variant="secondary">{activeTemplate.marketType}</Badge>
                       <Badge variant="secondary">{activeTemplate.timeframe}</Badge>
                       <Badge variant="secondary">
-                        {activeTemplate.source === "bybit" &&
+                        {activeTemplate.source !== "local" &&
                         activeTemplate.binanceLoadMode === "latest"
                           ? `Последние ${activeTemplate.recentCandles || "N"} свечей`
                           : activeTemplate.dateFrom && activeTemplate.dateTo
@@ -1817,7 +1899,7 @@ export default function DataPage() {
           <div
             className={cn(
               "grid gap-4",
-              isBybitForm ? "lg:grid-cols-2" : "lg:grid-cols-1"
+              isExchangeForm ? "lg:grid-cols-2" : "lg:grid-cols-1"
             )}
           >
             <div className="space-y-3">
@@ -1826,7 +1908,7 @@ export default function DataPage() {
                 <Input
                   value={datasetName}
                   onChange={(event) => setDatasetName(event.target.value)}
-                  placeholder="Например: Binance BTCUSDT 1h"
+                  placeholder="Например: Binance BTCUSDT 1h / Bybit BTCUSDT 5m / MOEX GAZP 1d"
                 />
               </div>
 
@@ -1840,17 +1922,21 @@ export default function DataPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="bybit">Binance (парсинг через API)</SelectItem>
+                    <SelectItem value="binance">Binance (парсинг через API)</SelectItem>
+                    <SelectItem value="bybit">Bybit (парсинг через API)</SelectItem>
+                    <SelectItem value="moex">MOEX (парсинг через API)</SelectItem>
                     <SelectItem value="local">Локально (CSV upload)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
-            {isBybitForm ? (
+            {isExchangeForm ? (
               <div className="space-y-3">
                 <div>
-                  <div className="mb-1 text-xs text-muted-foreground">Рынок</div>
+                  <div className="mb-1 text-xs text-muted-foreground">
+                    {datasetSource === "moex" ? "Категория рынка" : "Рынок"}
+                  </div>
                   <Select
                     value={marketType}
                     onValueChange={(value) => setMarketType(value as MarketType)}
@@ -1859,8 +1945,11 @@ export default function DataPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="spot">Spot</SelectItem>
-                      <SelectItem value="futures">Futures</SelectItem>
+                      {getMarketTypeOptions(datasetSource).map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {marketTypeLabels[option]}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -1924,15 +2013,13 @@ export default function DataPage() {
                   <div className="mb-1 text-xs text-muted-foreground">Таймфрейм</div>
                   <Select
                     value={timeframe}
-                    onValueChange={(value) =>
-                      setTimeframe(value as (typeof bybitTimeframes)[number])
-                    }
+                    onValueChange={(value) => setTimeframe(value as UiTimeframe)}
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {bybitTimeframes.map((item) => (
+                      {exchangeTimeframes[datasetSource as ExchangeSource].map((item) => (
                         <SelectItem key={item} value={item}>
                           {item}
                         </SelectItem>

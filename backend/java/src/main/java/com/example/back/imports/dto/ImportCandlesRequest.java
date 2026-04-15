@@ -49,4 +49,28 @@ public class ImportCandlesRequest {
             requiredMode = Schema.RequiredMode.REQUIRED
     )
     private String to;
+
+    @Schema(
+            description = "Bybit category (spot/linear/inverse) when applicable",
+            example = "spot"
+    )
+    private String category;
+
+    @Schema(
+            description = "MOEX engine when applicable",
+            example = "stock"
+    )
+    private String engine;
+
+    @Schema(
+            description = "MOEX market when applicable",
+            example = "shares"
+    )
+    private String market;
+
+    @Schema(
+            description = "MOEX board when applicable",
+            example = "TQBR"
+    )
+    private String board;
 }
