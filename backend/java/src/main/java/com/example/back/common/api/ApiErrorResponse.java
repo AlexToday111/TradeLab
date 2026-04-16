@@ -13,6 +13,8 @@ public record ApiErrorResponse(
         String error,
         @Schema(description = "Сообщение", example = "Field 'from' must be before 'to'")
         String message,
+        @Schema(description = "Correlation identifier for tracing the request", example = "req-123")
+        String correlationId,
         @Schema(description = "Путь запроса", example = "/backtests")
         String path
 ) {

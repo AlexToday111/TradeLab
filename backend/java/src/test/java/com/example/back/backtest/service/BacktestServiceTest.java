@@ -145,6 +145,8 @@ class BacktestServiceTest {
         assertThat(response.artifacts()).containsEntry("tradesCount", 1);
         assertThat(executorRequest.getValue().getStrategyPath()).isEqualTo(strategy.getStoragePath());
         assertThat(executorRequest.getValue().getInitialCash()).isEqualTo(10_000.0);
+        assertThat(executorRequest.getValue().getRunId()).isEqualTo("11");
+        assertThat(executorRequest.getValue().getCorrelationId()).isEqualTo("run-11");
         verify(backtestTradeRepository).saveAll(any());
         verify(backtestEquityPointRepository).saveAll(any());
         assertThat(run.getFinishedAt()).isNotNull();

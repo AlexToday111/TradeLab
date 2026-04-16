@@ -11,4 +11,5 @@ public class PythonBacktestResponse {
     private Map<String, Object> metrics;
     private String errorMessage;
     private PythonBacktestArtifacts artifacts;
+    private Map<String, Object> metadata;
 }

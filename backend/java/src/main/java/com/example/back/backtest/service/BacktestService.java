@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
@@ -124,7 +125,16 @@ public class BacktestService {
         run.setStartedAt(null);
         run.setFinishedAt(null);
 
-        return runRepository.save(run).getId();
+        RunEntity savedRun = runRepository.save(run);
+        log.info(
+                "Backtest run created: runId={} strategyId={} strategyName={} datasetId={} correlationId={}",
+                savedRun.getId(),
+                savedRun.getStrategyId(),
+                savedRun.getStrategyName(),
+                savedRun.getDatasetId(),
+                savedRun.getCorrelationId()
+        );
+        return savedRun.getId();
     }
 
     public BacktestRunResponse executeRun(Long runId) {
@@ -133,28 +143,42 @@ public class BacktestService {
             throw new BacktestValidationException("Backtest is already running");
         }
 
-        StrategyFileEntity strategy = getValidatedStrategy(run.getStrategyId());
-        StoredBacktestRequest storedRequest = readStoredRequest(run.getParamsJson());
-        Path csvPath = null;
+        try (
+                MDC.MDCCloseable runIdCloseable = MDC.putCloseable("runId", String.valueOf(runId));
+                MDC.MDCCloseable correlationCloseable = MDC.putCloseable("correlationId", run.getCorrelationId())
+        ) {
+            StrategyFileEntity strategy = getValidatedStrategy(run.getStrategyId());
+            StoredBacktestRequest storedRequest = readStoredRequest(run.getParamsJson());
+            Path csvPath = null;
 
-        markRunning(runId);
-        sendRunStartedNotification(runId);
+            markRunning(runId);
+            sendRunStartedNotification(runId);
 
-        try {
-            List<CandleEntity> candles = loadCandles(run);
-            csvPath = writeCandlesCsv(runId, candles);
-            BacktestResult result = pythonBacktestExecutor.execute(toExecutorRequest(strategy, storedRequest, csvPath));
-            persistSuccessfulRun(runId, result);
-            sendRunCompletedNotification(runId);
-            return getRun(runId);
-        } catch (RuntimeException ex) {
-            markFailed(runId, ex);
-            throw ex;
-        } catch (Exception ex) {
-            markFailed(runId, ex);
-            throw new IllegalStateException("Failed to execute backtest", ex);
-        } finally {
-            deleteQuietly(csvPath);
+            try {
+                log.info("Backtest run started");
+                List<CandleEntity> candles = loadCandles(run);
+                csvPath = writeCandlesCsv(runId, candles);
+                BacktestResult result = pythonBacktestExecutor.execute(toExecutorRequest(run, strategy, storedRequest, csvPath));
+                persistSuccessfulRun(runId, result);
+                sendRunCompletedNotification(runId);
+                log.info(
+                        "Backtest run completed: tradesCount={} equityPointCount={} warningsCount={}",
+                        safeList(result.getTrades()).size(),
+                        safeList(result.getEquityCurve()).size(),
+                        safeList(result.getWarnings()).size()
+                );
+                return getRun(runId);
+            } catch (RuntimeException ex) {
+                log.error("Backtest run failed: {}", ex.getMessage(), ex);
+                markFailed(runId, ex);
+                throw ex;
+            } catch (Exception ex) {
+                log.error("Backtest run failed with unexpected error", ex);
+                markFailed(runId, ex);
+                throw new IllegalStateException("Failed to execute backtest", ex);
+            } finally {
+                deleteQuietly(csvPath);
+            }
         }
     }
 
@@ -237,6 +261,7 @@ public class BacktestService {
     }
 
     private BacktestRequest toExecutorRequest(
+            RunEntity run,
             StrategyFileEntity strategy,
             StoredBacktestRequest storedRequest,
             Path csvPath
@@ -249,6 +274,8 @@ public class BacktestService {
         request.setFeeRate(storedRequest.feeRate());
         request.setSlippageBps(storedRequest.slippageBps());
         request.setStrictData(storedRequest.strictData());
+        request.setRunId(String.valueOf(run.getId()));
+        request.setCorrelationId(run.getCorrelationId());
         return request;
     }
 

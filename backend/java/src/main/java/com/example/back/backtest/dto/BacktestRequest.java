@@ -34,4 +34,10 @@ public class BacktestRequest {
 
     @JsonProperty("strict_data")
     private boolean strictData = true;
+
+    @JsonProperty("run_id")
+    private String runId;
+
+    @JsonProperty("correlation_id")
+    private String correlationId;
 }
