@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.example.back.datasets.service.DatasetService;
 import com.example.back.imports.client.PythonParserClient;
 import com.example.back.imports.dto.ImportCandlesRequest;
 import com.example.back.imports.dto.ImportCandlesResponse;
@@ -19,6 +20,9 @@ class ImportServiceTest {
     @Mock
     private PythonParserClient pythonParserClient;
 
+    @Mock
+    private DatasetService datasetService;
+
     @InjectMocks
     private ImportService importService;
 
@@ -33,11 +37,13 @@ class ImportServiceTest {
 
         ImportCandlesResponse response = new ImportCandlesResponse();
         response.setStatus("success");
+        response.setDataset(java.util.Map.of("datasetId", "dataset-1", "name", "binance BTCUSDT 1h"));
         when(pythonParserClient.importCandles(request)).thenReturn(response);
 
         var result = importService.importCandles(request);
 
         assertThat(result.getStatus()).isEqualTo("success");
         verify(pythonParserClient).importCandles(request);
+        verify(datasetService).upsertImportedDataset(response);
     }
 }

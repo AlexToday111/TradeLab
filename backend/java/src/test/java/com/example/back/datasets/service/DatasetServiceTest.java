@@ -8,10 +8,13 @@ import static org.mockito.Mockito.when;
 import com.example.back.datasets.dto.RenameDatasetRequest;
 import com.example.back.datasets.entity.DatasetEntity;
 import com.example.back.datasets.repository.DatasetRepository;
+import com.example.back.imports.dto.ImportCandlesResponse;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -103,6 +106,38 @@ class DatasetServiceTest {
             .isInstanceOf(ResponseStatusException.class)
             .extracting("statusCode")
             .isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void upsertImportedDatasetPersistsMetadataFields() {
+        ImportCandlesResponse response = new ImportCandlesResponse();
+        response.setStatus("success");
+        response.setExchange("binance");
+        response.setSymbol("BTCUSDT");
+        response.setInterval("1h");
+        response.setDataset(Map.ofEntries(
+                Map.entry("datasetId", "dataset-1"),
+                Map.entry("name", "Binance BTCUSDT 1h"),
+                Map.entry("source", "binance"),
+                Map.entry("symbol", "BTCUSDT"),
+                Map.entry("timeframe", "1h"),
+                Map.entry("importedAt", "2024-01-02T00:00:00Z"),
+                Map.entry("rowsCount", 100),
+                Map.entry("startAt", "2024-01-01T00:00:00Z"),
+                Map.entry("endAt", "2024-01-02T00:00:00Z"),
+                Map.entry("version", "abc123"),
+                Map.entry("fingerprint", "abc123"),
+                Map.entry("qualityFlags", List.of()),
+                Map.entry("lineage", Map.of("rawRows", 100))
+        ));
+        when(datasetRepository.findById("dataset-1")).thenReturn(Optional.empty());
+        when(datasetRepository.save(any(DatasetEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        JsonNode result = datasetService.upsertImportedDataset(response);
+
+        assertThat(result.path("id").asText()).isEqualTo("dataset-1");
+        assertThat(result.path("source").asText()).isEqualTo("binance");
+        assertThat(result.path("rowsCount").asInt()).isEqualTo(100);
     }
 
     private DatasetEntity createEntity(String id, String name, String payload) {

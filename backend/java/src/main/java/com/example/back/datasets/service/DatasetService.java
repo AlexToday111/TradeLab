@@ -3,11 +3,14 @@ package com.example.back.datasets.service;
 import com.example.back.datasets.dto.RenameDatasetRequest;
 import com.example.back.datasets.entity.DatasetEntity;
 import com.example.back.datasets.repository.DatasetRepository;
+import com.example.back.imports.dto.ImportCandlesResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -33,12 +36,8 @@ public class DatasetService {
     @Transactional
     public JsonNode createDataset(JsonNode payload) {
         ObjectNode normalizedPayload = validatePayload(payload);
-
         DatasetEntity entity = new DatasetEntity();
-        entity.setId(normalizedPayload.path("id").asText());
-        entity.setName(normalizedPayload.path("name").asText());
-        entity.setPayload(writePayload(normalizedPayload));
-
+        applyPayload(entity, normalizedPayload);
         return readPayload(datasetRepository.save(entity));
     }
 
@@ -55,8 +54,7 @@ public class DatasetService {
 
         ObjectNode payload = asObjectNode(readPayload(entity));
         payload.put("name", nextName);
-        entity.setName(nextName);
-        entity.setPayload(writePayload(payload));
+        applyPayload(entity, payload);
 
         return readPayload(datasetRepository.save(entity));
     }
@@ -74,11 +72,36 @@ public class DatasetService {
         payload.put("name", newName);
 
         DatasetEntity duplicate = new DatasetEntity();
-        duplicate.setId(newId);
-        duplicate.setName(newName);
-        duplicate.setPayload(writePayload(payload));
+        applyPayload(duplicate, payload);
 
         return readPayload(datasetRepository.save(duplicate));
+    }
+
+    @Transactional
+    public JsonNode upsertImportedDataset(ImportCandlesResponse response) {
+        ObjectNode payload = normalizeImportedDatasetPayload(response);
+        DatasetEntity entity = datasetRepository.findById(payload.path("id").asText()).orElseGet(DatasetEntity::new);
+        applyPayload(entity, payload);
+        return readPayload(datasetRepository.save(entity));
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<String> findDatasetIdForRange(
+            String source,
+            String symbol,
+            String interval,
+            Instant from,
+            Instant to
+    ) {
+        return datasetRepository
+                .findFirstBySourceIgnoreCaseAndSymbolIgnoreCaseAndIntervalAndStartAtLessThanEqualAndEndAtGreaterThanEqualOrderByImportedAtDesc(
+                        source,
+                        symbol,
+                        interval,
+                        from,
+                        to
+                )
+                .map(DatasetEntity::getId);
     }
 
     @Transactional
@@ -104,7 +127,81 @@ public class DatasetService {
         if (name.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Dataset name is required");
         }
+        objectNode.put("id", id);
+        objectNode.put("name", name);
         return objectNode;
+    }
+
+    private void applyPayload(DatasetEntity entity, ObjectNode payload) {
+        ObjectNode normalizedPayload = validatePayload(payload);
+        entity.setId(normalizedPayload.path("id").asText());
+        entity.setName(normalizedPayload.path("name").asText());
+        entity.setSource(textOrNull(normalizedPayload, "source"));
+        entity.setSymbol(textOrNull(normalizedPayload, "symbol"));
+        entity.setInterval(textOrNull(normalizedPayload, "timeframe", "interval"));
+        entity.setImportedAt(instantOrNull(normalizedPayload, "importedAt"));
+        entity.setRowsCount(intOrNull(normalizedPayload, "rowsCount"));
+        entity.setStartAt(instantOrNull(normalizedPayload, "startAt"));
+        entity.setEndAt(instantOrNull(normalizedPayload, "endAt"));
+        entity.setVersion(textOrNull(normalizedPayload, "version"));
+        entity.setFingerprint(textOrNull(normalizedPayload, "fingerprint"));
+        entity.setQualityFlagsJson(writePayload(normalizedPayload.path("qualityFlags")));
+        entity.setLineageJson(writePayload(normalizedPayload.path("lineage")));
+        entity.setPayload(writePayload(normalizedPayload));
+    }
+
+    private ObjectNode normalizeImportedDatasetPayload(ImportCandlesResponse response) {
+        if (response.getDataset() == null || response.getDataset().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Import response does not contain dataset metadata");
+        }
+
+        JsonNode tree = objectMapper.valueToTree(response.getDataset());
+        ObjectNode payload = asObjectNode(tree);
+        if (payload.path("id").asText("").isBlank()) {
+            payload.put("id", payload.path("datasetId").asText());
+        }
+        if (payload.path("name").asText("").isBlank()) {
+            payload.put(
+                    "name",
+                    "%s %s %s".formatted(
+                            response.getExchange(),
+                            response.getSymbol(),
+                            response.getInterval()
+                    ).trim()
+            );
+        }
+        if (payload.path("source").asText("").isBlank()) {
+            payload.put("source", response.getExchange());
+        }
+        if (payload.path("symbol").asText("").isBlank()) {
+            payload.put("symbol", response.getSymbol());
+        }
+        if (payload.path("timeframe").asText("").isBlank()) {
+            payload.put("timeframe", response.getInterval());
+        }
+        return payload;
+    }
+
+    private String textOrNull(ObjectNode payload, String... fields) {
+        for (String field : fields) {
+            String value = payload.path(field).asText("").trim();
+            if (!value.isEmpty()) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private Instant instantOrNull(ObjectNode payload, String field) {
+        String value = payload.path(field).asText("").trim();
+        if (value.isEmpty()) {
+            return null;
+        }
+        return Instant.parse(value);
+    }
+
+    private Integer intOrNull(ObjectNode payload, String field) {
+        return payload.hasNonNull(field) ? payload.path(field).asInt() : null;
     }
 
     private ObjectNode asObjectNode(JsonNode node) {

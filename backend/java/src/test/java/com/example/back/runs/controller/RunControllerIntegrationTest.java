@@ -14,6 +14,8 @@ import com.example.back.backtest.executor.PythonBacktestExecutor;
 import com.example.back.backtest.model.BacktestStatus;
 import com.example.back.candles.entity.CandleEntity;
 import com.example.back.candles.repository.CandleRepository;
+import com.example.back.datasets.entity.DatasetEntity;
+import com.example.back.datasets.repository.DatasetRepository;
 import com.example.back.runs.entity.RunEntity;
 import com.example.back.runs.repository.RunRepository;
 import com.example.back.strategies.entity.StrategyFileEntity;
@@ -52,6 +54,9 @@ class RunControllerIntegrationTest {
     @Autowired
     private StrategyFileRepository strategyFileRepository;
 
+    @Autowired
+    private DatasetRepository datasetRepository;
+
     @MockBean
     private PythonBacktestExecutor pythonBacktestExecutor;
 
@@ -64,6 +69,7 @@ class RunControllerIntegrationTest {
     void setUp() {
         runRepository.deleteAll();
         strategyFileRepository.deleteAll();
+        datasetRepository.deleteAll();
 
         StrategyFileEntity strategy = new StrategyFileEntity();
         strategy.setName("EMA");
@@ -71,6 +77,25 @@ class RunControllerIntegrationTest {
         strategy.setStoragePath("/tmp/ema.py");
         strategy.setStatus(StrategyFileEntity.StrategyStatus.VALID);
         strategyId = strategyFileRepository.saveAndFlush(strategy).getId();
+
+        DatasetEntity dataset = new DatasetEntity();
+        dataset.setId("dataset-1");
+        dataset.setName("Binance BTCUSDT 1h");
+        dataset.setSource("binance");
+        dataset.setSymbol("BTCUSDT");
+        dataset.setInterval("1h");
+        dataset.setImportedAt(Instant.parse("2024-01-05T00:00:00Z"));
+        dataset.setRowsCount(100);
+        dataset.setStartAt(Instant.parse("2024-01-01T00:00:00Z"));
+        dataset.setEndAt(Instant.parse("2024-01-03T00:00:00Z"));
+        dataset.setVersion("abc123");
+        dataset.setFingerprint("abc123");
+        dataset.setQualityFlagsJson("[]");
+        dataset.setLineageJson("{\"rawRows\":100}");
+        dataset.setPayload("""
+                {"id":"dataset-1","name":"Binance BTCUSDT 1h","source":"binance","symbol":"BTCUSDT","timeframe":"1h"}
+                """);
+        datasetRepository.saveAndFlush(dataset);
     }
 
     @Test

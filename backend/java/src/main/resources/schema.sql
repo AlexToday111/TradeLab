@@ -1,6 +1,17 @@
 CREATE TABLE IF NOT EXISTS datasets (
                                         id VARCHAR(64) PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
+    source VARCHAR(64),
+    symbol VARCHAR(64),
+    "interval" VARCHAR(32),
+    imported_at TIMESTAMPTZ,
+    rows_count INTEGER,
+    start_at TIMESTAMPTZ,
+    end_at TIMESTAMPTZ,
+    version VARCHAR(128),
+    fingerprint VARCHAR(128),
+    quality_flags_json TEXT,
+    lineage_json TEXT,
     payload TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

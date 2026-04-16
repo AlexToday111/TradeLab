@@ -16,6 +16,7 @@ import com.example.back.backtest.repository.BacktestEquityPointRepository;
 import com.example.back.backtest.repository.BacktestTradeRepository;
 import com.example.back.candles.entity.CandleEntity;
 import com.example.back.candles.repository.CandleRepository;
+import com.example.back.datasets.service.DatasetService;
 import com.example.back.runs.entity.RunEntity;
 import com.example.back.runs.repository.RunRepository;
 import com.example.back.runs.service.RunFailureStateService;
@@ -54,6 +55,7 @@ public class BacktestService {
     private final RunRepository runRepository;
     private final StrategyFileRepository strategyFileRepository;
     private final CandleRepository candleRepository;
+    private final DatasetService datasetService;
     private final BacktestTradeRepository backtestTradeRepository;
     private final BacktestEquityPointRepository backtestEquityPointRepository;
     private final PythonBacktestExecutor pythonBacktestExecutor;
@@ -67,6 +69,7 @@ public class BacktestService {
             RunRepository runRepository,
             StrategyFileRepository strategyFileRepository,
             CandleRepository candleRepository,
+            DatasetService datasetService,
             BacktestTradeRepository backtestTradeRepository,
             BacktestEquityPointRepository backtestEquityPointRepository,
             PythonBacktestExecutor pythonBacktestExecutor,
@@ -79,6 +82,7 @@ public class BacktestService {
         this.runRepository = runRepository;
         this.strategyFileRepository = strategyFileRepository;
         this.candleRepository = candleRepository;
+        this.datasetService = datasetService;
         this.backtestTradeRepository = backtestTradeRepository;
         this.backtestEquityPointRepository = backtestEquityPointRepository;
         this.pythonBacktestExecutor = pythonBacktestExecutor;
@@ -106,6 +110,13 @@ public class BacktestService {
         run.setInterval(request.getInterval().trim());
         run.setDateFrom(request.getFrom());
         run.setDateTo(request.getTo());
+        run.setDatasetId(datasetService.findDatasetIdForRange(
+                request.getExchange().trim(),
+                request.getSymbol().trim(),
+                request.getInterval().trim(),
+                request.getFrom(),
+                request.getTo()
+        ).orElse(null));
         run.setParamsJson(writeJson(toStoredRequest(request)));
         run.setMetricsJson(null);
         run.setArtifactsJson(null);
