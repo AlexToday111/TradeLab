@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 
 from backtesting.models.trade import Trade
@@ -26,6 +26,7 @@ class BacktestResult:
     equity_curve: list[EquityPoint]
     logs: list[str]
     warnings: list[str]
+    metadata: dict[str, object] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -34,4 +35,5 @@ class BacktestResult:
             "equity_curve": [point.to_dict() for point in self.equity_curve],
             "logs": self.logs,
             "warnings": self.warnings,
+            "metadata": self.metadata,
         }

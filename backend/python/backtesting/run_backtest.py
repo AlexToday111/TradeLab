@@ -3,10 +3,11 @@ from __future__ import annotations
 import json
 import sys
 import tempfile
-from pathlib import Path
 from typing import Any
 
+from backtesting.artifacts.writer import JsonArtifactWriter
 from backtesting.engine.backtest_engine import BacktestConfig, BacktestEngine
+from backtesting.execution.context import ExecutionContext
 
 
 def execute_run(payload: dict[str, Any]) -> dict[str, Any]:
@@ -23,18 +24,30 @@ def execute_run(payload: dict[str, Any]) -> dict[str, Any]:
     )
 
     engine = BacktestEngine(config=config)
-    result = engine.run_from_files(
-        data_path=data_path,
-        strategy_path=strategy_path,
-        strategy_params=payload.get("strategy_params") or {},
-    )
+    with tempfile.TemporaryDirectory(prefix="backtest-artifacts-") as output_dir:
+        context = ExecutionContext(
+            strategy_path=strategy_path,
+            data_path=data_path,
+            output_dir=output_dir,
+            run_id=payload.get("run_id"),
+            correlation_id=payload.get("correlation_id"),
+        )
+        result = engine.run_from_context(
+            context=context,
+            strategy_params=payload.get("strategy_params") or {},
+        )
+        artifacts = JsonArtifactWriter().write(context=context, result=result)
+        output = {
+            "status": "SUCCESS",
+            "metrics": normalize_metrics(result.to_dict().get("summary", {})),
+            "errorMessage": None,
+            "artifacts": artifacts,
+            "metadata": result.metadata,
+        }
+        persisted_artifacts = materialize_artifacts(artifacts)
 
-    return {
-        "status": "SUCCESS",
-        "metrics": normalize_metrics(result.to_dict().get("summary", {})),
-        "errorMessage": None,
-        "artifacts": build_artifacts(result.to_dict()),
-    }
+    output["artifacts"] = persisted_artifacts
+    return output
 
 
 def main() -> int:
@@ -77,32 +90,35 @@ def normalize_metrics(summary: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def build_artifacts(result: dict[str, Any]) -> dict[str, str] | None:
-    trades_path = write_artifact_file("backtest-trades-", result.get("trades"))
-    equity_curve_path = write_artifact_file("backtest-equity-", result.get("equity_curve"))
-    if trades_path is None and equity_curve_path is None:
-        return None
+def materialize_artifacts(artifacts: dict[str, object]) -> dict[str, object]:
+    persisted = dict(artifacts)
+    for key in (
+        "tradesPath",
+        "equityCurvePath",
+        "summaryPath",
+        "logsPath",
+        "warningsPath",
+    ):
+        value = artifacts.get(key)
+        if isinstance(value, str):
+            persisted[key] = write_artifact_file(key.replace("Path", "-"), value)
+    return persisted
 
-    return {
-        "equityCurvePath": equity_curve_path,
-        "tradesPath": trades_path,
-    }
 
-
-def write_artifact_file(prefix: str, payload: Any) -> str | None:
-    if payload is None:
-        return None
+def write_artifact_file(prefix: str, source_path: str) -> str:
+    with open(source_path, encoding="utf-8") as source_file:
+        payload = json.load(source_file)
 
     with tempfile.NamedTemporaryFile(
         mode="w",
         suffix=".json",
-        prefix=prefix,
+        prefix=f"backtest-{prefix}",
         delete=False,
         encoding="utf-8",
     ) as artifact_file:
         json.dump(make_json_safe(payload), artifact_file)
         artifact_file.write("\n")
-        return str(Path(artifact_file.name))
+        return artifact_file.name
 
 
 def make_json_safe(value: Any) -> Any:
@@ -121,6 +137,7 @@ def failure_output(message: str) -> dict[str, Any]:
         "metrics": None,
         "errorMessage": message or "Backtest execution failed",
         "artifacts": None,
+        "metadata": None,
     }
 
 

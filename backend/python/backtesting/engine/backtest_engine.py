@@ -4,11 +4,12 @@ from dataclasses import dataclass, field
 
 import pandas as pd
 
-from backtesting.data.data_loader import DataLoader
+from backtesting.data.providers import CsvDataProvider, DataProvider, DatasetReference
 from backtesting.engine.event_loop import EventLoop
 from backtesting.engine.execution import ExecutionEngine
 from backtesting.engine.portfolio import Portfolio
 from backtesting.engine.position_sizing import PositionSizingConfig
+from backtesting.execution.context import ExecutionContext
 from backtesting.metrics.performance import PerformanceMetricsCalculator
 from backtesting.models.result import BacktestResult
 from backtesting.strategy.base import Strategy
@@ -27,9 +28,16 @@ class BacktestConfig:
 
 
 class BacktestEngine:
-    def __init__(self, *, config: BacktestConfig | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        config: BacktestConfig | None = None,
+        metrics_calculator: PerformanceMetricsCalculator | None = None,
+        strategy_loader: StrategyLoader | None = None,
+    ) -> None:
         self._config = config or BacktestConfig()
-        self._metrics = PerformanceMetricsCalculator()
+        self._metrics = metrics_calculator or PerformanceMetricsCalculator()
+        self._strategy_loader = strategy_loader or StrategyLoader()
 
     def run(self, *, data: pd.DataFrame, strategy: Strategy) -> BacktestResult:
         validated_data = validate_ohlcv_dataframe(data, strict=self._config.strict_data)
@@ -72,6 +80,36 @@ class BacktestEngine:
         strategy_path: str,
         strategy_params: dict | None = None,
     ) -> BacktestResult:
-        data = DataLoader(strict=self._config.strict_data).load_csv(data_path)
-        strategy = StrategyLoader().load(strategy_path, params=strategy_params or {})
-        return self.run(data=data, strategy=strategy)
+        context = ExecutionContext(
+            strategy_path=strategy_path,
+            data_path=data_path,
+            output_dir=".",
+        )
+        return self.run_from_context(
+            context=context,
+            strategy_params=strategy_params or {},
+            data_provider=CsvDataProvider(data_path, strict=self._config.strict_data),
+        )
+
+    def run_from_context(
+        self,
+        *,
+        context: ExecutionContext,
+        strategy_params: dict[str, object] | None = None,
+        data_provider: DataProvider | None = None,
+    ) -> BacktestResult:
+        provider = data_provider or CsvDataProvider(context.data_path, strict=self._config.strict_data)
+        data, dataset_reference = provider.load()
+        strategy = self._strategy_loader.load(context.strategy_path, params=strategy_params or {})
+        return self.run_with_dataset(data=data, strategy=strategy, dataset_reference=dataset_reference)
+
+    def run_with_dataset(
+        self,
+        *,
+        data: pd.DataFrame,
+        strategy: Strategy,
+        dataset_reference: DatasetReference | None = None,
+    ) -> BacktestResult:
+        result = self.run(data=data, strategy=strategy)
+        result.metadata["dataset"] = dataset_reference.to_dict() if dataset_reference else None
+        return result
