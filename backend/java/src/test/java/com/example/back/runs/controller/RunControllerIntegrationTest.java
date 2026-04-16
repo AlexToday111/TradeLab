@@ -94,10 +94,13 @@ class RunControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(failedRun.getId()))
                 .andExpect(jsonPath("$[0].status").value("FAILED"))
+                .andExpect(jsonPath("$[0].strategyName").value("EMA"))
+                .andExpect(jsonPath("$[0].correlationId").isString())
                 .andExpect(jsonPath("$[1].id").value(completedRun.getId()))
                 .andExpect(jsonPath("$[1].status").value("SUCCESS"))
                 .andExpect(jsonPath("$[1].metrics.profit").value(9.5))
                 .andExpect(jsonPath("$[1].parameters.fastPeriod").value(10))
+                .andExpect(jsonPath("$[1].config.fastPeriod").value(10))
                 .andExpect(jsonPath("$[1].runId").doesNotExist())
                 .andExpect(jsonPath("$[1].summary").doesNotExist());
     }
@@ -117,8 +120,11 @@ class RunControllerIntegrationTest {
                 .andExpect(jsonPath("$.id").value(run.getId()))
                 .andExpect(jsonPath("$.strategyId").value(strategyId))
                 .andExpect(jsonPath("$.status").value("SUCCESS"))
+                .andExpect(jsonPath("$.strategyName").value("EMA"))
+                .andExpect(jsonPath("$.correlationId").isString())
                 .andExpect(jsonPath("$.metrics.profit").value(9.5))
                 .andExpect(jsonPath("$.parameters.fastPeriod").value(10))
+                .andExpect(jsonPath("$.config.fastPeriod").value(10))
                 .andExpect(jsonPath("$.runId").doesNotExist())
                 .andExpect(jsonPath("$.summary").doesNotExist());
     }
@@ -168,10 +174,63 @@ class RunControllerIntegrationTest {
                 .andExpect(jsonPath("$.id").isNumber())
                 .andExpect(jsonPath("$.strategyId").value(strategyId))
                 .andExpect(jsonPath("$.status").value("SUCCESS"))
+                .andExpect(jsonPath("$.strategyName").value("EMA"))
+                .andExpect(jsonPath("$.correlationId").isString())
                 .andExpect(jsonPath("$.metrics.profit").value(9.5))
                 .andExpect(jsonPath("$.parameters.fastPeriod").value(10))
+                .andExpect(jsonPath("$.config.strategyId").value(strategyId))
+                .andExpect(jsonPath("$.artifacts.tradesCount").value(1))
                 .andExpect(jsonPath("$.runId").doesNotExist())
                 .andExpect(jsonPath("$.summary").doesNotExist());
+    }
+
+    @Test
+    void rerunReusesStoredConfiguration() throws Exception {
+        RunEntity run = saveRun(
+                BacktestStatus.COMPLETED,
+                Instant.parse("2024-01-01T00:00:00Z"),
+                """
+                        {
+                          "strategyId": %d,
+                          "exchange": "binance",
+                          "symbol": "BTCUSDT",
+                          "interval": "1h",
+                          "from": "2024-01-01T00:00:00Z",
+                          "to": "2024-01-01T02:00:00Z",
+                          "params": {
+                            "fastPeriod": 10
+                          },
+                          "initialCash": 10000.0,
+                          "feeRate": 0.001,
+                          "slippageBps": 1.0,
+                          "strictData": true
+                        }
+                        """.formatted(strategyId),
+                "{\"profit\":9.5}",
+                null
+        );
+
+        when(candleRepository
+                .findByExchangeAndSymbolAndIntervalAndOpenTimeGreaterThanEqualAndOpenTimeLessThanEqualOrderByOpenTimeAsc(
+                        any(),
+                        any(),
+                        any(),
+                        any(),
+                        any()
+                ))
+                .thenReturn(List.of(
+                        candle("2024-01-01T00:00:00Z"),
+                        candle("2024-01-01T01:00:00Z")
+                ));
+        when(pythonBacktestExecutor.execute(any())).thenReturn(backtestResult());
+
+        mockMvc.perform(post("/api/runs/" + run.getId() + "/rerun"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").isNumber())
+                .andExpect(jsonPath("$.id").isNotEmpty())
+                .andExpect(jsonPath("$.config.strategyId").value(strategyId))
+                .andExpect(jsonPath("$.parameters.fastPeriod").value(10))
+                .andExpect(jsonPath("$.status").value("SUCCESS"));
     }
 
     private RunEntity saveRun(
@@ -183,6 +242,8 @@ class RunControllerIntegrationTest {
     ) {
         RunEntity entity = new RunEntity();
         entity.setStrategyId(strategyId);
+        entity.setStrategyName("EMA");
+        entity.setCorrelationId("run-" + (runRepository.count() + 1));
         entity.setStatus(status);
         entity.setExchange("binance");
         entity.setSymbol("BTCUSDT");

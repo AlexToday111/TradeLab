@@ -37,6 +37,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -95,6 +96,10 @@ public class BacktestService {
 
         RunEntity run = new RunEntity();
         run.setStrategyId(strategy.getId());
+        run.setStrategyName(strategy.getName() == null || strategy.getName().isBlank()
+                ? strategy.getFileName()
+                : strategy.getName().trim());
+        run.setCorrelationId("run-" + UUID.randomUUID());
         run.setStatus(BacktestStatus.PENDING);
         run.setExchange(request.getExchange().trim());
         run.setSymbol(request.getSymbol().trim());
@@ -103,6 +108,7 @@ public class BacktestService {
         run.setDateTo(request.getTo());
         run.setParamsJson(writeJson(toStoredRequest(request)));
         run.setMetricsJson(null);
+        run.setArtifactsJson(null);
         run.setErrorMessage(null);
         run.setStartedAt(null);
         run.setFinishedAt(null);
@@ -148,6 +154,9 @@ public class BacktestService {
         return BacktestRunResponse.builder()
                 .runId(run.getId())
                 .strategyId(run.getStrategyId())
+                .strategyName(run.getStrategyName())
+                .datasetId(run.getDatasetId())
+                .correlationId(run.getCorrelationId())
                 .status(run.getStatus())
                 .exchange(run.getExchange())
                 .symbol(run.getSymbol())
@@ -155,7 +164,9 @@ public class BacktestService {
                 .from(run.getDateFrom())
                 .to(run.getDateTo())
                 .params(storedRequest.params())
+                .config(readJsonMap(run.getParamsJson()))
                 .summary(readJsonMap(run.getMetricsJson()))
+                .artifacts(readJsonMap(run.getArtifactsJson()))
                 .errorMessage(run.getErrorMessage())
                 .createdAt(run.getCreatedAt())
                 .startedAt(run.getStartedAt())
@@ -266,6 +277,7 @@ public class BacktestService {
             run.setStartedAt(Instant.now());
             run.setFinishedAt(null);
             run.setMetricsJson(null);
+            run.setArtifactsJson(null);
             run.setErrorMessage(null);
             backtestTradeRepository.deleteByRunId(runId);
             backtestEquityPointRepository.deleteByRunId(runId);
@@ -278,6 +290,7 @@ public class BacktestService {
             RunEntity run = findRunEntity(runId);
             run.setStatus(BacktestStatus.COMPLETED);
             run.setMetricsJson(writeJson(result.getSummary() == null ? Collections.emptyMap() : result.getSummary()));
+            run.setArtifactsJson(writeJson(buildArtifactsManifest(result)));
             run.setErrorMessage(null);
             run.setFinishedAt(Instant.now());
             backtestTradeRepository.saveAll(safeList(result.getTrades()).stream()
@@ -288,6 +301,26 @@ public class BacktestService {
                     .toList());
             runRepository.save(run);
         });
+    }
+
+    public Long rerun(Long runId) {
+        RunEntity sourceRun = findRunEntity(runId);
+        StoredBacktestRequest storedRequest = readStoredRequest(sourceRun.getParamsJson());
+
+        CreateBacktestRunRequest request = new CreateBacktestRunRequest();
+        request.setStrategyId(sourceRun.getStrategyId());
+        request.setExchange(sourceRun.getExchange());
+        request.setSymbol(sourceRun.getSymbol());
+        request.setInterval(sourceRun.getInterval());
+        request.setFrom(sourceRun.getDateFrom());
+        request.setTo(sourceRun.getDateTo());
+        request.setParams(storedRequest.params());
+        request.setInitialCash(storedRequest.initialCash());
+        request.setFeeRate(storedRequest.feeRate());
+        request.setSlippageBps(storedRequest.slippageBps());
+        request.setStrictData(storedRequest.strictData());
+
+        return createRun(request);
     }
 
     private void markFailed(Long runId, Exception failure) {
@@ -400,6 +433,19 @@ public class BacktestService {
 
     private <T> List<T> safeList(List<T> value) {
         return value == null ? List.of() : value;
+    }
+
+    private Map<String, Object> buildArtifactsManifest(BacktestResult result) {
+        List<BacktestTrade> trades = safeList(result.getTrades());
+        List<EquityPoint> equityCurve = safeList(result.getEquityCurve());
+        Map<String, Object> artifacts = new LinkedHashMap<>();
+        artifacts.put("tradesCount", trades.size());
+        artifacts.put("equityPointCount", equityCurve.size());
+        artifacts.put("hasTrades", !trades.isEmpty());
+        artifacts.put("hasEquityCurve", !equityCurve.isEmpty());
+        artifacts.put("warnings", safeList(result.getWarnings()));
+        artifacts.put("logs", safeList(result.getLogs()));
+        return artifacts;
     }
 
     private String writeJson(Object value) {

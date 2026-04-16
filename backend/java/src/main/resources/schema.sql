@@ -46,6 +46,9 @@ CREATE INDEX IF NOT EXISTS idx_candles_market_range
 CREATE TABLE IF NOT EXISTS runs (
                                     id BIGSERIAL PRIMARY KEY,
                                     strategy_id BIGINT NOT NULL REFERENCES strategy_files(id) ON DELETE RESTRICT,
+    strategy_name VARCHAR(255) NOT NULL,
+    dataset_id VARCHAR(64),
+    correlation_id VARCHAR(128) NOT NULL UNIQUE,
     status VARCHAR(32) NOT NULL,
     exchange VARCHAR(64) NOT NULL,
     symbol VARCHAR(64) NOT NULL,
@@ -54,6 +57,7 @@ CREATE TABLE IF NOT EXISTS runs (
     date_to TIMESTAMPTZ NOT NULL,
     params_json TEXT,
     metrics_json TEXT,
+    artifacts_json TEXT,
     error_message TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     started_at TIMESTAMPTZ,
