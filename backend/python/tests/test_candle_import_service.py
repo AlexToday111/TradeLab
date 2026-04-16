@@ -26,7 +26,7 @@ def test_import_candles_normalizes_payload_and_persists_mapped_candles(monkeypat
     repository.save_all.return_value = 2
 
     client = Mock()
-    client.load_klines_raw.return_value = [["raw"]]
+    client.load_klines_raw.return_value = [["raw-1"], ["raw-2"]]
 
     candles = [
         Candle(
@@ -74,6 +74,10 @@ def test_import_candles_normalizes_payload_and_persists_mapped_candles(monkeypat
     assert response.exchange == "binance"
     assert response.symbol == "BTCUSDT"
     assert response.imported == 2
+    assert response.dataset["source"] == "binance"
+    assert response.dataset["rowsCount"] == 2
+    assert response.dataset["qualityFlags"] == []
+    assert response.dataset["datasetId"].startswith("dataset-binance-btcusdt-1h-")
 
 
 def test_import_candles_rejects_invalid_time_range():

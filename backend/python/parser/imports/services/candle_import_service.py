@@ -2,7 +2,12 @@ import logging
 from datetime import UTC, datetime
 
 from parser.common.exceptions import ValidationError
-from parser.imports.dto.candle_import_dto import CandleImportRequest, CandleImportResponse
+from parser.imports.dto.candle_import_dto import (
+    CandleImportRequest,
+    CandleImportResponse,
+    make_dataset_fingerprint,
+    make_dataset_id,
+)
 from parser.imports.exchanges.binance.mapper import map_binance_klines
 from parser.imports.exchanges.factory import get_exchange_client
 from parser.imports.repositories.candle_import_repository import CandleImportRepository
@@ -41,14 +46,30 @@ class CandleImportService:
             end_time=to_time,
         )
         candles = map_binance_klines(symbol=symbol, interval=interval, raw_klines=raw_klines)
+        imported_at = datetime.now(tz=UTC)
+        dataset_metadata = self._build_dataset_metadata(
+            exchange=exchange,
+            symbol=symbol,
+            interval=interval,
+            from_time=from_time,
+            to_time=to_time,
+            imported_at=imported_at,
+            candles=candles,
+            raw_rows=len(raw_klines),
+        )
         imported = self.candle_repository.save_all(candles)
 
         logger.info(
-            "Imported candles: exchange=%s symbol=%s interval=%s imported=%s",
+            (
+                "Imported candles: exchange=%s symbol=%s interval=%s imported=%s "
+                "dataset_id=%s fingerprint=%s"
+            ),
             exchange,
             symbol,
             interval,
             imported,
+            dataset_metadata["datasetId"],
+            dataset_metadata["fingerprint"],
         )
 
         return CandleImportResponse(
@@ -59,6 +80,7 @@ class CandleImportService:
             imported=imported,
             from_time=from_time,
             to_time=to_time,
+            dataset=dataset_metadata,
         )
 
     @staticmethod
@@ -66,3 +88,81 @@ class CandleImportService:
         if value.tzinfo is None:
             return value.replace(tzinfo=UTC)
         return value.astimezone(UTC)
+
+    def _build_dataset_metadata(
+        self,
+        *,
+        exchange: str,
+        symbol: str,
+        interval: str,
+        from_time: datetime,
+        to_time: datetime,
+        imported_at: datetime,
+        candles: list,
+        raw_rows: int,
+    ) -> dict[str, object]:
+        rows_count = len(candles)
+        start_at = self._normalize_datetime(candles[0].open_time) if candles else from_time
+        end_at = self._normalize_datetime(candles[-1].close_time) if candles else to_time
+        fingerprint = make_dataset_fingerprint(
+            [
+                exchange,
+                symbol,
+                interval,
+                from_time.isoformat(),
+                to_time.isoformat(),
+                start_at.isoformat(),
+                end_at.isoformat(),
+                str(rows_count),
+            ]
+        )
+        quality_flags = self._quality_flags(candles, raw_rows=raw_rows)
+
+        return {
+            "datasetId": make_dataset_id(exchange, symbol, interval, fingerprint),
+            "source": exchange,
+            "symbol": symbol,
+            "timeframe": interval,
+            "importedAt": imported_at.isoformat().replace("+00:00", "Z"),
+            "rowsCount": rows_count,
+            "startAt": start_at.isoformat().replace("+00:00", "Z"),
+            "endAt": end_at.isoformat().replace("+00:00", "Z"),
+            "version": fingerprint,
+            "fingerprint": fingerprint,
+            "qualityFlags": quality_flags,
+            "lineage": {
+                "importRange": {
+                    "from": from_time.isoformat().replace("+00:00", "Z"),
+                    "to": to_time.isoformat().replace("+00:00", "Z"),
+                },
+                "rawRows": raw_rows,
+                "exchangeClient": exchange,
+            },
+        }
+
+    def _quality_flags(self, candles: list, *, raw_rows: int) -> list[str]:
+        if not candles:
+            return ["empty_dataset"]
+
+        flags: list[str] = []
+        open_times = [self._normalize_datetime(candle.open_time) for candle in candles]
+        if len(set(open_times)) != len(open_times):
+            flags.append("duplicate_open_time")
+
+        if any(
+            candle.open <= 0
+            or candle.high <= 0
+            or candle.low <= 0
+            or candle.close <= 0
+            or candle.volume < 0
+            for candle in candles
+        ):
+            flags.append("non_positive_ohlcv")
+
+        if raw_rows != len(candles):
+            flags.append("raw_to_mapped_count_mismatch")
+
+        if any(current >= next_time for current, next_time in zip(open_times, open_times[1:], strict=False)):
+            flags.append("non_monotonic_open_time")
+
+        return flags
