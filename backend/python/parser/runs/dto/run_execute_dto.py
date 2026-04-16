@@ -32,6 +32,20 @@ class RunExecuteRequest(BaseModel):
         description="Strategy runtime parameters.",
         examples=[{"fast_period": 9, "slow_period": 21}],
     )
+    run_id: str | None = Field(
+        default=None,
+        alias="runId",
+        serialization_alias="runId",
+        description="Optional platform-level run identifier for logging correlation.",
+        examples=["101"],
+    )
+    correlation_id: str | None = Field(
+        default=None,
+        alias="correlationId",
+        serialization_alias="correlationId",
+        description="Optional correlation identifier propagated from the caller.",
+        examples=["run-101"],
+    )
 
 
 class RunExecuteResponse(BaseModel):
