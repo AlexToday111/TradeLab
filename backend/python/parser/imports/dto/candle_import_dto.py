@@ -1,5 +1,5 @@
-from hashlib import sha256
 from datetime import UTC, datetime
+from hashlib import sha256
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
@@ -79,7 +79,12 @@ class CandleImportResponse(BaseModel):
                 "version": "a1b2c3d4e5f6",
                 "fingerprint": "a1b2c3d4e5f6",
                 "qualityFlags": [],
-                "lineage": {"importRange": {"from": "2024-01-01T00:00:00Z", "to": "2024-01-10T00:00:00Z"}},
+                "lineage": {
+                    "importRange": {
+                        "from": "2024-01-01T00:00:00Z",
+                        "to": "2024-01-10T00:00:00Z",
+                    }
+                },
             }
         ],
     )

@@ -1,9 +1,8 @@
-import logging
 import json
+import logging
 from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import UTC, datetime
-
 
 _correlation_id: ContextVar[str | None] = ContextVar("correlation_id", default=None)
 _run_id: ContextVar[str | None] = ContextVar("run_id", default=None)

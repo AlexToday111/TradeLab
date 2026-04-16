@@ -8,9 +8,9 @@ from parser.imports.dto.candle_import_dto import (
     make_dataset_fingerprint,
     make_dataset_id,
 )
-from parser.imports.exchanges.factory import get_exchange_client
 from parser.imports.exchanges.binance.mapper import map_binance_klines
 from parser.imports.exchanges.bybit.mapper import map_bybit_klines
+from parser.imports.exchanges.factory import get_exchange_client
 from parser.imports.exchanges.moex.mapper import map_moex_klines
 from parser.imports.repositories.candle_import_repository import CandleImportRepository
 
@@ -51,7 +51,12 @@ class CandleImportService:
             market=request.market,
             board=request.board,
         )
-        candles = self._map_klines(exchange=exchange, symbol=symbol, interval=interval, raw_klines=raw_klines)
+        candles = self._map_klines(
+            exchange=exchange,
+            symbol=symbol,
+            interval=interval,
+            raw_klines=raw_klines,
+        )
         imported_at = datetime.now(tz=UTC)
         raw_rows_count = self._count_raw_rows(exchange, raw_klines)
         dataset_metadata = self._build_dataset_metadata(
@@ -151,7 +156,9 @@ class CandleImportService:
                 },
                 "rawRows": raw_rows,
                 "exchangeClient": exchange,
-                "sourceOptions": {key: value for key, value in source_options.items() if value is not None},
+                "sourceOptions": {
+                    key: value for key, value in source_options.items() if value is not None
+                },
             },
         }
 
@@ -177,7 +184,10 @@ class CandleImportService:
         if raw_rows != len(candles):
             flags.append("raw_to_mapped_count_mismatch")
 
-        if any(current >= next_time for current, next_time in zip(open_times, open_times[1:], strict=False)):
+        if any(
+            current >= next_time
+            for current, next_time in zip(open_times, open_times[1:], strict=False)
+        ):
             flags.append("non_monotonic_open_time")
 
         return flags

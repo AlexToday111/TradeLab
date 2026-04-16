@@ -11,6 +11,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -84,6 +85,12 @@ public class RunEntity {
         }
         if (status == null) {
             status = BacktestStatus.PENDING;
+        }
+        if (correlationId == null || correlationId.isBlank()) {
+            correlationId = "run-" + UUID.randomUUID();
+        }
+        if (strategyName == null || strategyName.isBlank()) {
+            strategyName = strategyId == null ? "strategy" : "strategy-" + strategyId;
         }
     }
 

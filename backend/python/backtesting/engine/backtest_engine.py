@@ -98,10 +98,17 @@ class BacktestEngine:
         strategy_params: dict[str, object] | None = None,
         data_provider: DataProvider | None = None,
     ) -> BacktestResult:
-        provider = data_provider or CsvDataProvider(context.data_path, strict=self._config.strict_data)
+        provider = data_provider or CsvDataProvider(
+            context.data_path,
+            strict=self._config.strict_data,
+        )
         data, dataset_reference = provider.load()
         strategy = self._strategy_loader.load(context.strategy_path, params=strategy_params or {})
-        return self.run_with_dataset(data=data, strategy=strategy, dataset_reference=dataset_reference)
+        return self.run_with_dataset(
+            data=data,
+            strategy=strategy,
+            dataset_reference=dataset_reference,
+        )
 
     def run_with_dataset(
         self,

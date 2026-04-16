@@ -18,7 +18,8 @@ class JsonArtifactWriter:
         output_dir = context.output_path
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        trades_path = self._write_file(output_dir / "trades.json", [trade.to_dict() for trade in result.trades])
+        trades_payload = [trade.to_dict() for trade in result.trades]
+        trades_path = self._write_file(output_dir / "trades.json", trades_payload)
         equity_path = self._write_file(
             output_dir / "equity_curve.json",
             [point.to_dict() for point in result.equity_curve],
