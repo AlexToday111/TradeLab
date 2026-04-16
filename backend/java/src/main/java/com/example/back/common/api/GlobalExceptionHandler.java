@@ -91,6 +91,7 @@ public class GlobalExceptionHandler {
                 status.value(),
                 status.getReasonPhrase(),
                 message,
+                (String) request.getAttribute(RequestCorrelationFilter.CORRELATION_ID_KEY),
                 request.getRequestURI()
         );
         return ResponseEntity.status(status).body(body);

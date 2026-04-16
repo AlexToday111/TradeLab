@@ -37,4 +37,10 @@ public class RunController {
     public RunResponse createRun(@Valid @RequestBody CreateBacktestRunRequest request) {
         return runService.createRun(request);
     }
+
+    @PostMapping("/{id}/rerun")
+    @ResponseStatus(HttpStatus.CREATED)
+    public RunResponse rerun(@PathVariable Long id) {
+        return runService.rerun(id);
+    }
 }

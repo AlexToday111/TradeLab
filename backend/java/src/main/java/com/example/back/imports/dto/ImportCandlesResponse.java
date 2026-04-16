@@ -1,6 +1,7 @@
 package com.example.back.imports.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import java.util.Map;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -50,4 +51,10 @@ public class ImportCandlesResponse {
             example = "2024-01-31T23:59:59Z"
     )
     private String to;
+
+    @Schema(
+            description = "Метаданные сформированного dataset/import",
+            example = "{\"datasetId\":\"dataset-binance-btcusdt-1h-a1b2c3d4e5f6\",\"rowsCount\":744}"
+    )
+    private Map<String, Object> dataset;
 }

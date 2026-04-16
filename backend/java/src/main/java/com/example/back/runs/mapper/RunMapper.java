@@ -23,9 +23,13 @@ public class RunMapper {
     private final ObjectMapper objectMapper;
 
     public RunResponse toResponse(RunEntity entity) {
+        Map<String, Object> config = readJsonMap(entity.getParamsJson());
         return RunResponse.builder()
                 .id(entity.getId())
                 .strategyId(entity.getStrategyId())
+                .strategyName(entity.getStrategyName())
+                .datasetId(entity.getDatasetId())
+                .correlationId(entity.getCorrelationId())
                 .status(toExternalStatus(entity.getStatus()))
                 .exchange(entity.getExchange())
                 .symbol(entity.getSymbol())
@@ -35,8 +39,10 @@ public class RunMapper {
                 .createdAt(entity.getCreatedAt())
                 .startedAt(entity.getStartedAt())
                 .finishedAt(entity.getFinishedAt())
-                .parameters(readParameters(entity.getParamsJson()))
+                .config(config)
+                .parameters(readParameters(config))
                 .metrics(readNullableJsonMap(entity.getMetricsJson()))
+                .artifacts(readNullableJsonMap(entity.getArtifactsJson()))
                 .errorMessage(entity.getErrorMessage())
                 .build();
     }
@@ -74,8 +80,7 @@ public class RunMapper {
         return readJsonMap(json);
     }
 
-    private Map<String, Object> readParameters(String json) {
-        Map<String, Object> payload = readJsonMap(json);
+    private Map<String, Object> readParameters(Map<String, Object> payload) {
         Object nestedParams = payload.get("params");
         if (nestedParams instanceof Map<?, ?> params) {
             @SuppressWarnings("unchecked")

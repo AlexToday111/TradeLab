@@ -1,4 +1,5 @@
 import logging
+from uuid import uuid4
 
 import uvicorn
 from fastapi import FastAPI, Request
@@ -9,7 +10,7 @@ from parser.candles.repositories.candle_repository import CandleRepository
 from parser.common.config.db import get_connection, initialize_schema
 from parser.common.config.settings import settings
 from parser.common.exceptions import AppError
-from parser.common.util.logging import configure_logging
+from parser.common.util.logging import bind_log_context, configure_logging
 from parser.imports.dto.candle_import_dto import CandleImportRequest, CandleImportResponse
 from parser.imports.repositories.candle_import_repository import CandleImportRepository
 from parser.imports.services.candle_import_service import CandleImportService
@@ -54,6 +55,14 @@ def create_app() -> FastAPI:
             {"name": "runs", "description": "Strategy execution endpoints."},
         ],
     )
+
+    @app.middleware("http")
+    async def add_correlation_context(request: Request, call_next):
+        correlation_id = request.headers.get("X-Correlation-Id") or f"py-{uuid4().hex}"
+        with bind_log_context(correlation_id=correlation_id):
+            response = await call_next(request)
+        response.headers["X-Correlation-Id"] = correlation_id
+        return response
 
     @app.on_event("startup")
     async def on_startup() -> None:

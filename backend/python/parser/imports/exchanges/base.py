@@ -11,5 +11,6 @@ class BaseExchangeClient(ABC):
         interval: str,
         start_time: datetime,
         end_time: datetime,
+        **kwargs: Any,
     ) -> list[Any]:
         raise NotImplementedError

@@ -23,6 +23,7 @@ import com.example.back.backtest.repository.BacktestEquityPointRepository;
 import com.example.back.backtest.repository.BacktestTradeRepository;
 import com.example.back.candles.entity.CandleEntity;
 import com.example.back.candles.repository.CandleRepository;
+import com.example.back.datasets.service.DatasetService;
 import com.example.back.runs.entity.RunEntity;
 import com.example.back.runs.repository.RunRepository;
 import com.example.back.runs.service.RunFailureStateService;
@@ -53,6 +54,7 @@ class BacktestServiceTest {
     private final RunRepository runRepository = mock(RunRepository.class);
     private final StrategyFileRepository strategyFileRepository = mock(StrategyFileRepository.class);
     private final CandleRepository candleRepository = mock(CandleRepository.class);
+    private final DatasetService datasetService = mock(DatasetService.class);
     private final BacktestTradeRepository backtestTradeRepository = mock(BacktestTradeRepository.class);
     private final BacktestEquityPointRepository backtestEquityPointRepository = mock(BacktestEquityPointRepository.class);
     private final PythonBacktestExecutor pythonBacktestExecutor = mock(PythonBacktestExecutor.class);
@@ -69,6 +71,7 @@ class BacktestServiceTest {
                 runRepository,
                 strategyFileRepository,
                 candleRepository,
+                datasetService,
                 backtestTradeRepository,
                 backtestEquityPointRepository,
                 pythonBacktestExecutor,
@@ -84,6 +87,7 @@ class BacktestServiceTest {
     void createsRunAndStoresSerializedRequest() {
         StrategyFileEntity strategy = validStrategy();
         when(strategyFileRepository.findById(7L)).thenReturn(Optional.of(strategy));
+        when(datasetService.findDatasetIdForRange(any(), any(), any(), any(), any())).thenReturn(Optional.of("dataset-1"));
         AtomicLong ids = new AtomicLong(100);
         when(runRepository.save(any(RunEntity.class))).thenAnswer(invocation -> {
             RunEntity entity = invocation.getArgument(0);
@@ -99,6 +103,9 @@ class BacktestServiceTest {
         ArgumentCaptor<RunEntity> runCaptor = ArgumentCaptor.forClass(RunEntity.class);
         verify(runRepository).save(runCaptor.capture());
         assertThat(runCaptor.getValue().getStatus()).isEqualTo(BacktestStatus.PENDING);
+        assertThat(runCaptor.getValue().getStrategyName()).isEqualTo("EMA");
+        assertThat(runCaptor.getValue().getDatasetId()).isEqualTo("dataset-1");
+        assertThat(runCaptor.getValue().getCorrelationId()).startsWith("run-");
         assertThat(runCaptor.getValue().getParamsJson()).contains("\"strategyId\":7");
         assertThat(runCaptor.getValue().getParamsJson()).contains("\"fastPeriod\":10");
     }
@@ -135,8 +142,11 @@ class BacktestServiceTest {
 
         assertThat(response.status()).isEqualTo(BacktestStatus.COMPLETED);
         assertThat(response.summary()).containsEntry("profit", 12.5);
+        assertThat(response.artifacts()).containsEntry("tradesCount", 1);
         assertThat(executorRequest.getValue().getStrategyPath()).isEqualTo(strategy.getStoragePath());
         assertThat(executorRequest.getValue().getInitialCash()).isEqualTo(10_000.0);
+        assertThat(executorRequest.getValue().getRunId()).isEqualTo("11");
+        assertThat(executorRequest.getValue().getCorrelationId()).isEqualTo("run-11");
         verify(backtestTradeRepository).saveAll(any());
         verify(backtestEquityPointRepository).saveAll(any());
         assertThat(run.getFinishedAt()).isNotNull();
@@ -210,6 +220,8 @@ class BacktestServiceTest {
         RunEntity run = new RunEntity();
         run.setId(11L);
         run.setStrategyId(7L);
+        run.setStrategyName("EMA");
+        run.setCorrelationId("run-11");
         run.setStatus(BacktestStatus.PENDING);
         run.setExchange("binance");
         run.setSymbol("BTCUSDT");

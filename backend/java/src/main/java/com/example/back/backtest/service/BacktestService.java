@@ -16,6 +16,7 @@ import com.example.back.backtest.repository.BacktestEquityPointRepository;
 import com.example.back.backtest.repository.BacktestTradeRepository;
 import com.example.back.candles.entity.CandleEntity;
 import com.example.back.candles.repository.CandleRepository;
+import com.example.back.datasets.service.DatasetService;
 import com.example.back.runs.entity.RunEntity;
 import com.example.back.runs.repository.RunRepository;
 import com.example.back.runs.service.RunFailureStateService;
@@ -37,7 +38,9 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
@@ -53,6 +56,7 @@ public class BacktestService {
     private final RunRepository runRepository;
     private final StrategyFileRepository strategyFileRepository;
     private final CandleRepository candleRepository;
+    private final DatasetService datasetService;
     private final BacktestTradeRepository backtestTradeRepository;
     private final BacktestEquityPointRepository backtestEquityPointRepository;
     private final PythonBacktestExecutor pythonBacktestExecutor;
@@ -66,6 +70,7 @@ public class BacktestService {
             RunRepository runRepository,
             StrategyFileRepository strategyFileRepository,
             CandleRepository candleRepository,
+            DatasetService datasetService,
             BacktestTradeRepository backtestTradeRepository,
             BacktestEquityPointRepository backtestEquityPointRepository,
             PythonBacktestExecutor pythonBacktestExecutor,
@@ -78,6 +83,7 @@ public class BacktestService {
         this.runRepository = runRepository;
         this.strategyFileRepository = strategyFileRepository;
         this.candleRepository = candleRepository;
+        this.datasetService = datasetService;
         this.backtestTradeRepository = backtestTradeRepository;
         this.backtestEquityPointRepository = backtestEquityPointRepository;
         this.pythonBacktestExecutor = pythonBacktestExecutor;
@@ -95,19 +101,40 @@ public class BacktestService {
 
         RunEntity run = new RunEntity();
         run.setStrategyId(strategy.getId());
+        run.setStrategyName(strategy.getName() == null || strategy.getName().isBlank()
+                ? strategy.getFileName()
+                : strategy.getName().trim());
+        run.setCorrelationId("run-" + UUID.randomUUID());
         run.setStatus(BacktestStatus.PENDING);
         run.setExchange(request.getExchange().trim());
         run.setSymbol(request.getSymbol().trim());
         run.setInterval(request.getInterval().trim());
         run.setDateFrom(request.getFrom());
         run.setDateTo(request.getTo());
+        run.setDatasetId(datasetService.findDatasetIdForRange(
+                request.getExchange().trim(),
+                request.getSymbol().trim(),
+                request.getInterval().trim(),
+                request.getFrom(),
+                request.getTo()
+        ).orElse(null));
         run.setParamsJson(writeJson(toStoredRequest(request)));
         run.setMetricsJson(null);
+        run.setArtifactsJson(null);
         run.setErrorMessage(null);
         run.setStartedAt(null);
         run.setFinishedAt(null);
 
-        return runRepository.save(run).getId();
+        RunEntity savedRun = runRepository.save(run);
+        log.info(
+                "Backtest run created: runId={} strategyId={} strategyName={} datasetId={} correlationId={}",
+                savedRun.getId(),
+                savedRun.getStrategyId(),
+                savedRun.getStrategyName(),
+                savedRun.getDatasetId(),
+                savedRun.getCorrelationId()
+        );
+        return savedRun.getId();
     }
 
     public BacktestRunResponse executeRun(Long runId) {
@@ -116,28 +143,42 @@ public class BacktestService {
             throw new BacktestValidationException("Backtest is already running");
         }
 
-        StrategyFileEntity strategy = getValidatedStrategy(run.getStrategyId());
-        StoredBacktestRequest storedRequest = readStoredRequest(run.getParamsJson());
-        Path csvPath = null;
+        try (
+                MDC.MDCCloseable runIdCloseable = MDC.putCloseable("runId", String.valueOf(runId));
+                MDC.MDCCloseable correlationCloseable = MDC.putCloseable("correlationId", run.getCorrelationId())
+        ) {
+            StrategyFileEntity strategy = getValidatedStrategy(run.getStrategyId());
+            StoredBacktestRequest storedRequest = readStoredRequest(run.getParamsJson());
+            Path csvPath = null;
 
-        markRunning(runId);
-        sendRunStartedNotification(runId);
+            markRunning(runId);
+            sendRunStartedNotification(runId);
 
-        try {
-            List<CandleEntity> candles = loadCandles(run);
-            csvPath = writeCandlesCsv(runId, candles);
-            BacktestResult result = pythonBacktestExecutor.execute(toExecutorRequest(strategy, storedRequest, csvPath));
-            persistSuccessfulRun(runId, result);
-            sendRunCompletedNotification(runId);
-            return getRun(runId);
-        } catch (RuntimeException ex) {
-            markFailed(runId, ex);
-            throw ex;
-        } catch (Exception ex) {
-            markFailed(runId, ex);
-            throw new IllegalStateException("Failed to execute backtest", ex);
-        } finally {
-            deleteQuietly(csvPath);
+            try {
+                log.info("Backtest run started");
+                List<CandleEntity> candles = loadCandles(run);
+                csvPath = writeCandlesCsv(runId, candles);
+                BacktestResult result = pythonBacktestExecutor.execute(toExecutorRequest(run, strategy, storedRequest, csvPath));
+                persistSuccessfulRun(runId, result);
+                sendRunCompletedNotification(runId);
+                log.info(
+                        "Backtest run completed: tradesCount={} equityPointCount={} warningsCount={}",
+                        safeList(result.getTrades()).size(),
+                        safeList(result.getEquityCurve()).size(),
+                        safeList(result.getWarnings()).size()
+                );
+                return getRun(runId);
+            } catch (RuntimeException ex) {
+                log.error("Backtest run failed: {}", ex.getMessage(), ex);
+                markFailed(runId, ex);
+                throw ex;
+            } catch (Exception ex) {
+                log.error("Backtest run failed with unexpected error", ex);
+                markFailed(runId, ex);
+                throw new IllegalStateException("Failed to execute backtest", ex);
+            } finally {
+                deleteQuietly(csvPath);
+            }
         }
     }
 
@@ -148,6 +189,9 @@ public class BacktestService {
         return BacktestRunResponse.builder()
                 .runId(run.getId())
                 .strategyId(run.getStrategyId())
+                .strategyName(run.getStrategyName())
+                .datasetId(run.getDatasetId())
+                .correlationId(run.getCorrelationId())
                 .status(run.getStatus())
                 .exchange(run.getExchange())
                 .symbol(run.getSymbol())
@@ -155,7 +199,9 @@ public class BacktestService {
                 .from(run.getDateFrom())
                 .to(run.getDateTo())
                 .params(storedRequest.params())
+                .config(readJsonMap(run.getParamsJson()))
                 .summary(readJsonMap(run.getMetricsJson()))
+                .artifacts(readJsonMap(run.getArtifactsJson()))
                 .errorMessage(run.getErrorMessage())
                 .createdAt(run.getCreatedAt())
                 .startedAt(run.getStartedAt())
@@ -215,6 +261,7 @@ public class BacktestService {
     }
 
     private BacktestRequest toExecutorRequest(
+            RunEntity run,
             StrategyFileEntity strategy,
             StoredBacktestRequest storedRequest,
             Path csvPath
@@ -227,6 +274,8 @@ public class BacktestService {
         request.setFeeRate(storedRequest.feeRate());
         request.setSlippageBps(storedRequest.slippageBps());
         request.setStrictData(storedRequest.strictData());
+        request.setRunId(String.valueOf(run.getId()));
+        request.setCorrelationId(run.getCorrelationId());
         return request;
     }
 
@@ -266,6 +315,7 @@ public class BacktestService {
             run.setStartedAt(Instant.now());
             run.setFinishedAt(null);
             run.setMetricsJson(null);
+            run.setArtifactsJson(null);
             run.setErrorMessage(null);
             backtestTradeRepository.deleteByRunId(runId);
             backtestEquityPointRepository.deleteByRunId(runId);
@@ -278,6 +328,7 @@ public class BacktestService {
             RunEntity run = findRunEntity(runId);
             run.setStatus(BacktestStatus.COMPLETED);
             run.setMetricsJson(writeJson(result.getSummary() == null ? Collections.emptyMap() : result.getSummary()));
+            run.setArtifactsJson(writeJson(buildArtifactsManifest(result)));
             run.setErrorMessage(null);
             run.setFinishedAt(Instant.now());
             backtestTradeRepository.saveAll(safeList(result.getTrades()).stream()
@@ -288,6 +339,26 @@ public class BacktestService {
                     .toList());
             runRepository.save(run);
         });
+    }
+
+    public Long rerun(Long runId) {
+        RunEntity sourceRun = findRunEntity(runId);
+        StoredBacktestRequest storedRequest = readStoredRequest(sourceRun.getParamsJson());
+
+        CreateBacktestRunRequest request = new CreateBacktestRunRequest();
+        request.setStrategyId(sourceRun.getStrategyId());
+        request.setExchange(sourceRun.getExchange());
+        request.setSymbol(sourceRun.getSymbol());
+        request.setInterval(sourceRun.getInterval());
+        request.setFrom(sourceRun.getDateFrom());
+        request.setTo(sourceRun.getDateTo());
+        request.setParams(storedRequest.params());
+        request.setInitialCash(storedRequest.initialCash());
+        request.setFeeRate(storedRequest.feeRate());
+        request.setSlippageBps(storedRequest.slippageBps());
+        request.setStrictData(storedRequest.strictData());
+
+        return createRun(request);
     }
 
     private void markFailed(Long runId, Exception failure) {
@@ -400,6 +471,19 @@ public class BacktestService {
 
     private <T> List<T> safeList(List<T> value) {
         return value == null ? List.of() : value;
+    }
+
+    private Map<String, Object> buildArtifactsManifest(BacktestResult result) {
+        List<BacktestTrade> trades = safeList(result.getTrades());
+        List<EquityPoint> equityCurve = safeList(result.getEquityCurve());
+        Map<String, Object> artifacts = new LinkedHashMap<>();
+        artifacts.put("tradesCount", trades.size());
+        artifacts.put("equityPointCount", equityCurve.size());
+        artifacts.put("hasTrades", !trades.isEmpty());
+        artifacts.put("hasEquityCurve", !equityCurve.isEmpty());
+        artifacts.put("warnings", safeList(result.getWarnings()));
+        artifacts.put("logs", safeList(result.getLogs()));
+        return artifacts;
     }
 
     private String writeJson(Object value) {

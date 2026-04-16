@@ -8,6 +8,9 @@ import lombok.Builder;
 public record RunResponse(
         Long id,
         Long strategyId,
+        String strategyName,
+        String datasetId,
+        String correlationId,
         RunStatusResponse status,
         String exchange,
         String symbol,
@@ -17,8 +20,10 @@ public record RunResponse(
         Instant createdAt,
         Instant startedAt,
         Instant finishedAt,
+        Map<String, Object> config,
         Map<String, Object> parameters,
         Map<String, Object> metrics,
+        Map<String, Object> artifacts,
         String errorMessage
 ) {
 }

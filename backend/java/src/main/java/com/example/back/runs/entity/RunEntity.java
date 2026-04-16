@@ -28,6 +28,15 @@ public class RunEntity {
     @Column(name = "strategy_id", nullable = false)
     private Long strategyId;
 
+    @Column(name = "strategy_name", nullable = false)
+    private String strategyName;
+
+    @Column(name = "dataset_id")
+    private String datasetId;
+
+    @Column(name = "correlation_id", nullable = false, unique = true)
+    private String correlationId;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private BacktestStatus status;
@@ -47,11 +56,14 @@ public class RunEntity {
     @Column(name = "date_to", nullable = false)
     private Instant dateTo;
 
-    @Column(name = "params_json")
+    @Column(name = "params_json", columnDefinition = "TEXT")
     private String paramsJson;
 
-    @Column(name = "metrics_json")
+    @Column(name = "metrics_json", columnDefinition = "TEXT")
     private String metricsJson;
+
+    @Column(name = "artifacts_json", columnDefinition = "TEXT")
+    private String artifactsJson;
 
     @Column(name = "error_message")
     private String errorMessage;

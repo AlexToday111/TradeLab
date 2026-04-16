@@ -44,6 +44,18 @@ public class RunService {
         return getRun(runId);
     }
 
+    public RunResponse rerun(Long runId) {
+        Long rerunId = backtestService.rerun(runId);
+
+        try {
+            backtestService.executeRun(rerunId);
+        } catch (RuntimeException ex) {
+            return getRun(rerunId);
+        }
+
+        return getRun(rerunId);
+    }
+
     private RunEntity findRunEntity(Long runId) {
         return runRepository.findById(runId)
                 .orElseThrow(() -> new BacktestResourceNotFoundException("Run not found: " + runId));

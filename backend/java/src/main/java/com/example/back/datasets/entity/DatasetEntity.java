@@ -26,6 +26,39 @@ public class DatasetEntity {
     @Column(nullable = false, length = 255)
     private String name;
 
+    @Column(length = 64)
+    private String source;
+
+    @Column(length = 64)
+    private String symbol;
+
+    @Column(name = "\"interval\"", length = 32)
+    private String interval;
+
+    @Column(name = "imported_at")
+    private Instant importedAt;
+
+    @Column(name = "rows_count")
+    private Integer rowsCount;
+
+    @Column(name = "start_at")
+    private Instant startAt;
+
+    @Column(name = "end_at")
+    private Instant endAt;
+
+    @Column(length = 128)
+    private String version;
+
+    @Column(length = 128)
+    private String fingerprint;
+
+    @Column(name = "quality_flags_json", columnDefinition = "TEXT")
+    private String qualityFlagsJson;
+
+    @Column(name = "lineage_json", columnDefinition = "TEXT")
+    private String lineageJson;
+
     @Column(nullable = false, columnDefinition = "TEXT")
     private String payload;
 

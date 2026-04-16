@@ -138,13 +138,17 @@ public class PythonBacktestExecutor {
         if (artifacts != null) {
             result.setTrades(readArtifactList(artifacts.getTradesPath(), TRADE_LIST_TYPE));
             result.setEquityCurve(readArtifactList(artifacts.getEquityCurvePath(), EQUITY_LIST_TYPE));
+            result.setLogs(readArtifactList(artifacts.getLogsPath(), new TypeReference<>() {
+            }));
+            result.setWarnings(readArtifactList(artifacts.getWarningsPath(), new TypeReference<>() {
+            }));
         } else {
             result.setTrades(List.of());
             result.setEquityCurve(List.of());
+            result.setLogs(List.of());
+            result.setWarnings(List.of());
         }
 
-        result.setLogs(List.of());
-        result.setWarnings(List.of());
         return result;
     }
 

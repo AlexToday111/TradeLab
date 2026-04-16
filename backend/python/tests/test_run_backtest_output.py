@@ -31,6 +31,7 @@ def test_failure_output_returns_stable_json_contract():
         "metrics": None,
         "errorMessage": "Indicator period must be greater than 0",
         "artifacts": None,
+        "metadata": None,
     }
 
 
@@ -49,6 +50,8 @@ def test_execute_run_returns_success_contract_with_artifacts(tmp_path):
     assert output["metrics"]["trades"] >= 1
     assert output["artifacts"]["equityCurvePath"]
     assert output["artifacts"]["tradesPath"]
+    assert output["artifacts"]["summaryPath"]
+    assert output["metadata"]["dataset"]["rowCount"] >= 1
 
 
 def write_market_data(tmp_path: Path) -> Path:
