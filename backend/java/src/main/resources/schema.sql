@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS runs (
                                     strategy_id BIGINT NOT NULL REFERENCES strategy_files(id) ON DELETE RESTRICT,
     strategy_name VARCHAR(255) NOT NULL,
     dataset_id VARCHAR(64),
+    run_name VARCHAR(255),
     correlation_id VARCHAR(128) NOT NULL UNIQUE,
     status VARCHAR(32) NOT NULL,
     exchange VARCHAR(64) NOT NULL,
@@ -67,9 +68,11 @@ CREATE TABLE IF NOT EXISTS runs (
     date_from TIMESTAMPTZ NOT NULL,
     date_to TIMESTAMPTZ NOT NULL,
     params_json TEXT,
+    summary_json TEXT,
     metrics_json TEXT,
     artifacts_json TEXT,
     error_message TEXT,
+    engine_version VARCHAR(128),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     started_at TIMESTAMPTZ,
     finished_at TIMESTAMPTZ
@@ -83,6 +86,27 @@ CREATE INDEX IF NOT EXISTS idx_runs_created_at
 
 CREATE INDEX IF NOT EXISTS idx_runs_strategy_id
     ON runs (strategy_id);
+
+ALTER TABLE runs
+    ADD COLUMN IF NOT EXISTS run_name VARCHAR(255);
+
+ALTER TABLE runs
+    ADD COLUMN IF NOT EXISTS summary_json TEXT;
+
+ALTER TABLE runs
+    ADD COLUMN IF NOT EXISTS engine_version VARCHAR(128);
+
+
+CREATE TABLE IF NOT EXISTS run_snapshots (
+                                             run_id BIGINT PRIMARY KEY REFERENCES runs(id) ON DELETE CASCADE,
+    strategy_version VARCHAR(128) NOT NULL,
+    dataset_version VARCHAR(128) NOT NULL,
+    params_snapshot_json TEXT NOT NULL,
+    execution_config_snapshot_json TEXT NOT NULL,
+    market_assumptions_snapshot_json TEXT NOT NULL,
+    engine_version VARCHAR(128),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
 
 
 CREATE TABLE IF NOT EXISTS backtest_trades (
