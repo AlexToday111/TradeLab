@@ -33,4 +33,8 @@ public class PythonRunExecuteRequest {
 
     @NotNull(message = "Параметры не могут быть пустыми")
     private Map<String, Object> params;
+
+    private String runId;
+
+    private String correlationId;
 }

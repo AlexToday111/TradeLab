@@ -16,6 +16,8 @@ import com.example.back.candles.entity.CandleEntity;
 import com.example.back.candles.repository.CandleRepository;
 import com.example.back.datasets.entity.DatasetEntity;
 import com.example.back.datasets.repository.DatasetRepository;
+import com.example.back.imports.client.PythonParserClient;
+import com.example.back.runs.dto.PythonRunExecuteResponse;
 import com.example.back.runs.entity.RunEntity;
 import com.example.back.runs.repository.RunRepository;
 import com.example.back.strategies.entity.StrategyFileEntity;
@@ -61,6 +63,9 @@ class RunControllerIntegrationTest {
     private PythonBacktestExecutor pythonBacktestExecutor;
 
     @MockBean
+    private PythonParserClient pythonParserClient;
+
+    @MockBean
     private CandleRepository candleRepository;
 
     private Long strategyId;
@@ -101,7 +106,7 @@ class RunControllerIntegrationTest {
     @Test
     void getRunsReturnsSortedListWithFrontendContract() throws Exception {
         RunEntity completedRun = saveRun(
-                BacktestStatus.COMPLETED,
+                BacktestStatus.SUCCEEDED,
                 Instant.parse("2024-01-01T00:00:00Z"),
                 "{\"fastPeriod\":10}",
                 "{\"profit\":9.5}",
@@ -122,7 +127,7 @@ class RunControllerIntegrationTest {
                 .andExpect(jsonPath("$[0].strategyName").value("EMA"))
                 .andExpect(jsonPath("$[0].correlationId").isString())
                 .andExpect(jsonPath("$[1].id").value(completedRun.getId()))
-                .andExpect(jsonPath("$[1].status").value("SUCCESS"))
+                .andExpect(jsonPath("$[1].status").value("SUCCEEDED"))
                 .andExpect(jsonPath("$[1].metrics.profit").value(9.5))
                 .andExpect(jsonPath("$[1].parameters.fastPeriod").value(10))
                 .andExpect(jsonPath("$[1].config.fastPeriod").value(10))
@@ -133,7 +138,7 @@ class RunControllerIntegrationTest {
     @Test
     void getRunByIdReturnsFrontendCompatibleFields() throws Exception {
         RunEntity run = saveRun(
-                BacktestStatus.COMPLETED,
+                BacktestStatus.SUCCEEDED,
                 Instant.parse("2024-01-01T00:00:00Z"),
                 "{\"fastPeriod\":10}",
                 "{\"profit\":9.5}",
@@ -144,7 +149,7 @@ class RunControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(run.getId()))
                 .andExpect(jsonPath("$.strategyId").value(strategyId))
-                .andExpect(jsonPath("$.status").value("SUCCESS"))
+                .andExpect(jsonPath("$.status").value("SUCCEEDED"))
                 .andExpect(jsonPath("$.strategyName").value("EMA"))
                 .andExpect(jsonPath("$.correlationId").isString())
                 .andExpect(jsonPath("$.metrics.profit").value(9.5))
@@ -155,6 +160,23 @@ class RunControllerIntegrationTest {
     }
 
     @Test
+    void getRunResultReturnsPersistedArtifacts() throws Exception {
+        RunEntity run = saveRun(
+                BacktestStatus.SUCCEEDED,
+                Instant.parse("2024-01-01T00:00:00Z"),
+                "{\"fastPeriod\":10}",
+                "{\"profit\":9.5}",
+                null
+        );
+
+        mockMvc.perform(get("/api/runs/" + run.getId() + "/result"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.runId").value(run.getId()))
+                .andExpect(jsonPath("$.status").value("SUCCEEDED"))
+                .andExpect(jsonPath("$.metrics.profit").value(9.5));
+    }
+
+    @Test
     void getRunByIdReturnsNotFoundForMissingRun() throws Exception {
         mockMvc.perform(get("/api/runs/999999"))
                 .andExpect(status().isNotFound());
@@ -162,19 +184,7 @@ class RunControllerIntegrationTest {
 
     @Test
     void postRunCreatesAndReturnsFullRunObject() throws Exception {
-        when(candleRepository
-                .findByExchangeAndSymbolAndIntervalAndOpenTimeGreaterThanEqualAndOpenTimeLessThanEqualOrderByOpenTimeAsc(
-                        any(),
-                        any(),
-                        any(),
-                        any(),
-                        any()
-                ))
-                .thenReturn(List.of(
-                        candle("2024-01-01T00:00:00Z"),
-                        candle("2024-01-01T01:00:00Z")
-                ));
-        when(pythonBacktestExecutor.execute(any())).thenReturn(backtestResult());
+        when(pythonParserClient.executeRun(any())).thenReturn(pythonRunExecuteResponse());
 
         mockMvc.perform(post("/api/runs")
                         .contentType("application/json")
@@ -198,21 +208,22 @@ class RunControllerIntegrationTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").isNumber())
                 .andExpect(jsonPath("$.strategyId").value(strategyId))
-                .andExpect(jsonPath("$.status").value("SUCCESS"))
+                .andExpect(jsonPath("$.status").value("SUCCEEDED"))
                 .andExpect(jsonPath("$.strategyName").value("EMA"))
                 .andExpect(jsonPath("$.correlationId").isString())
                 .andExpect(jsonPath("$.metrics.profit").value(9.5))
                 .andExpect(jsonPath("$.parameters.fastPeriod").value(10))
                 .andExpect(jsonPath("$.config.strategyId").value(strategyId))
+                .andExpect(jsonPath("$.summary.profit").value(9.5))
                 .andExpect(jsonPath("$.artifacts.tradesCount").value(1))
                 .andExpect(jsonPath("$.runId").doesNotExist())
-                .andExpect(jsonPath("$.summary").doesNotExist());
+                .andExpect(jsonPath("$.result").doesNotExist());
     }
 
     @Test
     void rerunReusesStoredConfiguration() throws Exception {
         RunEntity run = saveRun(
-                BacktestStatus.COMPLETED,
+                BacktestStatus.SUCCEEDED,
                 Instant.parse("2024-01-01T00:00:00Z"),
                 """
                         {
@@ -235,19 +246,7 @@ class RunControllerIntegrationTest {
                 null
         );
 
-        when(candleRepository
-                .findByExchangeAndSymbolAndIntervalAndOpenTimeGreaterThanEqualAndOpenTimeLessThanEqualOrderByOpenTimeAsc(
-                        any(),
-                        any(),
-                        any(),
-                        any(),
-                        any()
-                ))
-                .thenReturn(List.of(
-                        candle("2024-01-01T00:00:00Z"),
-                        candle("2024-01-01T01:00:00Z")
-                ));
-        when(pythonBacktestExecutor.execute(any())).thenReturn(backtestResult());
+        when(pythonParserClient.executeRun(any())).thenReturn(pythonRunExecuteResponse());
 
         mockMvc.perform(post("/api/runs/" + run.getId() + "/rerun"))
                 .andExpect(status().isCreated())
@@ -255,7 +254,7 @@ class RunControllerIntegrationTest {
                 .andExpect(jsonPath("$.id").isNotEmpty())
                 .andExpect(jsonPath("$.config.strategyId").value(strategyId))
                 .andExpect(jsonPath("$.parameters.fastPeriod").value(10))
-                .andExpect(jsonPath("$.status").value("SUCCESS"));
+                .andExpect(jsonPath("$.status").value("SUCCEEDED"));
     }
 
     private RunEntity saveRun(
@@ -322,5 +321,19 @@ class RunControllerIntegrationTest {
         result.setLogs(List.of("done"));
         result.setWarnings(List.of());
         return result;
+    }
+
+    private PythonRunExecuteResponse pythonRunExecuteResponse() {
+        BacktestResult result = backtestResult();
+        PythonRunExecuteResponse response = new PythonRunExecuteResponse();
+        response.setSuccess(true);
+        response.setSummary(Map.of("profit", 9.5));
+        response.setMetrics(Map.of("profit", 9.5));
+        response.setTrades(result.getTrades());
+        response.setEquityCurve(result.getEquityCurve());
+        response.setArtifacts(Map.of("tradesCount", 1, "equityPointCount", 1));
+        response.setEngineVersion("python-execution-engine/0.2.0-alpha");
+        response.setError(null);
+        return response;
     }
 }

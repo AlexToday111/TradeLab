@@ -130,7 +130,7 @@ class BacktestFlowIntegrationTest {
 
         mockMvc.perform(get("/backtests/" + runId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.status").value("SUCCEEDED"))
                 .andExpect(jsonPath("$.summary.profit").value(9.5))
                 .andExpect(jsonPath("$.params.fastPeriod").value(10));
 
@@ -143,7 +143,7 @@ class BacktestFlowIntegrationTest {
                 .andExpect(jsonPath("$[0].equity").value(10009.5));
 
         assertThat(runRepository.findById(runId)).isPresent();
-        assertThat(runRepository.findById(runId).orElseThrow().getStatus()).isEqualTo(BacktestStatus.COMPLETED);
+        assertThat(runRepository.findById(runId).orElseThrow().getStatus()).isEqualTo(BacktestStatus.SUCCEEDED);
         assertThat(backtestTradeRepository.findByRunIdOrderByEntryTimeAsc(runId)).hasSize(1);
         assertThat(backtestEquityPointRepository.findByRunIdOrderByTimestampAsc(runId)).hasSize(1);
     }

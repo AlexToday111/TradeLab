@@ -45,6 +45,16 @@ OpenAPI JSON: `http://localhost:8080/v3/api-docs`
 - `DELETE /api/datasets/{id}`
 - `GET /api/candles`
 - `POST /api/imports/candles`
+- `GET /api/runs`
+- `POST /api/runs`
+- `GET /api/runs/{id}`
+- `GET /api/runs/{id}/result`
+- `POST /api/runs/{id}/rerun`
+
+`/api/runs` реализует release flow для reproducible execution:
+- Java сохраняет `run` и immutable snapshot
+- Java вызывает Python execution endpoint по HTTP
+- результат, trades и equity curve сохраняются в PostgreSQL
 
 <h2 align="center">Конфигурация</h2>
 
@@ -79,4 +89,3 @@ mvn clean package -DskipTests
 ```bash
 docker build -t tradelab-java ./backend/java
 ```
-

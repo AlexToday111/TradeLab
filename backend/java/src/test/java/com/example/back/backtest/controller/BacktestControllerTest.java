@@ -85,7 +85,7 @@ class BacktestControllerTest {
 
         mockMvc.perform(get("/backtests/101"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status", is("COMPLETED")))
+                .andExpect(jsonPath("$.status", is("SUCCEEDED")))
                 .andExpect(jsonPath("$.summary.profit", is(12.5)));
     }
 
@@ -156,7 +156,7 @@ class BacktestControllerTest {
                 "EMA",
                 "dataset-1",
                 "run-101",
-                BacktestStatus.COMPLETED,
+                BacktestStatus.SUCCEEDED,
                 "binance",
                 "BTCUSDT",
                 "1h",

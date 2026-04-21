@@ -35,6 +35,9 @@ public class RunEntity {
     @Column(name = "dataset_id")
     private String datasetId;
 
+    @Column(name = "run_name")
+    private String runName;
+
     @Column(name = "correlation_id", nullable = false, unique = true)
     private String correlationId;
 
@@ -60,6 +63,9 @@ public class RunEntity {
     @Column(name = "params_json", columnDefinition = "TEXT")
     private String paramsJson;
 
+    @Column(name = "summary_json", columnDefinition = "TEXT")
+    private String summaryJson;
+
     @Column(name = "metrics_json", columnDefinition = "TEXT")
     private String metricsJson;
 
@@ -68,6 +74,9 @@ public class RunEntity {
 
     @Column(name = "error_message")
     private String errorMessage;
+
+    @Column(name = "engine_version")
+    private String engineVersion;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
@@ -84,13 +93,16 @@ public class RunEntity {
             createdAt = Instant.now();
         }
         if (status == null) {
-            status = BacktestStatus.PENDING;
+            status = BacktestStatus.CREATED;
         }
         if (correlationId == null || correlationId.isBlank()) {
             correlationId = "run-" + UUID.randomUUID();
         }
         if (strategyName == null || strategyName.isBlank()) {
             strategyName = strategyId == null ? "strategy" : "strategy-" + strategyId;
+        }
+        if (runName == null || runName.isBlank()) {
+            runName = correlationId;
         }
     }
 

@@ -4,9 +4,11 @@ import com.example.back.backtest.model.BacktestStatus;
 import com.example.back.runs.dto.RunResponse;
 import com.example.back.runs.dto.RunStatusResponse;
 import com.example.back.runs.entity.RunEntity;
+import com.example.back.runs.entity.RunSnapshotEntity;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,10 +24,11 @@ public class RunMapper {
 
     private final ObjectMapper objectMapper;
 
-    public RunResponse toResponse(RunEntity entity) {
+    public RunResponse toResponse(RunEntity entity, RunSnapshotEntity snapshotEntity) {
         Map<String, Object> config = readJsonMap(entity.getParamsJson());
         return RunResponse.builder()
                 .id(entity.getId())
+                .runName(entity.getRunName())
                 .strategyId(entity.getStrategyId())
                 .strategyName(entity.getStrategyName())
                 .datasetId(entity.getDatasetId())
@@ -39,8 +42,11 @@ public class RunMapper {
                 .createdAt(entity.getCreatedAt())
                 .startedAt(entity.getStartedAt())
                 .finishedAt(entity.getFinishedAt())
+                .engineVersion(entity.getEngineVersion())
                 .config(config)
+                .snapshot(toSnapshot(snapshotEntity))
                 .parameters(readParameters(config))
+                .summary(readNullableJsonMap(entity.getSummaryJson()))
                 .metrics(readNullableJsonMap(entity.getMetricsJson()))
                 .artifacts(readNullableJsonMap(entity.getArtifactsJson()))
                 .errorMessage(entity.getErrorMessage())
@@ -53,11 +59,28 @@ public class RunMapper {
         }
 
         return switch (status) {
-            case PENDING -> RunStatusResponse.PENDING;
+            case CREATED -> RunStatusResponse.CREATED;
+            case QUEUED -> RunStatusResponse.QUEUED;
             case RUNNING -> RunStatusResponse.RUNNING;
-            case COMPLETED -> RunStatusResponse.SUCCESS;
+            case SUCCEEDED -> RunStatusResponse.SUCCEEDED;
             case FAILED -> RunStatusResponse.FAILED;
+            case CANCELED -> RunStatusResponse.CANCELED;
         };
+    }
+
+    private Map<String, Object> toSnapshot(RunSnapshotEntity entity) {
+        if (entity == null) {
+            return null;
+        }
+
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("strategyVersion", entity.getStrategyVersion());
+        snapshot.put("datasetVersion", entity.getDatasetVersion());
+        snapshot.put("paramsSnapshot", readJsonMap(entity.getParamsSnapshotJson()));
+        snapshot.put("executionConfigSnapshot", readJsonMap(entity.getExecutionConfigSnapshotJson()));
+        snapshot.put("marketAssumptionsSnapshot", readJsonMap(entity.getMarketAssumptionsSnapshotJson()));
+        snapshot.put("engineVersion", entity.getEngineVersion());
+        return snapshot;
     }
 
     private Map<String, Object> readJsonMap(String json) {

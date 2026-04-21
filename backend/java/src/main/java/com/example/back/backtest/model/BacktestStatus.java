@@ -1,8 +1,10 @@
 package com.example.back.backtest.model;
 
 public enum BacktestStatus {
-    PENDING,
+    CREATED,
+    QUEUED,
     RUNNING,
-    COMPLETED,
-    FAILED
+    SUCCEEDED,
+    FAILED,
+    CANCELED
 }

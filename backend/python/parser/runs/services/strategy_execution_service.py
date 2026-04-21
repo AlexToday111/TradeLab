@@ -14,6 +14,9 @@ from parser.runs.dto.run_execute_dto import RunExecuteRequest, RunExecuteRespons
 logger = logging.getLogger(__name__)
 
 
+ENGINE_VERSION = "python-execution-engine/0.2.0-alpha"
+
+
 class StrategyExecutionService:
     def __init__(self, candle_repository: CandleRepository) -> None:
         self.candle_repository = candle_repository
@@ -114,12 +117,34 @@ class StrategyExecutionService:
                 if not isinstance(metrics, dict):
                     return self._failed("invalid run result")
 
+                summary = self._coerce_map(result.get("summary"), fallback=metrics)
+                trades = self._coerce_trades(result.get("trades"))
+                equity_curve = self._coerce_equity_curve(
+                    result.get("equity_curve", result.get("equityCurve"))
+                )
+                artifacts = self._coerce_map(
+                    result.get("artifacts"),
+                    fallback={
+                        "tradesCount": len(trades),
+                        "equityPointCount": len(equity_curve),
+                    },
+                )
+
                 logger.info(
                     "Strategy run completed successfully: strategy_file=%s candles_count=%s",
                     strategy_path,
                     len(candles_payload),
                 )
-                return RunExecuteResponse(success=True, metrics=metrics, error=None)
+                return RunExecuteResponse(
+                    success=True,
+                    summary=summary,
+                    metrics=metrics,
+                    trades=trades,
+                    equity_curve=equity_curve,
+                    artifacts=artifacts,
+                    engine_version=ENGINE_VERSION,
+                    error=None,
+                )
             except Exception as exc:  # noqa: BLE001
                 logger.exception("Strategy execution failed for %s", strategy_path)
                 return self._failed(str(exc))
@@ -173,4 +198,56 @@ class StrategyExecutionService:
     @staticmethod
     def _failed(error: str) -> RunExecuteResponse:
         logger.warning("Strategy execution failed: %s", error)
-        return RunExecuteResponse(success=False, metrics=None, error=error)
+        return RunExecuteResponse(
+            success=False,
+            summary=None,
+            metrics=None,
+            trades=[],
+            equity_curve=[],
+            artifacts=None,
+            engine_version=ENGINE_VERSION,
+            error=error,
+        )
+
+    @staticmethod
+    def _coerce_map(value: object, *, fallback: dict[str, object]) -> dict[str, object]:
+        if isinstance(value, dict):
+            return value
+        return fallback
+
+    @staticmethod
+    def _coerce_trades(value: object) -> list[dict[str, object]]:
+        if not isinstance(value, list):
+            return []
+
+        trades: list[dict[str, object]] = []
+        for item in value:
+            if isinstance(item, dict):
+                trades.append(
+                    {
+                        "entry_time": item.get("entry_time", item.get("entryTime")),
+                        "exit_time": item.get("exit_time", item.get("exitTime")),
+                        "entry_price": float(item.get("entry_price", item.get("entryPrice", 0.0))),
+                        "exit_price": float(item.get("exit_price", item.get("exitPrice", 0.0))),
+                        "quantity": float(item.get("quantity", 0.0)),
+                        "pnl": float(item.get("pnl", 0.0)),
+                        "fee": float(item.get("fee", 0.0)),
+                    }
+                )
+        return trades
+
+    @staticmethod
+    def _coerce_equity_curve(value: object) -> list[dict[str, object]]:
+        if not isinstance(value, list):
+            return []
+
+        points: list[dict[str, object]] = []
+        for item in value:
+            if isinstance(item, dict) and item.get("timestamp") is not None:
+                points.append(
+                    {
+                        "timestamp": str(item["timestamp"]),
+                        "equity": float(item.get("equity", 0.0)),
+                    }
+                )
+        return points
