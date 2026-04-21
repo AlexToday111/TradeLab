@@ -1,6 +1,26 @@
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
+from pydantic.alias_generators import to_camel
+
+
+class BacktestTradePayload(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    entry_time: str | None = None
+    exit_time: str | None = None
+    entry_price: float = 0.0
+    exit_price: float = 0.0
+    quantity: float = 0.0
+    pnl: float = 0.0
+    fee: float = 0.0
+
+
+class EquityPointPayload(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    timestamp: str
+    equity: float
 
 
 class RunExecuteRequest(BaseModel):
@@ -50,9 +70,26 @@ class RunExecuteRequest(BaseModel):
 
 class RunExecuteResponse(BaseModel):
     success: bool = Field(description="Whether execution completed successfully.", examples=[True])
+    summary: dict[str, Any] | None = Field(
+        default=None,
+        description="Execution summary payload.",
+        examples=[{"netProfit": 0.124, "trades": 2}],
+    )
     metrics: dict[str, Any] | None = Field(
         default=None,
         description="Strategy execution metrics payload.",
         examples=[{"total_return": 0.124, "max_drawdown": 0.038}],
+    )
+    trades: list[BacktestTradePayload] = Field(default_factory=list)
+    equity_curve: list[EquityPointPayload] = Field(
+        default_factory=list,
+        alias="equityCurve",
+        serialization_alias="equityCurve",
+    )
+    artifacts: dict[str, Any] | None = Field(default=None)
+    engine_version: str | None = Field(
+        default=None,
+        alias="engineVersion",
+        serialization_alias="engineVersion",
     )
     error: str | None = Field(default=None, description="Execution error message.", examples=[None])
