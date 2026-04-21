@@ -25,17 +25,21 @@ flowchart LR
   - датасетов (`/api/datasets`)
   - свечей (`/api/candles`)
   - запуска импорта (`/api/imports/candles`)
+  - запуска execution runs (`/api/runs`)
   - health (`/api/health`, `/api/python/health`)
 - Работа с PostgreSQL (датасеты, чтение свечей)
-- Интеграция с Python parser по HTTP 
+- Orchestration/control plane для запуска run и сохранения snapshots/results
+- Интеграция с Python parser по HTTP
 
 <h3 align="center">Python parser (`backend/python`)</h3>
 
 - Импорт свечей с бирж (сейчас Binance)
 - Нормализация и upsert свечей в PostgreSQL
+- Internal execution plane для strategy run
 - Внутренние endpoints:
   - `GET /health`
   - `POST /internal/import/candles`
+  - `POST /internal/runs/execute`
 
 <h2 align="center">Быстрый старт</h2>
 
@@ -55,4 +59,3 @@ docker compose up --build
 
 - Java: [`java/README.md`](./java/README.md)
 - Python: [`python/README.md`](./python/README.md)
-
