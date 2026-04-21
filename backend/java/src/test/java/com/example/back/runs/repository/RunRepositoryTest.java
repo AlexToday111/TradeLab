@@ -30,7 +30,7 @@ class RunRepositoryTest {
     void savesAndLoadsRunEntity() {
         RunEntity entity = new RunEntity();
         entity.setStrategyId(1L);
-        entity.setStatus(BacktestStatus.PENDING);
+        entity.setStatus(BacktestStatus.CREATED);
         entity.setExchange("binance");
         entity.setSymbol("BTCUSDT");
         entity.setInterval("1h");
@@ -42,6 +42,6 @@ class RunRepositoryTest {
 
         assertThat(runRepository.findById(saved.getId())).isPresent();
         assertThat(runRepository.findById(saved.getId()).orElseThrow().getStatus())
-            .isEqualTo(BacktestStatus.PENDING);
+            .isEqualTo(BacktestStatus.CREATED);
     }
 }

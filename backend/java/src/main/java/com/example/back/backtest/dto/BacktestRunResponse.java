@@ -19,7 +19,7 @@ public record BacktestRunResponse(
         String datasetId,
         @Schema(description = "Correlation/run identifier for logs", example = "run-101")
         String correlationId,
-        @Schema(description = "Статус бэктеста", example = "COMPLETED")
+        @Schema(description = "Статус бэктеста", example = "SUCCEEDED")
         BacktestStatus status,
         @Schema(description = "Биржа", example = "binance")
         String exchange,

@@ -18,6 +18,9 @@ public class CreateBacktestRunRequest {
     @Schema(description = "ID стратегии", example = "42", requiredMode = Schema.RequiredMode.REQUIRED)
     private Long strategyId;
 
+    @Schema(description = "Человекочитаемое имя запуска", example = "EMA BTCUSDT Jan 2024")
+    private String runName;
+
     @NotBlank
     @Schema(description = "Биржа", example = "binance", requiredMode = Schema.RequiredMode.REQUIRED)
     private String exchange;
@@ -72,4 +75,7 @@ public class CreateBacktestRunRequest {
     @NotNull
     @Schema(description = "Строгая валидация данных", example = "true")
     private Boolean strictData = Boolean.TRUE;
+
+    @Schema(description = "Режим сайзинга позиции", example = "UNSPECIFIED")
+    private String positionSizingMode = "UNSPECIFIED";
 }

@@ -1,6 +1,7 @@
 package com.example.back.runs.controller;
 
 import com.example.back.backtest.dto.CreateBacktestRunRequest;
+import com.example.back.runs.dto.RunResultResponse;
 import com.example.back.runs.dto.RunResponse;
 import com.example.back.runs.service.RunService;
 import jakarta.validation.Valid;
@@ -30,6 +31,11 @@ public class RunController {
     @GetMapping("/{id}")
     public RunResponse getRun(@PathVariable Long id) {
         return runService.getRun(id);
+    }
+
+    @GetMapping("/{id}/result")
+    public RunResultResponse getRunResult(@PathVariable Long id) {
+        return runService.getRunResult(id);
     }
 
     @PostMapping

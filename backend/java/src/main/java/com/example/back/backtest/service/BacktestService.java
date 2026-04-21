@@ -105,7 +105,7 @@ public class BacktestService {
                 ? strategy.getFileName()
                 : strategy.getName().trim());
         run.setCorrelationId("run-" + UUID.randomUUID());
-        run.setStatus(BacktestStatus.PENDING);
+        run.setStatus(BacktestStatus.CREATED);
         run.setExchange(request.getExchange().trim());
         run.setSymbol(request.getSymbol().trim());
         run.setInterval(request.getInterval().trim());
@@ -326,7 +326,7 @@ public class BacktestService {
     private void persistSuccessfulRun(Long runId, BacktestResult result) {
         transactionTemplate.executeWithoutResult(status -> {
             RunEntity run = findRunEntity(runId);
-            run.setStatus(BacktestStatus.COMPLETED);
+            run.setStatus(BacktestStatus.SUCCEEDED);
             run.setMetricsJson(writeJson(result.getSummary() == null ? Collections.emptyMap() : result.getSummary()));
             run.setArtifactsJson(writeJson(buildArtifactsManifest(result)));
             run.setErrorMessage(null);

@@ -102,7 +102,7 @@ class BacktestServiceTest {
         assertThat(runId).isEqualTo(101L);
         ArgumentCaptor<RunEntity> runCaptor = ArgumentCaptor.forClass(RunEntity.class);
         verify(runRepository).save(runCaptor.capture());
-        assertThat(runCaptor.getValue().getStatus()).isEqualTo(BacktestStatus.PENDING);
+        assertThat(runCaptor.getValue().getStatus()).isEqualTo(BacktestStatus.CREATED);
         assertThat(runCaptor.getValue().getStrategyName()).isEqualTo("EMA");
         assertThat(runCaptor.getValue().getDatasetId()).isEqualTo("dataset-1");
         assertThat(runCaptor.getValue().getCorrelationId()).startsWith("run-");
@@ -140,7 +140,7 @@ class BacktestServiceTest {
 
         var response = backtestService.executeRun(11L);
 
-        assertThat(response.status()).isEqualTo(BacktestStatus.COMPLETED);
+        assertThat(response.status()).isEqualTo(BacktestStatus.SUCCEEDED);
         assertThat(response.summary()).containsEntry("profit", 12.5);
         assertThat(response.artifacts()).containsEntry("tradesCount", 1);
         assertThat(executorRequest.getValue().getStrategyPath()).isEqualTo(strategy.getStoragePath());
@@ -222,7 +222,7 @@ class BacktestServiceTest {
         run.setStrategyId(7L);
         run.setStrategyName("EMA");
         run.setCorrelationId("run-11");
-        run.setStatus(BacktestStatus.PENDING);
+        run.setStatus(BacktestStatus.CREATED);
         run.setExchange("binance");
         run.setSymbol("BTCUSDT");
         run.setInterval("1h");

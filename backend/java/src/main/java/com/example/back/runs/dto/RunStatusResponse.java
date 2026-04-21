@@ -1,8 +1,10 @@
 package com.example.back.runs.dto;
 
 public enum RunStatusResponse {
-    PENDING,
+    CREATED,
+    QUEUED,
     RUNNING,
-    SUCCESS,
-    FAILED
+    SUCCEEDED,
+    FAILED,
+    CANCELED
 }
