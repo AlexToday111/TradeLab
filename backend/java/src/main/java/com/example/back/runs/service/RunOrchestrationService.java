@@ -1,5 +1,6 @@
 package com.example.back.runs.service;
 
+import com.example.back.auth.security.AuthContext;
 import com.example.back.backtest.dto.BacktestTrade;
 import com.example.back.backtest.dto.CreateBacktestRunRequest;
 import com.example.back.backtest.dto.EquityPoint;
@@ -42,7 +43,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class RunOrchestrationService {
 
-    private static final String DEFAULT_ENGINE_VERSION = "python-execution-engine/0.2.1-alpha.1";
+    private static final String DEFAULT_ENGINE_VERSION = "python-execution-engine/0.3.0-alpha.1";
     private static final String PYTHON_EXECUTE_ENDPOINT = "/internal/runs/execute";
 
     private final RunRepository runRepository;
@@ -58,10 +59,11 @@ public class RunOrchestrationService {
     @Transactional
     public Long createRun(CreateBacktestRunRequest request) {
         validateTimeRange(request);
-        StrategyFileEntity strategy = getValidatedStrategy(request.getStrategyId());
-        RunEntity run = buildRunEntity(request, strategy);
+        Long userId = AuthContext.requireUserId();
+        StrategyFileEntity strategy = getValidatedStrategy(request.getStrategyId(), userId);
+        RunEntity run = buildRunEntity(request, strategy, userId);
         RunEntity savedRun = runRepository.saveAndFlush(run);
-        runSnapshotRepository.save(buildSnapshot(savedRun, request, strategy));
+        runSnapshotRepository.save(buildSnapshot(savedRun, request, strategy, userId));
         try (LogContext.BoundContext ignored = LogContext.bind(
                 savedRun.getCorrelationId(),
                 String.valueOf(savedRun.getId()))
@@ -73,8 +75,8 @@ public class RunOrchestrationService {
     }
 
     public void executeRun(Long runId) {
-        RunEntity run = findRun(runId);
-        StrategyFileEntity strategy = getValidatedStrategy(run.getStrategyId());
+        RunEntity run = findOwnedRun(runId);
+        StrategyFileEntity strategy = getValidatedStrategy(run.getStrategyId(), run.getUserId());
 
         try (LogContext.BoundContext ignored = LogContext.bind(run.getCorrelationId(), String.valueOf(run.getId()))) {
             markRunning(runId);
@@ -113,8 +115,8 @@ public class RunOrchestrationService {
         }
     }
 
-    private StrategyFileEntity getValidatedStrategy(Long strategyId) {
-        StrategyFileEntity strategy = strategyFileRepository.findById(strategyId)
+    private StrategyFileEntity getValidatedStrategy(Long strategyId, Long userId) {
+        StrategyFileEntity strategy = strategyFileRepository.findByIdAndUserId(strategyId, userId)
                 .orElseThrow(() -> new BacktestResourceNotFoundException("Strategy not found: " + strategyId));
         if (strategy.getStatus() != StrategyFileEntity.StrategyStatus.VALID) {
             throw new BacktestValidationException(
@@ -124,8 +126,9 @@ public class RunOrchestrationService {
         return strategy;
     }
 
-    private RunEntity buildRunEntity(CreateBacktestRunRequest request, StrategyFileEntity strategy) {
+    private RunEntity buildRunEntity(CreateBacktestRunRequest request, StrategyFileEntity strategy, Long userId) {
         RunEntity run = new RunEntity();
+        run.setUserId(userId);
         run.setStrategyId(strategy.getId());
         run.setStrategyName(strategy.getName() == null || strategy.getName().isBlank()
                 ? strategy.getFileName()
@@ -138,7 +141,7 @@ public class RunOrchestrationService {
         run.setInterval(request.getInterval().trim());
         run.setDateFrom(request.getFrom());
         run.setDateTo(request.getTo());
-        run.setDatasetId(findDataset(request).map(DatasetEntity::getId).orElse(null));
+        run.setDatasetId(findDataset(request, userId).map(DatasetEntity::getId).orElse(null));
         run.setParamsJson(writeJson(buildStoredConfig(request)));
         run.setSummaryJson(null);
         run.setMetricsJson(null);
@@ -155,9 +158,10 @@ public class RunOrchestrationService {
     private RunSnapshotEntity buildSnapshot(
             RunEntity run,
             CreateBacktestRunRequest request,
-            StrategyFileEntity strategy
+            StrategyFileEntity strategy,
+            Long userId
     ) {
-        Optional<DatasetEntity> dataset = findDataset(request);
+        Optional<DatasetEntity> dataset = findDataset(request, userId);
 
         RunSnapshotEntity snapshot = new RunSnapshotEntity();
         snapshot.setRunId(run.getId());
@@ -170,9 +174,10 @@ public class RunOrchestrationService {
         return snapshot;
     }
 
-    private Optional<DatasetEntity> findDataset(CreateBacktestRunRequest request) {
+    private Optional<DatasetEntity> findDataset(CreateBacktestRunRequest request, Long userId) {
         return datasetRepository
-                .findFirstBySourceIgnoreCaseAndSymbolIgnoreCaseAndIntervalAndStartAtLessThanEqualAndEndAtGreaterThanEqualOrderByImportedAtDesc(
+                .findFirstByUserIdAndSourceIgnoreCaseAndSymbolIgnoreCaseAndIntervalAndStartAtLessThanEqualAndEndAtGreaterThanEqualOrderByImportedAtDesc(
+                        userId,
                         request.getExchange().trim(),
                         request.getSymbol().trim(),
                         request.getInterval().trim(),
@@ -437,6 +442,12 @@ public class RunOrchestrationService {
 
     private RunEntity findRun(Long runId) {
         return runRepository.findById(runId)
+                .orElseThrow(() -> new BacktestResourceNotFoundException("Run not found: " + runId));
+    }
+
+    private RunEntity findOwnedRun(Long runId) {
+        Long userId = AuthContext.requireUserId();
+        return runRepository.findByIdAndUserId(runId, userId)
                 .orElseThrow(() -> new BacktestResourceNotFoundException("Run not found: " + runId));
     }
 

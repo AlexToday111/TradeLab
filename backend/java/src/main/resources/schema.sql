@@ -1,5 +1,19 @@
+CREATE TABLE IF NOT EXISTS users (
+                                     id BIGSERIAL PRIMARY KEY,
+                                     email VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+CREATE INDEX IF NOT EXISTS idx_users_email
+    ON users (email);
+
+
 CREATE TABLE IF NOT EXISTS datasets (
                                         id VARCHAR(64) PRIMARY KEY,
+    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     source VARCHAR(64),
     symbol VARCHAR(64),
@@ -20,9 +34,13 @@ CREATE TABLE IF NOT EXISTS datasets (
 CREATE INDEX IF NOT EXISTS idx_datasets_created_at
     ON datasets (created_at DESC);
 
+CREATE INDEX IF NOT EXISTS idx_datasets_user_created_at
+    ON datasets (user_id, created_at DESC);
+
 
 CREATE TABLE IF NOT EXISTS strategy_files (
                                               id BIGSERIAL PRIMARY KEY,
+                                              user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
                                               name VARCHAR(255),
     filename VARCHAR(255) NOT NULL,
     storage_path TEXT NOT NULL,
@@ -34,6 +52,9 @@ CREATE TABLE IF NOT EXISTS strategy_files (
 
 CREATE INDEX IF NOT EXISTS idx_strategy_files_created_at
     ON strategy_files (created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_strategy_files_user_created_at
+    ON strategy_files (user_id, created_at DESC);
 
 
 CREATE TABLE IF NOT EXISTS candles (
@@ -56,6 +77,7 @@ CREATE INDEX IF NOT EXISTS idx_candles_market_range
 
 CREATE TABLE IF NOT EXISTS runs (
                                     id BIGSERIAL PRIMARY KEY,
+                                    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
                                     strategy_id BIGINT NOT NULL REFERENCES strategy_files(id) ON DELETE RESTRICT,
     strategy_name VARCHAR(255) NOT NULL,
     dataset_id VARCHAR(64),
@@ -86,6 +108,9 @@ CREATE INDEX IF NOT EXISTS idx_runs_status
 CREATE INDEX IF NOT EXISTS idx_runs_created_at
     ON runs (created_at DESC);
 
+CREATE INDEX IF NOT EXISTS idx_runs_user_created_at
+    ON runs (user_id, created_at DESC);
+
 CREATE INDEX IF NOT EXISTS idx_runs_strategy_id
     ON runs (strategy_id);
 
@@ -103,6 +128,15 @@ ALTER TABLE runs
 
 ALTER TABLE runs
     ADD COLUMN IF NOT EXISTS execution_duration_ms BIGINT;
+
+ALTER TABLE datasets
+    ADD COLUMN IF NOT EXISTS user_id BIGINT REFERENCES users(id) ON DELETE CASCADE;
+
+ALTER TABLE strategy_files
+    ADD COLUMN IF NOT EXISTS user_id BIGINT REFERENCES users(id) ON DELETE CASCADE;
+
+ALTER TABLE runs
+    ADD COLUMN IF NOT EXISTS user_id BIGINT REFERENCES users(id) ON DELETE CASCADE;
 
 
 CREATE TABLE IF NOT EXISTS run_snapshots (

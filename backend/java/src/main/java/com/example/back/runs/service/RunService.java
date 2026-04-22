@@ -1,7 +1,8 @@
 package com.example.back.runs.service;
 
-import com.example.back.backtest.dto.CreateBacktestRunRequest;
+import com.example.back.auth.security.AuthContext;
 import com.example.back.backtest.dto.BacktestTrade;
+import com.example.back.backtest.dto.CreateBacktestRunRequest;
 import com.example.back.backtest.dto.EquityPoint;
 import com.example.back.backtest.exception.BacktestResourceNotFoundException;
 import com.example.back.backtest.model.BacktestEquityPointEntity;
@@ -18,14 +19,11 @@ import com.example.back.runs.repository.RunSnapshotRepository;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
 public class RunService {
-
-    private static final Sort RUNS_SORT = Sort.by(Sort.Direction.DESC, "createdAt");
 
     private final RunRepository runRepository;
     private final RunSnapshotRepository runSnapshotRepository;
@@ -35,7 +33,8 @@ public class RunService {
     private final RunOrchestrationService runOrchestrationService;
 
     public List<RunResponse> listRuns() {
-        return runRepository.findAll(RUNS_SORT).stream()
+        Long userId = AuthContext.requireUserId();
+        return runRepository.findAllByUserIdOrderByCreatedAtDesc(userId).stream()
                 .map(this::toResponse)
                 .toList();
     }
@@ -117,7 +116,8 @@ public class RunService {
     }
 
     private RunEntity findRunEntity(Long runId) {
-        return runRepository.findById(runId)
+        Long userId = AuthContext.requireUserId();
+        return runRepository.findByIdAndUserId(runId, userId)
                 .orElseThrow(() -> new BacktestResourceNotFoundException("Run not found: " + runId));
     }
 

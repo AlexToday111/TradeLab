@@ -1,5 +1,6 @@
 package com.example.back.backtest.service;
 
+import com.example.back.auth.security.AuthContext;
 import com.example.back.backtest.dto.BacktestRequest;
 import com.example.back.backtest.dto.BacktestResult;
 import com.example.back.backtest.dto.BacktestRunResponse;
@@ -97,9 +98,11 @@ public class BacktestService {
 
     public Long createRun(CreateBacktestRunRequest request) {
         validateTimeRange(request.getFrom(), request.getTo());
-        StrategyFileEntity strategy = getValidatedStrategy(request.getStrategyId());
+        Long userId = AuthContext.requireUserId();
+        StrategyFileEntity strategy = getValidatedStrategy(request.getStrategyId(), userId);
 
         RunEntity run = new RunEntity();
+        run.setUserId(userId);
         run.setStrategyId(strategy.getId());
         run.setStrategyName(strategy.getName() == null || strategy.getName().isBlank()
                 ? strategy.getFileName()
@@ -230,7 +233,12 @@ public class BacktestService {
     }
 
     private StrategyFileEntity getValidatedStrategy(Long strategyId) {
-        StrategyFileEntity strategy = strategyFileRepository.findById(strategyId)
+        Long userId = AuthContext.requireUserId();
+        return getValidatedStrategy(strategyId, userId);
+    }
+
+    private StrategyFileEntity getValidatedStrategy(Long strategyId, Long userId) {
+        StrategyFileEntity strategy = strategyFileRepository.findByIdAndUserId(strategyId, userId)
                 .orElseThrow(() -> new BacktestResourceNotFoundException("Strategy not found: " + strategyId));
         if (strategy.getStatus() != StrategyFileEntity.StrategyStatus.VALID) {
             throw new BacktestValidationException(
@@ -241,7 +249,8 @@ public class BacktestService {
     }
 
     private RunEntity findRunEntity(Long runId) {
-        return runRepository.findById(runId)
+        Long userId = AuthContext.requireUserId();
+        return runRepository.findByIdAndUserId(runId, userId)
                 .orElseThrow(() -> new BacktestResourceNotFoundException("Run not found: " + runId));
     }
 

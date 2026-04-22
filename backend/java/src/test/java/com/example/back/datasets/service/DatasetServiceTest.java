@@ -9,6 +9,7 @@ import com.example.back.datasets.dto.RenameDatasetRequest;
 import com.example.back.datasets.entity.DatasetEntity;
 import com.example.back.datasets.repository.DatasetRepository;
 import com.example.back.imports.dto.ImportCandlesResponse;
+import com.example.back.support.TestAuth;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -18,6 +19,7 @@ import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -36,13 +38,19 @@ class DatasetServiceTest {
 
     @BeforeEach
     void setUp() {
+        TestAuth.setAuthenticatedUser();
         datasetService = new DatasetService(datasetRepository, objectMapper);
+    }
+
+    @AfterEach
+    void tearDown() {
+        TestAuth.clearAuthentication();
     }
 
     @Test
     void getDatasetsReadsStoredPayloads() {
         DatasetEntity entity = createEntity("dataset-1", "Dataset 1", "{\"id\":\"dataset-1\",\"name\":\"Dataset 1\"}");
-        when(datasetRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(entity));
+        when(datasetRepository.findAllByUserIdOrderByCreatedAtDesc(TestAuth.USER_ID)).thenReturn(List.of(entity));
 
         var datasets = datasetService.getDatasets();
 
@@ -55,6 +63,8 @@ class DatasetServiceTest {
         ObjectNode payload = objectMapper.createObjectNode();
         payload.put("id", "dataset-1");
         payload.put("name", "Dataset 1");
+        when(datasetRepository.findById("dataset-1")).thenReturn(Optional.empty());
+        when(datasetRepository.findByIdAndUserId("dataset-1", TestAuth.USER_ID)).thenReturn(Optional.empty());
         when(datasetRepository.save(any(DatasetEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         var result = datasetService.createDataset(payload);
@@ -65,7 +75,7 @@ class DatasetServiceTest {
     @Test
     void renameDatasetUpdatesPayloadAndEntityName() {
         DatasetEntity entity = createEntity("dataset-1", "Old name", "{\"id\":\"dataset-1\",\"name\":\"Old name\"}");
-        when(datasetRepository.findById("dataset-1")).thenReturn(Optional.of(entity));
+        when(datasetRepository.findByIdAndUserId("dataset-1", TestAuth.USER_ID)).thenReturn(Optional.of(entity));
         when(datasetRepository.save(any(DatasetEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         var result = datasetService.renameDataset("dataset-1", new RenameDatasetRequest("  New Name  "));
@@ -77,7 +87,7 @@ class DatasetServiceTest {
     @Test
     void renameDatasetRejectsBlankName() {
         DatasetEntity entity = createEntity("dataset-1", "Old name", "{\"id\":\"dataset-1\",\"name\":\"Old name\"}");
-        when(datasetRepository.findById("dataset-1")).thenReturn(Optional.of(entity));
+        when(datasetRepository.findByIdAndUserId("dataset-1", TestAuth.USER_ID)).thenReturn(Optional.of(entity));
 
         assertThatThrownBy(() -> datasetService.renameDataset("dataset-1", new RenameDatasetRequest("   ")))
             .isInstanceOf(ResponseStatusException.class)
@@ -88,7 +98,8 @@ class DatasetServiceTest {
     @Test
     void duplicateDatasetCreatesNewRecordWithAdjustedPayload() {
         DatasetEntity entity = createEntity("dataset-1", "Dataset 1", "{\"id\":\"dataset-1\",\"name\":\"Dataset 1\"}");
-        when(datasetRepository.findById("dataset-1")).thenReturn(Optional.of(entity));
+        when(datasetRepository.findById(any(String.class))).thenReturn(Optional.empty());
+        when(datasetRepository.findByIdAndUserId("dataset-1", TestAuth.USER_ID)).thenReturn(Optional.of(entity));
         when(datasetRepository.save(any(DatasetEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         var result = datasetService.duplicateDataset("dataset-1");
@@ -100,7 +111,7 @@ class DatasetServiceTest {
 
     @Test
     void deleteDatasetFailsWhenDatasetIsMissing() {
-        when(datasetRepository.existsById("missing")).thenReturn(false);
+        when(datasetRepository.findByIdAndUserId("missing", TestAuth.USER_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> datasetService.deleteDataset("missing"))
             .isInstanceOf(ResponseStatusException.class)
@@ -131,6 +142,7 @@ class DatasetServiceTest {
                 Map.entry("lineage", Map.of("rawRows", 100))
         ));
         when(datasetRepository.findById("dataset-1")).thenReturn(Optional.empty());
+        when(datasetRepository.findByIdAndUserId("dataset-1", TestAuth.USER_ID)).thenReturn(Optional.empty());
         when(datasetRepository.save(any(DatasetEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         JsonNode result = datasetService.upsertImportedDataset(response);
@@ -143,6 +155,7 @@ class DatasetServiceTest {
     private DatasetEntity createEntity(String id, String name, String payload) {
         DatasetEntity entity = new DatasetEntity();
         entity.setId(id);
+        entity.setUserId(TestAuth.USER_ID);
         entity.setName(name);
         entity.setPayload(payload);
         entity.setCreatedAt(Instant.parse("2024-01-01T00:00:00Z"));

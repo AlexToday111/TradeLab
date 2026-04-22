@@ -22,6 +22,7 @@ import com.example.back.runs.entity.RunEntity;
 import com.example.back.runs.repository.RunRepository;
 import com.example.back.strategies.entity.StrategyFileEntity;
 import com.example.back.strategies.repository.StrategyFileRepository;
+import com.example.back.support.TestAuth;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -77,6 +78,7 @@ class RunControllerIntegrationTest {
         datasetRepository.deleteAll();
 
         StrategyFileEntity strategy = new StrategyFileEntity();
+        strategy.setUserId(TestAuth.USER_ID);
         strategy.setName("EMA");
         strategy.setFileName("ema.py");
         strategy.setStoragePath("/tmp/ema.py");
@@ -85,6 +87,7 @@ class RunControllerIntegrationTest {
 
         DatasetEntity dataset = new DatasetEntity();
         dataset.setId("dataset-1");
+        dataset.setUserId(TestAuth.USER_ID);
         dataset.setName("Binance BTCUSDT 1h");
         dataset.setSource("binance");
         dataset.setSymbol("BTCUSDT");
@@ -120,7 +123,7 @@ class RunControllerIntegrationTest {
                 "boom"
         );
 
-        mockMvc.perform(get("/api/runs"))
+        mockMvc.perform(get("/api/runs").with(TestAuth.authenticatedRequest()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(failedRun.getId()))
                 .andExpect(jsonPath("$[0].status").value("FAILED"))
@@ -146,7 +149,7 @@ class RunControllerIntegrationTest {
                 null
         );
 
-        mockMvc.perform(get("/api/runs/" + run.getId()))
+        mockMvc.perform(get("/api/runs/" + run.getId()).with(TestAuth.authenticatedRequest()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(run.getId()))
                 .andExpect(jsonPath("$.strategyId").value(strategyId))
@@ -171,7 +174,7 @@ class RunControllerIntegrationTest {
                 null
         );
 
-        mockMvc.perform(get("/api/runs/" + run.getId() + "/result"))
+        mockMvc.perform(get("/api/runs/" + run.getId() + "/result").with(TestAuth.authenticatedRequest()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.runId").value(run.getId()))
                 .andExpect(jsonPath("$.status").value("SUCCEEDED"))
@@ -181,7 +184,7 @@ class RunControllerIntegrationTest {
 
     @Test
     void getRunByIdReturnsNotFoundForMissingRun() throws Exception {
-        mockMvc.perform(get("/api/runs/999999"))
+        mockMvc.perform(get("/api/runs/999999").with(TestAuth.authenticatedRequest()))
                 .andExpect(status().isNotFound());
     }
 
@@ -190,6 +193,7 @@ class RunControllerIntegrationTest {
         when(pythonParserClient.executeRun(any())).thenReturn(pythonRunExecuteResponse());
 
         mockMvc.perform(post("/api/runs")
+                        .with(TestAuth.authenticatedRequest())
                         .contentType("application/json")
                         .content("""
                                 {
@@ -233,7 +237,7 @@ class RunControllerIntegrationTest {
         response.setStartedAt("2024-01-01T00:00:00Z");
         response.setFinishedAt("2024-01-01T00:00:01Z");
         response.setExecutionDurationMs(1000L);
-        response.setEngineVersion("python-execution-engine/0.2.1-alpha.1");
+        response.setEngineVersion("python-execution-engine/0.3.0-alpha.1");
         response.setErrorCode("STRATEGY_RUNTIME_ERROR");
         response.setErrorMessage("Strategy.run raised exception: boom");
         response.setStacktrace("ValueError: boom");
@@ -242,6 +246,7 @@ class RunControllerIntegrationTest {
         when(pythonParserClient.executeRun(any())).thenReturn(response);
 
         mockMvc.perform(post("/api/runs")
+                        .with(TestAuth.authenticatedRequest())
                         .contentType("application/json")
                         .content("""
                                 {
@@ -297,7 +302,7 @@ class RunControllerIntegrationTest {
 
         when(pythonParserClient.executeRun(any())).thenReturn(pythonRunExecuteResponse());
 
-        mockMvc.perform(post("/api/runs/" + run.getId() + "/rerun"))
+        mockMvc.perform(post("/api/runs/" + run.getId() + "/rerun").with(TestAuth.authenticatedRequest()))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").isNumber())
                 .andExpect(jsonPath("$.id").isNotEmpty())
@@ -314,6 +319,7 @@ class RunControllerIntegrationTest {
             String errorMessage
     ) {
         RunEntity entity = new RunEntity();
+        entity.setUserId(TestAuth.USER_ID);
         entity.setStrategyId(strategyId);
         entity.setStrategyName("EMA");
         entity.setCorrelationId("run-" + (runRepository.count() + 1));
@@ -383,7 +389,7 @@ class RunControllerIntegrationTest {
         response.setTrades(result.getTrades());
         response.setEquityCurve(result.getEquityCurve());
         response.setArtifacts(Map.of("tradesCount", 1, "equityPointCount", 1));
-        response.setEngineVersion("python-execution-engine/0.2.1-alpha.1");
+        response.setEngineVersion("python-execution-engine/0.3.0-alpha.1");
         response.setRunId("1");
         response.setCorrelationId("run-1");
         response.setStartedAt("2024-01-01T00:00:00Z");
