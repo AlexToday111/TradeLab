@@ -1,8 +1,8 @@
 import logging
-from datetime import UTC, datetime
-from pathlib import Path
 import time
 import traceback
+from datetime import UTC, datetime
+from pathlib import Path
 from uuid import uuid4
 
 import uvicorn
@@ -66,6 +66,25 @@ def create_app() -> FastAPI:
         run_id = request.headers.get("X-Run-Id")
         started_monotonic = time.perf_counter()
         with bind_log_context(correlation_id=correlation_id, run_id=run_id):
+            if request.url.path.startswith("/internal/"):
+                internal_secret = request.headers.get("X-Internal-Auth")
+                if internal_secret != settings.internal_shared_secret:
+                    logger.warning(
+                        "Rejected internal request with invalid shared secret",
+                        extra={
+                            "event": "http_request_rejected",
+                            "method": request.method,
+                            "path": request.url.path,
+                        },
+                    )
+                    response = JSONResponse(
+                        status_code=401,
+                        content={"status": "error", "message": "Unauthorized internal request"},
+                    )
+                    response.headers["X-Correlation-Id"] = correlation_id
+                    if run_id:
+                        response.headers["X-Run-Id"] = run_id
+                    return response
             logger.info(
                 "Incoming HTTP request",
                 extra={
@@ -83,7 +102,9 @@ def create_app() -> FastAPI:
                         "event": "http_request_failed",
                         "method": request.method,
                         "path": request.url.path,
-                        "execution_duration_ms": int((time.perf_counter() - started_monotonic) * 1000),
+                        "execution_duration_ms": int(
+                            (time.perf_counter() - started_monotonic) * 1000
+                        ),
                     },
                 )
                 raise

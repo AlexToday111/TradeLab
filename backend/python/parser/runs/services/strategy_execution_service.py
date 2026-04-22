@@ -16,7 +16,7 @@ from parser.runs.dto.run_execute_dto import RunExecuteRequest, RunExecuteRespons
 logger = logging.getLogger(__name__)
 
 
-ENGINE_VERSION = "python-execution-engine/0.2.1-alpha.1"
+ENGINE_VERSION = "python-execution-engine/0.3.0-alpha.1"
 
 
 class StrategyExecutionService:
@@ -103,7 +103,10 @@ class StrategyExecutionService:
                 except Exception as exc:  # noqa: BLE001
                     logger.exception(
                         "Failed to load strategy module",
-                        extra={"event": "strategy_load_failed", "strategy_file": strategy_path.name},
+                        extra={
+                            "event": "strategy_load_failed",
+                            "strategy_file": strategy_path.name,
+                        },
                     )
                     return self._failed(
                         request=request,
@@ -129,7 +132,10 @@ class StrategyExecutionService:
                 except Exception as exc:  # noqa: BLE001
                     logger.exception(
                         "Failed to instantiate strategy",
-                        extra={"event": "strategy_init_failed", "strategy_file": strategy_path.name},
+                        extra={
+                            "event": "strategy_init_failed",
+                            "strategy_file": strategy_path.name,
+                        },
                     )
                     return self._failed(
                         request=request,
@@ -181,7 +187,10 @@ class StrategyExecutionService:
                 except Exception as exc:  # noqa: BLE001
                     logger.exception(
                         "Strategy.run raised exception",
-                        extra={"event": "strategy_runtime_failed", "strategy_file": strategy_path.name},
+                        extra={
+                            "event": "strategy_runtime_failed",
+                            "strategy_file": strategy_path.name,
+                        },
                     )
                     return self._failed(
                         request=request,

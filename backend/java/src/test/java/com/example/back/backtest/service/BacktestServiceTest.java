@@ -30,6 +30,7 @@ import com.example.back.runs.service.RunFailureStateService;
 import com.example.back.runs.service.RunQueryService;
 import com.example.back.strategies.entity.StrategyFileEntity;
 import com.example.back.strategies.repository.StrategyFileRepository;
+import com.example.back.support.TestAuth;
 import com.example.back.telegram.service.TelegramNotificationService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
@@ -41,6 +42,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
@@ -67,6 +69,7 @@ class BacktestServiceTest {
 
     @BeforeEach
     void setUp() {
+        TestAuth.setAuthenticatedUser();
         backtestService = new BacktestService(
                 runRepository,
                 strategyFileRepository,
@@ -83,10 +86,15 @@ class BacktestServiceTest {
         );
     }
 
+    @AfterEach
+    void tearDown() {
+        TestAuth.clearAuthentication();
+    }
+
     @Test
     void createsRunAndStoresSerializedRequest() {
         StrategyFileEntity strategy = validStrategy();
-        when(strategyFileRepository.findById(7L)).thenReturn(Optional.of(strategy));
+        when(strategyFileRepository.findByIdAndUserId(7L, TestAuth.USER_ID)).thenReturn(Optional.of(strategy));
         when(datasetService.findDatasetIdForRange(any(), any(), any(), any(), any())).thenReturn(Optional.of("dataset-1"));
         AtomicLong ids = new AtomicLong(100);
         when(runRepository.save(any(RunEntity.class))).thenAnswer(invocation -> {
@@ -117,8 +125,8 @@ class BacktestServiceTest {
         Files.writeString(Path.of(strategy.getStoragePath()), "class Strategy:\n    pass\n");
 
         RunEntity run = storedRun();
-        when(runRepository.findById(11L)).thenReturn(Optional.of(run));
-        when(strategyFileRepository.findById(7L)).thenReturn(Optional.of(strategy));
+        when(runRepository.findByIdAndUserId(11L, TestAuth.USER_ID)).thenReturn(Optional.of(run));
+        when(strategyFileRepository.findByIdAndUserId(7L, TestAuth.USER_ID)).thenReturn(Optional.of(strategy));
         when(candleRepository
                 .findByExchangeAndSymbolAndIntervalAndOpenTimeGreaterThanEqualAndOpenTimeLessThanEqualOrderByOpenTimeAsc(
                         eq("binance"),
@@ -156,8 +164,8 @@ class BacktestServiceTest {
     void marksRunAsFailedWhenPythonFails() {
         StrategyFileEntity strategy = validStrategy();
         RunEntity run = storedRun();
-        when(runRepository.findById(11L)).thenReturn(Optional.of(run));
-        when(strategyFileRepository.findById(7L)).thenReturn(Optional.of(strategy));
+        when(runRepository.findByIdAndUserId(11L, TestAuth.USER_ID)).thenReturn(Optional.of(run));
+        when(strategyFileRepository.findByIdAndUserId(7L, TestAuth.USER_ID)).thenReturn(Optional.of(strategy));
         when(candleRepository
                 .findByExchangeAndSymbolAndIntervalAndOpenTimeGreaterThanEqualAndOpenTimeLessThanEqualOrderByOpenTimeAsc(
                         eq("binance"),
@@ -208,6 +216,7 @@ class BacktestServiceTest {
     private StrategyFileEntity validStrategy() {
         StrategyFileEntity strategy = new StrategyFileEntity();
         strategy.setId(7L);
+        strategy.setUserId(TestAuth.USER_ID);
         strategy.setFileName("ema.py");
         strategy.setName("EMA");
         strategy.setStoragePath("/tmp/ema.py");
@@ -219,6 +228,7 @@ class BacktestServiceTest {
     private RunEntity storedRun() {
         RunEntity run = new RunEntity();
         run.setId(11L);
+        run.setUserId(TestAuth.USER_ID);
         run.setStrategyId(7L);
         run.setStrategyName("EMA");
         run.setCorrelationId("run-11");

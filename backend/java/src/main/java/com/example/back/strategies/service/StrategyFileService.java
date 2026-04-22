@@ -1,5 +1,6 @@
 package com.example.back.strategies.service;
 
+import com.example.back.auth.security.AuthContext;
 import com.example.back.imports.client.PythonParserClient;
 import com.example.back.strategies.dto.StrategyResponse;
 import com.example.back.strategies.dto.StrategyValidationRequest;
@@ -38,6 +39,7 @@ public class StrategyFileService {
     private String storagePath;
 
     public StrategyResponse uploadStrategy(MultipartFile file) {
+        Long userId = AuthContext.requireUserId();
         try {
             if (file == null || file.isEmpty()) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File is empty");
@@ -57,6 +59,7 @@ public class StrategyFileService {
             log.info("File saved to: {}", filePath);
 
             StrategyFileEntity entity = new StrategyFileEntity();
+            entity.setUserId(userId);
             entity.setName(null);
             entity.setFileName(fileName);
             entity.setStoragePath(filePath.toAbsolutePath().toString());
@@ -88,13 +91,15 @@ public class StrategyFileService {
     }
 
     public List<StrategyResponse> getAllStrategies() {
-        return strategyFileRepository.findAll().stream()
+        Long userId = AuthContext.requireUserId();
+        return strategyFileRepository.findAllByUserIdOrderByCreatedAtDesc(userId).stream()
                 .map(StrategyResponse::fromEntity)
                 .collect(Collectors.toList());
     }
 
     public StrategyResponse getStrategyById(Long id) {
-        StrategyFileEntity entity = strategyFileRepository.findById(id)
+        Long userId = AuthContext.requireUserId();
+        StrategyFileEntity entity = strategyFileRepository.findByIdAndUserId(id, userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Strategy not found with id: " + id));
         return StrategyResponse.fromEntity(entity);
     }

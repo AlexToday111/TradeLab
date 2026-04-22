@@ -10,7 +10,16 @@ public interface DatasetRepository extends JpaRepository<DatasetEntity, String> 
 
     List<DatasetEntity> findAllByOrderByCreatedAtDesc();
 
-    Optional<DatasetEntity> findFirstBySourceIgnoreCaseAndSymbolIgnoreCaseAndIntervalAndStartAtLessThanEqualAndEndAtGreaterThanEqualOrderByImportedAtDesc(
+    List<DatasetEntity> findAllByUserIdOrderByCreatedAtDesc(Long userId);
+
+    Optional<DatasetEntity> findByIdAndUserId(String id, Long userId);
+
+    boolean existsByIdAndUserId(String id, Long userId);
+
+    Optional<DatasetEntity> findById(String id);
+
+    Optional<DatasetEntity> findFirstByUserIdAndSourceIgnoreCaseAndSymbolIgnoreCaseAndIntervalAndStartAtLessThanEqualAndEndAtGreaterThanEqualOrderByImportedAtDesc(
+            Long userId,
             String source,
             String symbol,
             String interval,

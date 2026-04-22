@@ -1,32 +1,13 @@
-import { NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { proxyToBackend } from "@/lib/server/backend-proxy";
 
-const backendBaseUrl = process.env.BACKEND_API_BASE_URL ?? "http://127.0.0.1:8080";
-
-export async function GET() {
-  try {
-    const response = await fetch(new URL("/api/telegram/status", backendBaseUrl), {
-      headers: {
-        Accept: "application/json",
-      },
-      cache: "no-store",
-    });
-
-    const payload = await response.text();
-    return new NextResponse(payload, {
-      status: response.status,
-      headers: {
-        "content-type": response.headers.get("content-type") ?? "application/json",
-      },
-    });
-  } catch (error) {
-    return NextResponse.json(
-      {
-        message:
-          error instanceof Error
-            ? error.message
-            : "Failed to reach backend /api/telegram/status",
-      },
-      { status: 502 }
-    );
-  }
+export async function GET(request: NextRequest) {
+  return proxyToBackend({
+    request,
+    path: "/api/telegram/status",
+    headers: {
+      Accept: "application/json",
+    },
+    errorMessage: "Failed to reach backend /api/telegram/status",
+  });
 }

@@ -28,18 +28,22 @@ import org.springframework.web.client.RestClientResponseException;
 public class PythonParserClient {
 
     private static final String RUN_EXECUTE_URI = "/internal/runs/execute";
+    private static final String INTERNAL_AUTH_HEADER = "X-Internal-Auth";
 
     private final RestClient restClient;
+    private final String internalSecret;
 
     public PythonParserClient(PythonClientConfig config) {
         this.restClient = RestClient.builder()
                 .baseUrl(config.getBaseUrl())
                 .build();
+        this.internalSecret = config.getInternalSecret();
     }
 
     public ImportCandlesResponse importCandles(ImportCandlesRequest request) {
         return restClient.post()
                 .uri("/internal/import/candles")
+                .headers(this::applyInternalHeaders)
                 .body(request)
                 .retrieve()
                 .body(ImportCandlesResponse.class);
@@ -55,6 +59,7 @@ public class PythonParserClient {
     public StrategyValidationResponse validateStrategy(StrategyValidationRequest request) {
         return restClient.post()
                 .uri("/internal/strategies/validate")
+                .headers(this::applyInternalHeaders)
                 .body(request)
                 .retrieve()
                 .body(StrategyValidationResponse.class);
@@ -96,12 +101,17 @@ public class PythonParserClient {
     }
 
     private void applyHeaders(HttpHeaders headers, PythonRunExecuteRequest request) {
+        applyInternalHeaders(headers);
         if (request.getCorrelationId() != null && !request.getCorrelationId().isBlank()) {
             headers.set(LogContext.CORRELATION_ID_HEADER, request.getCorrelationId());
         }
         if (request.getRunId() != null && !request.getRunId().isBlank()) {
             headers.set(LogContext.RUN_ID_HEADER, request.getRunId());
         }
+    }
+
+    private void applyInternalHeaders(HttpHeaders headers) {
+        headers.set(INTERNAL_AUTH_HEADER, internalSecret);
     }
 
     private Map<String, Object> buildRequestLogPayload(PythonRunExecuteRequest request) {

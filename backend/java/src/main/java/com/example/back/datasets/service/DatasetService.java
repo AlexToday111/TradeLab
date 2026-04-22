@@ -1,5 +1,6 @@
 package com.example.back.datasets.service;
 
+import com.example.back.auth.security.AuthContext;
 import com.example.back.datasets.dto.RenameDatasetRequest;
 import com.example.back.datasets.entity.DatasetEntity;
 import com.example.back.datasets.repository.DatasetRepository;
@@ -30,22 +31,28 @@ public class DatasetService {
 
     @Transactional(readOnly = true)
     public List<JsonNode> getDatasets() {
-        return datasetRepository.findAllByOrderByCreatedAtDesc().stream().map(this::readPayload).toList();
+        Long userId = AuthContext.requireUserId();
+        return datasetRepository.findAllByUserIdOrderByCreatedAtDesc(userId).stream().map(this::readPayload).toList();
     }
 
     @Transactional
     public JsonNode createDataset(JsonNode payload) {
+        Long userId = AuthContext.requireUserId();
         ObjectNode normalizedPayload = validatePayload(payload);
-        DatasetEntity entity = new DatasetEntity();
+        String datasetId = resolveDatasetId(normalizedPayload.path("id").asText(), userId);
+        normalizedPayload.put("id", datasetId);
+        DatasetEntity entity = datasetRepository.findByIdAndUserId(datasetId, userId).orElseGet(DatasetEntity::new);
+        entity.setUserId(userId);
         applyPayload(entity, normalizedPayload);
         return readPayload(datasetRepository.save(entity));
     }
 
     @Transactional
     public JsonNode renameDataset(String id, RenameDatasetRequest request) {
+        Long userId = AuthContext.requireUserId();
         DatasetEntity entity = datasetRepository
-            .findById(id)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Dataset not found"));
+                .findByIdAndUserId(id, userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Dataset not found"));
 
         String nextName = request.name() == null ? "" : request.name().trim();
         if (nextName.isEmpty()) {
@@ -61,17 +68,19 @@ public class DatasetService {
 
     @Transactional
     public JsonNode duplicateDataset(String id) {
+        Long userId = AuthContext.requireUserId();
         DatasetEntity source = datasetRepository
-            .findById(id)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Dataset not found"));
+                .findByIdAndUserId(id, userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Dataset not found"));
 
         ObjectNode payload = asObjectNode(readPayload(source));
-        String newId = "dataset-" + UUID.randomUUID();
-        String newName = payload.path("name").asText("Dataset") + " (копия)";
+        String newId = resolveDatasetId("dataset-" + UUID.randomUUID(), userId);
+        String newName = payload.path("name").asText("Dataset") + " (copy)";
         payload.put("id", newId);
         payload.put("name", newName);
 
         DatasetEntity duplicate = new DatasetEntity();
+        duplicate.setUserId(userId);
         applyPayload(duplicate, payload);
 
         return readPayload(datasetRepository.save(duplicate));
@@ -79,8 +88,12 @@ public class DatasetService {
 
     @Transactional
     public JsonNode upsertImportedDataset(ImportCandlesResponse response) {
+        Long userId = AuthContext.requireUserId();
         ObjectNode payload = normalizeImportedDatasetPayload(response);
-        DatasetEntity entity = datasetRepository.findById(payload.path("id").asText()).orElseGet(DatasetEntity::new);
+        String datasetId = resolveDatasetId(payload.path("id").asText(), userId);
+        payload.put("id", datasetId);
+        DatasetEntity entity = datasetRepository.findByIdAndUserId(datasetId, userId).orElseGet(DatasetEntity::new);
+        entity.setUserId(userId);
         applyPayload(entity, payload);
         return readPayload(datasetRepository.save(entity));
     }
@@ -93,8 +106,10 @@ public class DatasetService {
             Instant from,
             Instant to
     ) {
+        Long userId = AuthContext.requireUserId();
         return datasetRepository
-                .findFirstBySourceIgnoreCaseAndSymbolIgnoreCaseAndIntervalAndStartAtLessThanEqualAndEndAtGreaterThanEqualOrderByImportedAtDesc(
+                .findFirstByUserIdAndSourceIgnoreCaseAndSymbolIgnoreCaseAndIntervalAndStartAtLessThanEqualAndEndAtGreaterThanEqualOrderByImportedAtDesc(
+                        userId,
                         source,
                         symbol,
                         interval,
@@ -106,10 +121,18 @@ public class DatasetService {
 
     @Transactional
     public void deleteDataset(String id) {
-        if (!datasetRepository.existsById(id)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Dataset not found");
+        Long userId = AuthContext.requireUserId();
+        DatasetEntity entity = datasetRepository.findByIdAndUserId(id, userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Dataset not found"));
+        datasetRepository.delete(entity);
+    }
+
+    private String resolveDatasetId(String requestedId, Long userId) {
+        Optional<DatasetEntity> existing = datasetRepository.findById(requestedId);
+        if (existing.isEmpty()) {
+            return requestedId;
         }
-        datasetRepository.deleteById(id);
+        return userId.equals(existing.get().getUserId()) ? requestedId : "dataset-" + UUID.randomUUID();
     }
 
     private ObjectNode validatePayload(JsonNode payload) {

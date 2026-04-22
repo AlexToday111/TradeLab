@@ -129,29 +129,42 @@ This release improves system visibility and execution transparency.
 
 ---
 
-## [0.3.0-alpha.1] - 2026-04-23
+## [0.3.0-alpha.1] - 2026-04-22
 
 ### Multi-User & Security Base
 
-This release introduces user awareness and access control foundations.
+This release introduces the first security and multi-user platform baseline.
 
 ### Added
 
-* User model and authentication (JWT/session-based).
+* User model and JWT authentication:
+
+  * register endpoint
+  * login endpoint
+  * password hashing with BCrypt
 * Ownership model for:
 
   * strategies
   * datasets
   * runs
-* Initial permission handling (resource-level ownership).
-* Foundation for secure handling of sensitive data (API keys, secrets).
+* User-scoped access control across the Java API.
+* Frontend authentication flow:
+
+  * login page
+  * register page
+  * JWT persistence
+  * automatic `Authorization` propagation
+  * 401 -> login redirect
+* Internal Python shared-secret protection for `/internal/*` endpoints.
 
 ### Changed
 
-* Backend transitions from single-user tool to multi-user platform.
-* API updated to respect ownership boundaries.
+* Backend transitions from single-user tool to user-aware platform services.
+* Datasets, strategies, and runs now resolve through `user_id` ownership boundaries.
+* Execution flow now preserves user context from frontend -> Java API -> run creation.
+* Engine version advanced to `python-execution-engine/0.3.0-alpha.1`.
 
 ### Notes
 
-* First step toward SaaS-ready architecture.
-* Role-based access control (RBAC) will be extended in future releases.
+* This release intentionally stops at ownership-based authorization and does not add RBAC yet.
+* Shared-secret protection keeps the Python execution API internal without introducing service mesh or OAuth infrastructure.

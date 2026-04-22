@@ -23,6 +23,9 @@ public class DatasetEntity {
     @Column(nullable = false, length = 64)
     private String id;
 
+    @Column(name = "user_id")
+    private Long userId;
+
     @Column(nullable = false, length = 255)
     private String name;
 

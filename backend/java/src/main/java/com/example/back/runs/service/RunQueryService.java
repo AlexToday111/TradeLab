@@ -1,5 +1,6 @@
 package com.example.back.runs.service;
 
+import com.example.back.auth.security.AuthContext;
 import com.example.back.runs.dto.RunResponse;
 import com.example.back.runs.entity.RunEntity;
 import com.example.back.runs.mapper.RunMapper;
@@ -23,18 +24,21 @@ public class RunQueryService {
     private final RunMapper runMapper;
 
     public List<RunResponse> listRecentRuns(int limit) {
-        return runRepository.findAll(PageRequest.of(0, limit, RUNS_SORT)).stream()
+        Long userId = AuthContext.requireUserId();
+        return runRepository.findAllByUserId(userId, PageRequest.of(0, limit, RUNS_SORT)).stream()
                 .map(this::toResponse)
                 .toList();
     }
 
     public Optional<RunResponse> findRun(Long runId) {
-        return runRepository.findById(runId)
+        Long userId = AuthContext.requireUserId();
+        return runRepository.findByIdAndUserId(runId, userId)
                 .map(this::toResponse);
     }
 
     public Optional<RunResponse> findLastRun() {
-        return runRepository.findAll(PageRequest.of(0, 1, RUNS_SORT)).stream()
+        Long userId = AuthContext.requireUserId();
+        return runRepository.findAllByUserId(userId, PageRequest.of(0, 1, RUNS_SORT)).stream()
                 .findFirst()
                 .map(this::toResponse);
     }

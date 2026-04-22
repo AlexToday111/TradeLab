@@ -20,6 +20,7 @@ import com.example.back.candles.repository.CandleRepository;
 import com.example.back.runs.repository.RunRepository;
 import com.example.back.strategies.entity.StrategyFileEntity;
 import com.example.back.strategies.repository.StrategyFileRepository;
+import com.example.back.support.TestAuth;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -76,6 +77,7 @@ class BacktestFlowIntegrationTest {
         strategyFileRepository.deleteAll();
 
         StrategyFileEntity strategy = new StrategyFileEntity();
+        strategy.setUserId(TestAuth.USER_ID);
         strategy.setName("EMA");
         strategy.setFileName("ema.py");
         strategy.setStoragePath("/tmp/ema.py");
@@ -102,6 +104,7 @@ class BacktestFlowIntegrationTest {
         when(pythonBacktestExecutor.execute(any())).thenReturn(backtestResult());
 
         String responseBody = mockMvc.perform(post("/backtests")
+                        .with(TestAuth.authenticatedRequest())
                         .contentType("application/json")
                         .content("""
                                 {
@@ -128,17 +131,17 @@ class BacktestFlowIntegrationTest {
 
         long runId = Long.parseLong(responseBody.replaceAll("\\D+", ""));
 
-        mockMvc.perform(get("/backtests/" + runId))
+        mockMvc.perform(get("/backtests/" + runId).with(TestAuth.authenticatedRequest()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("SUCCEEDED"))
                 .andExpect(jsonPath("$.summary.profit").value(9.5))
                 .andExpect(jsonPath("$.params.fastPeriod").value(10));
 
-        mockMvc.perform(get("/backtests/" + runId + "/trades"))
+        mockMvc.perform(get("/backtests/" + runId + "/trades").with(TestAuth.authenticatedRequest()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].pnl").value(9.5));
 
-        mockMvc.perform(get("/backtests/" + runId + "/equity"))
+        mockMvc.perform(get("/backtests/" + runId + "/equity").with(TestAuth.authenticatedRequest()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].equity").value(10009.5));
 

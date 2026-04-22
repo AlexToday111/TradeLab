@@ -132,4 +132,8 @@ class RunExecuteResponse(BaseModel):
         examples=[None],
     )
     stacktrace: str | None = Field(default=None)
-    error: str | None = Field(default=None, description="Legacy execution error message.", examples=[None])
+    error: str | None = Field(
+        default=None,
+        description="Legacy execution error message.",
+        examples=[None],
+    )

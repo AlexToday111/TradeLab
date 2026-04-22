@@ -25,6 +25,9 @@ public class StrategyFileEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "user_id")
+    private Long userId;
+
     @Column(nullable = true)
     private String name;
 

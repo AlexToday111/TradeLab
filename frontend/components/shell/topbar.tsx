@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Github, Settings2 } from "lucide-react";
 import { interfaceThemeOptions, useTheme } from "@/components/theme/theme-provider";
+import { useAuth } from "@/features/auth/auth-provider";
 import { navItems } from "@/components/shell/sidebar";
 import {
   DropdownMenu,
@@ -19,6 +20,7 @@ import { cn } from "@/lib/utils";
 export function Topbar() {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
+  const { session, logout } = useAuth();
   const primaryNavItems = navItems.filter(
     (item) => !item.gated && item.href !== "/settings"
   );
@@ -85,6 +87,16 @@ export function Topbar() {
         </nav>
 
         <div className="ml-auto flex shrink-0 items-center gap-2.5">
+          <div className="hidden items-center rounded-full border border-[hsl(var(--tl-border-1)/0.52)] bg-[hsl(var(--tl-bg-2)/0.82)] px-4 py-2 text-sm text-foreground lg:flex">
+            {session?.user.email}
+          </div>
+          <button
+            type="button"
+            onClick={logout}
+            className="inline-flex h-10 items-center rounded-full border border-transparent px-4 text-[14px] font-medium text-muted-foreground transition-all duration-200 hover:border-[hsl(var(--tl-border-1)/0.52)] hover:bg-[hsl(var(--tl-bg-2)/0.82)] hover:text-foreground"
+          >
+            Logout
+          </button>
           <a
             href="https://t.me/trading360l"
             target="_blank"

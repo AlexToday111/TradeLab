@@ -10,6 +10,7 @@ import com.example.back.imports.client.PythonParserClient;
 import com.example.back.strategies.dto.StrategyValidationResponse;
 import com.example.back.strategies.entity.StrategyFileEntity;
 import com.example.back.strategies.repository.StrategyFileRepository;
+import com.example.back.support.TestAuth;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -18,6 +19,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.InjectMocks;
@@ -45,6 +48,16 @@ class StrategyFileServiceTest {
 
     @TempDir
     Path tempDir;
+
+    @BeforeEach
+    void setUp() {
+        TestAuth.setAuthenticatedUser();
+    }
+
+    @AfterEach
+    void tearDown() {
+        TestAuth.clearAuthentication();
+    }
 
     @Test
     void uploadStrategyStoresFileAndAppliesValidationResult() throws Exception {
@@ -91,13 +104,14 @@ class StrategyFileServiceTest {
     void getAllStrategiesMapsEntities() {
         StrategyFileEntity entity = new StrategyFileEntity();
         entity.setId(1L);
+        entity.setUserId(TestAuth.USER_ID);
         entity.setName("EMA");
         entity.setFileName("ema.py");
         entity.setStoragePath("/tmp/ema.py");
         entity.setStatus(StrategyFileEntity.StrategyStatus.VALID);
         entity.setParametersSchemaJson("{\"period\":{\"type\":\"integer\"}}");
         entity.setCreatedAt(Instant.parse("2024-01-01T00:00:00Z"));
-        when(strategyFileRepository.findAll()).thenReturn(List.of(entity));
+        when(strategyFileRepository.findAllByUserIdOrderByCreatedAtDesc(TestAuth.USER_ID)).thenReturn(List.of(entity));
 
         var strategies = strategyFileService.getAllStrategies();
 
@@ -107,7 +121,7 @@ class StrategyFileServiceTest {
 
     @Test
     void getStrategyByIdFailsWhenEntityIsMissing() {
-        when(strategyFileRepository.findById(1L)).thenReturn(Optional.empty());
+        when(strategyFileRepository.findByIdAndUserId(1L, TestAuth.USER_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> strategyFileService.getStrategyById(1L))
             .isInstanceOf(ResponseStatusException.class)

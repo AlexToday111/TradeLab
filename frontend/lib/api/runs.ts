@@ -1,4 +1,5 @@
 import type { Run, RunMetrics, RunParams, RunStatus, Strategy } from "@/lib/types";
+import { apiFetch } from "@/lib/api/client";
 
 type BackendRunResponse = {
   id: number;
@@ -258,7 +259,7 @@ function toRuns(
 }
 
 export async function fetchRuns(strategiesById?: Map<number, Strategy>) {
-  const response = await fetch("/api/runs", {
+  const response = await apiFetch("/api/runs", {
     method: "GET",
     cache: "no-store",
   });
@@ -272,7 +273,7 @@ export async function fetchRuns(strategiesById?: Map<number, Strategy>) {
 }
 
 export async function fetchRunById(id: number | string, strategiesById?: Map<number, Strategy>) {
-  const response = await fetch(`/api/runs/${id}`, {
+  const response = await apiFetch(`/api/runs/${id}`, {
     method: "GET",
     cache: "no-store",
   });
@@ -291,7 +292,7 @@ export async function fetchRunById(id: number | string, strategiesById?: Map<num
 }
 
 export async function createRun(payload: CreateRunPayload, strategiesById?: Map<number, Strategy>) {
-  const response = await fetch("/api/runs", {
+  const response = await apiFetch("/api/runs", {
     method: "POST",
     headers: {
       "content-type": "application/json",
