@@ -1,4 +1,5 @@
 import type { Strategy } from "@/lib/types";
+import { apiFetch } from "@/lib/api/client";
 
 async function readErrorMessage(response: Response) {
   try {
@@ -60,7 +61,7 @@ function toStrategy(payload: unknown): Strategy | null {
 }
 
 export async function fetchStrategies() {
-  const response = await fetch("/api/strategies", {
+  const response = await apiFetch("/api/strategies", {
     method: "GET",
     cache: "no-store",
   });
@@ -74,7 +75,7 @@ export async function fetchStrategies() {
 }
 
 export async function fetchStrategyById(id: number | string) {
-  const response = await fetch(`/api/strategies/${id}`, {
+  const response = await apiFetch(`/api/strategies/${id}`, {
     method: "GET",
     cache: "no-store",
   });
@@ -96,7 +97,7 @@ export async function uploadStrategy(file: File) {
   const formData = new FormData();
   formData.append("file", file);
 
-  const response = await fetch("/api/strategies/upload", {
+  const response = await apiFetch("/api/strategies/upload", {
     method: "POST",
     body: formData,
   });

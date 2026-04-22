@@ -1,9 +1,35 @@
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useAuth } from "@/features/auth/auth-provider";
 import { Topbar } from "@/components/shell/topbar";
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const { isAuthenticated, isReady } = useAuth();
+  const isAuthPage = pathname === "/login" || pathname === "/register";
+
+  useEffect(() => {
+    if (!isReady || isAuthPage || isAuthenticated) {
+      return;
+    }
+    router.replace("/login");
+  }, [isAuthenticated, isAuthPage, isReady, router]);
+
+  if (isAuthPage) {
+    return <>{children}</>;
+  }
+
+  if (!isReady || !isAuthenticated) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">
+        Loading session...
+      </div>
+    );
+  }
+
   return (
     <div className="relative isolate h-screen min-h-screen w-full overflow-hidden text-foreground">
       <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">

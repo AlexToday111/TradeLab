@@ -26,6 +26,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useAuth } from "@/features/auth/auth-provider";
+import { apiFetch } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 
 const BOT_STORAGE_KEY = "tradelab.custom-bots";
@@ -133,6 +135,8 @@ function formatCreatedAt(value: string) {
 }
 
 export default function BotsPage() {
+  const { session } = useAuth();
+  const storageKey = session ? `${BOT_STORAGE_KEY}:${session.user.id}` : BOT_STORAGE_KEY;
   const [draft, setDraft] = useState<CustomBotDraft>({
     name: defaultTemplate.defaultName,
     templateId: defaultTemplate.id,
@@ -150,7 +154,7 @@ export default function BotsPage() {
 
   useEffect(() => {
     try {
-      const rawBots = window.localStorage.getItem(BOT_STORAGE_KEY);
+      const rawBots = window.localStorage.getItem(storageKey);
       if (!rawBots) {
         return;
       }
@@ -160,20 +164,20 @@ export default function BotsPage() {
         setCustomBots(parsed as CustomBotRecord[]);
       }
     } catch {
-      window.localStorage.removeItem(BOT_STORAGE_KEY);
+      window.localStorage.removeItem(storageKey);
     }
-  }, []);
+  }, [storageKey]);
 
   useEffect(() => {
-    window.localStorage.setItem(BOT_STORAGE_KEY, JSON.stringify(customBots));
-  }, [customBots]);
+    window.localStorage.setItem(storageKey, JSON.stringify(customBots));
+  }, [customBots, storageKey]);
 
   useEffect(() => {
     let cancelled = false;
 
     const loadOfficialBot = async () => {
       try {
-        const response = await fetch("/api/telegram/status", { cache: "no-store" });
+        const response = await apiFetch("/api/telegram/status", { cache: "no-store" });
         if (!response.ok) {
           throw new Error(`Backend returned ${response.status}`);
         }

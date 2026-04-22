@@ -28,6 +28,7 @@ import {
   previewRows,
   type DatasetVersion,
 } from "@/lib/demo-data/datasets";
+import { apiFetch } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 
 type ExchangeSource = "binance" | "bybit" | "moex";
@@ -849,7 +850,7 @@ export default function DataPage() {
       setIsLoadingDatasets(true);
 
       try {
-        const response = await fetch("/api/datasets", { cache: "no-store" });
+        const response = await apiFetch("/api/datasets", { cache: "no-store" });
         const payload = await readJsonOrThrow<PersistedDatasetPayload[]>(response);
 
         if (!cancelled) {
@@ -894,7 +895,7 @@ export default function DataPage() {
             from: datasetToLoad.backendRequest?.from ?? "",
             to: datasetToLoad.backendRequest?.to ?? "",
           });
-          const response = await fetch(`/api/candles?${query.toString()}`, {
+          const response = await apiFetch(`/api/candles?${query.toString()}`, {
             cache: "no-store",
           });
           const payload = await readJsonOrThrow<CandleApiResponse[]>(response);
@@ -1350,7 +1351,7 @@ export default function DataPage() {
         let importedCount = 0;
 
         for (const symbol of symbols) {
-          const importResponse = await fetch("/api/imports/candles", {
+          const importResponse = await apiFetch("/api/imports/candles", {
             method: "POST",
             headers: {
               "content-type": "application/json",
@@ -1374,7 +1375,7 @@ export default function DataPage() {
             from: requestRange.from,
             to: requestRange.to,
           });
-          const candlesResponse = await fetch(`/api/candles?${query.toString()}`, {
+          const candlesResponse = await apiFetch(`/api/candles?${query.toString()}`, {
             cache: "no-store",
           });
           const candlesPayload = await readJsonOrThrow<CandleApiResponse[]>(candlesResponse);
@@ -1416,7 +1417,7 @@ export default function DataPage() {
           },
         };
 
-        const persistedResponse = await fetch("/api/datasets", {
+        const persistedResponse = await apiFetch("/api/datasets", {
           method: "POST",
           headers: {
             "content-type": "application/json",
@@ -1499,7 +1500,7 @@ export default function DataPage() {
     };
 
     try {
-      const persistedResponse = await fetch("/api/datasets", {
+      const persistedResponse = await apiFetch("/api/datasets", {
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -1537,7 +1538,7 @@ export default function DataPage() {
     }
 
     try {
-      const response = await fetch(`/api/datasets/${selectedDataset.id}`, {
+      const response = await apiFetch(`/api/datasets/${selectedDataset.id}`, {
         method: "PATCH",
         headers: {
           "content-type": "application/json",
@@ -1570,7 +1571,7 @@ export default function DataPage() {
     }
 
     try {
-      const response = await fetch(`/api/datasets/${selectedDataset.id}/duplicate`, {
+      const response = await apiFetch(`/api/datasets/${selectedDataset.id}/duplicate`, {
         method: "POST",
       });
       const persistedDataset = hydrateDataset(
@@ -1594,7 +1595,7 @@ export default function DataPage() {
     }
 
     try {
-      const response = await fetch(`/api/datasets/${selectedDataset.id}`, {
+      const response = await apiFetch(`/api/datasets/${selectedDataset.id}`, {
         method: "DELETE",
       });
       if (!response.ok) {

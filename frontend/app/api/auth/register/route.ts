@@ -12,13 +12,13 @@ export async function POST(request: NextRequest) {
 
   return proxyToBackend({
     request,
-    path: "/api/imports/candles",
+    path: "/api/auth/register",
     method: "POST",
     headers: {
       "content-type": "application/json",
       Accept: "application/json",
     },
     body: JSON.stringify(body),
-    errorMessage: "Failed to reach backend /api/imports/candles",
+    errorMessage: "Failed to reach backend /api/auth/register",
   });
 }

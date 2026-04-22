@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
+import { useAuth } from "@/features/auth/auth-provider";
 import { createRun, fetchRuns, type CreateRunPayload } from "@/lib/api/runs";
 import { fetchStrategies } from "@/lib/api/strategies";
 import type { Run, Strategy } from "@/lib/types";
@@ -30,8 +31,8 @@ function sortRuns(items: Run[]) {
   });
 }
 
-function readStoredRuns() {
-  const stored = localStorage.getItem(STORAGE_KEY);
+function readStoredRuns(storageKey: string) {
+  const stored = localStorage.getItem(storageKey);
   if (!stored) {
     return [];
   }
@@ -98,6 +99,8 @@ async function loadRunsFromSources(localRuns: Run[]) {
 }
 
 export function RunStoreProvider({ children }: { children: React.ReactNode }) {
+  const { session } = useAuth();
+  const storageKey = session ? `${STORAGE_KEY}:${session.user.id}` : STORAGE_KEY;
   const [runs, setRuns] = useState<Run[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [strategiesById, setStrategiesById] = useState<Map<number, Strategy>>(new Map());
@@ -105,7 +108,7 @@ export function RunStoreProvider({ children }: { children: React.ReactNode }) {
   const reloadRuns = async () => {
     setIsLoading(true);
 
-    const localRuns = readStoredRuns();
+    const localRuns = readStoredRuns(storageKey);
 
     try {
       const loaded = await loadRunsFromSources(localRuns);
@@ -124,7 +127,7 @@ export function RunStoreProvider({ children }: { children: React.ReactNode }) {
     async function loadInitialRuns() {
       setIsLoading(true);
 
-      const localRuns = readStoredRuns();
+      const localRuns = readStoredRuns(storageKey);
 
       try {
         const loaded = await loadRunsFromSources(localRuns);
@@ -150,15 +153,15 @@ export function RunStoreProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [storageKey]);
 
   useEffect(() => {
     if (isLoading) {
       return;
     }
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(runs));
-  }, [isLoading, runs]);
+    localStorage.setItem(storageKey, JSON.stringify(runs));
+  }, [isLoading, runs, storageKey]);
 
   const addRun = (run: Run) => {
     setRuns((current) => sortRuns([run, ...current]));
