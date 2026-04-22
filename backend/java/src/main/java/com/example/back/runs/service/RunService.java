@@ -105,12 +105,14 @@ public class RunService {
                 .engineVersion(response.engineVersion())
                 .startedAt(run.getStartedAt())
                 .finishedAt(run.getFinishedAt())
+                .executionDurationMs(response.executionDurationMs())
                 .summary(response.summary())
                 .metrics(response.metrics())
                 .artifacts(response.artifacts())
                 .trades(trades)
                 .equityCurve(equityCurve)
                 .errorMessage(run.getErrorMessage())
+                .errorDetails(response.errorDetails())
                 .build();
     }
 

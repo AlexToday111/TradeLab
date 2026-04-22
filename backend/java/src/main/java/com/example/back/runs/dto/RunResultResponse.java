@@ -14,11 +14,13 @@ public record RunResultResponse(
         String engineVersion,
         Instant startedAt,
         Instant finishedAt,
+        Long executionDurationMs,
         Map<String, Object> summary,
         Map<String, Object> metrics,
         Map<String, Object> artifacts,
         List<BacktestTrade> trades,
         List<EquityPoint> equityCurve,
-        String errorMessage
+        String errorMessage,
+        Map<String, Object> errorDetails
 ) {
 }

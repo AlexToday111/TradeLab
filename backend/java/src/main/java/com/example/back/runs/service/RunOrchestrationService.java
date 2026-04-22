@@ -10,6 +10,7 @@ import com.example.back.backtest.model.BacktestStatus;
 import com.example.back.backtest.model.BacktestTradeEntity;
 import com.example.back.backtest.repository.BacktestEquityPointRepository;
 import com.example.back.backtest.repository.BacktestTradeRepository;
+import com.example.back.common.logging.LogContext;
 import com.example.back.datasets.entity.DatasetEntity;
 import com.example.back.datasets.repository.DatasetRepository;
 import com.example.back.imports.client.PythonParserClient;
@@ -23,6 +24,8 @@ import com.example.back.strategies.entity.StrategyFileEntity;
 import com.example.back.strategies.repository.StrategyFileRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -39,7 +42,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class RunOrchestrationService {
 
-    private static final String DEFAULT_ENGINE_VERSION = "python-execution-engine/0.2.0-alpha";
+    private static final String DEFAULT_ENGINE_VERSION = "python-execution-engine/0.2.1-alpha.1";
+    private static final String PYTHON_EXECUTE_ENDPOINT = "/internal/runs/execute";
 
     private final RunRepository runRepository;
     private final RunSnapshotRepository runSnapshotRepository;
@@ -58,6 +62,12 @@ public class RunOrchestrationService {
         RunEntity run = buildRunEntity(request, strategy);
         RunEntity savedRun = runRepository.saveAndFlush(run);
         runSnapshotRepository.save(buildSnapshot(savedRun, request, strategy));
+        try (LogContext.BoundContext ignored = LogContext.bind(
+                savedRun.getCorrelationId(),
+                String.valueOf(savedRun.getId()))
+        ) {
+            log.info("Created run entity");
+        }
         markQueued(savedRun.getId());
         return savedRun.getId();
     }
@@ -66,19 +76,34 @@ public class RunOrchestrationService {
         RunEntity run = findRun(runId);
         StrategyFileEntity strategy = getValidatedStrategy(run.getStrategyId());
 
-        markRunning(runId);
+        try (LogContext.BoundContext ignored = LogContext.bind(run.getCorrelationId(), String.valueOf(run.getId()))) {
+            markRunning(runId);
 
-        try {
-            PythonRunExecuteResponse response = pythonParserClient.executeRun(buildPythonRequest(run, strategy));
-            if (response == null || !Boolean.TRUE.equals(response.getSuccess())) {
-                String error = response == null ? "Python execution returned empty response" : response.getError();
-                markFailed(runId, error);
-                return;
+            try {
+                PythonRunExecuteResponse response = pythonParserClient.executeRun(buildPythonRequest(run, strategy));
+                if (response == null) {
+                    markFailed(
+                            runId,
+                            "Python execution returned empty response",
+                            writeJson(buildEmptyPythonResponseDetails(run))
+                    );
+                    return;
+                }
+                if (!Boolean.TRUE.equals(response.getSuccess())) {
+                    String errorMessage = resolvePythonErrorMessage(response);
+                    log.warn("Python execution reported failed run: {}", errorMessage);
+                    markFailed(runId, errorMessage, writeJson(buildPythonErrorDetails(run, response)));
+                    return;
+                }
+                markSucceeded(runId, response);
+            } catch (RuntimeException exception) {
+                log.error("Run execution failed", exception);
+                markFailed(
+                        runId,
+                        exception.getMessage(),
+                        writeJson(buildJavaErrorDetails(run, exception))
+                );
             }
-            markSucceeded(runId, response);
-        } catch (RuntimeException exception) {
-            log.error("Run execution failed for runId={}: {}", runId, exception.getMessage(), exception);
-            markFailed(runId, exception.getMessage());
         }
     }
 
@@ -119,7 +144,9 @@ public class RunOrchestrationService {
         run.setMetricsJson(null);
         run.setArtifactsJson(null);
         run.setErrorMessage(null);
+        run.setErrorDetailsJson(null);
         run.setEngineVersion(DEFAULT_ENGINE_VERSION);
+        run.setExecutionDurationMs(null);
         run.setStartedAt(null);
         run.setFinishedAt(null);
         return run;
@@ -253,20 +280,22 @@ public class RunOrchestrationService {
     @Transactional
     protected void markQueued(Long runId) {
         RunEntity run = findRun(runId);
-        run.setStatus(BacktestStatus.QUEUED);
+        transitionStatus(run, BacktestStatus.QUEUED);
         runRepository.save(run);
     }
 
     @Transactional
     protected void markRunning(Long runId) {
         RunEntity run = findRun(runId);
-        run.setStatus(BacktestStatus.RUNNING);
+        transitionStatus(run, BacktestStatus.RUNNING);
         run.setStartedAt(Instant.now());
         run.setFinishedAt(null);
+        run.setExecutionDurationMs(null);
         run.setSummaryJson(null);
         run.setMetricsJson(null);
         run.setArtifactsJson(null);
         run.setErrorMessage(null);
+        run.setErrorDetailsJson(null);
         backtestTradeRepository.deleteByRunId(runId);
         backtestEquityPointRepository.deleteByRunId(runId);
         runRepository.save(run);
@@ -275,12 +304,15 @@ public class RunOrchestrationService {
     @Transactional
     protected void markSucceeded(Long runId, PythonRunExecuteResponse response) {
         RunEntity run = findRun(runId);
-        run.setStatus(BacktestStatus.SUCCEEDED);
+        transitionStatus(run, BacktestStatus.SUCCEEDED);
+        validateResponseCorrelation(run, response);
         run.setFinishedAt(Instant.now());
+        run.setExecutionDurationMs(resolveExecutionDurationMs(run.getStartedAt(), run.getFinishedAt()));
         run.setSummaryJson(writeJson(defaultMap(response.getSummary())));
         run.setMetricsJson(writeJson(defaultMap(response.getMetrics())));
         run.setArtifactsJson(writeJson(defaultMap(response.getArtifacts())));
         run.setErrorMessage(null);
+        run.setErrorDetailsJson(null);
         run.setEngineVersion(resolveEngineVersion(response.getEngineVersion()));
         runRepository.save(run);
 
@@ -296,14 +328,104 @@ public class RunOrchestrationService {
         backtestEquityPointRepository.saveAll(defaultList(response.getEquityCurve()).stream()
                 .map(point -> toEquityPointEntity(runId, point))
                 .toList());
+
+        log.info("Run execution completed successfully in {} ms", run.getExecutionDurationMs());
     }
 
-    private void markFailed(Long runId, String message) {
+    private void markFailed(Long runId, String message, String errorDetailsJson) {
         try {
-            runFailureStateService.markFailedInNewTransaction(runId, message);
+            runFailureStateService.markFailedInNewTransaction(runId, message, errorDetailsJson);
         } catch (RuntimeException ex) {
             log.error("Failed to persist FAILED status for run {}", runId, ex);
         }
+    }
+
+    private void transitionStatus(RunEntity run, BacktestStatus nextStatus) {
+        try (LogContext.BoundContext ignored = LogContext.bind(run.getCorrelationId(), String.valueOf(run.getId()))) {
+            BacktestStatus previousStatus = run.getStatus();
+            run.setStatus(nextStatus);
+            log.info("Run status transition {} -> {}", previousStatus, nextStatus);
+        }
+    }
+
+    private void validateResponseCorrelation(RunEntity run, PythonRunExecuteResponse response) {
+        String expectedRunId = String.valueOf(run.getId());
+        if (response.getRunId() != null && !expectedRunId.equals(response.getRunId())) {
+            log.warn("Python response returned mismatched run id: expected={}, actual={}", expectedRunId, response.getRunId());
+        }
+        if (response.getCorrelationId() != null && !run.getCorrelationId().equals(response.getCorrelationId())) {
+            log.warn(
+                    "Python response returned mismatched correlation id: expected={}, actual={}",
+                    run.getCorrelationId(),
+                    response.getCorrelationId()
+            );
+        }
+    }
+
+    private Map<String, Object> buildEmptyPythonResponseDetails(RunEntity run) {
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("source", "java");
+        details.put("stage", "python-client");
+        details.put("endpoint", PYTHON_EXECUTE_ENDPOINT);
+        details.put("runId", run.getId());
+        details.put("correlationId", run.getCorrelationId());
+        details.put("errorCode", "EMPTY_PYTHON_RESPONSE");
+        details.put("errorMessage", "Python execution returned empty response");
+        return details;
+    }
+
+    private Map<String, Object> buildPythonErrorDetails(RunEntity run, PythonRunExecuteResponse response) {
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("source", "python");
+        details.put("endpoint", PYTHON_EXECUTE_ENDPOINT);
+        details.put("runId", firstNonBlank(response.getRunId(), String.valueOf(run.getId())));
+        details.put("correlationId", firstNonBlank(response.getCorrelationId(), run.getCorrelationId()));
+        details.put("errorCode", response.getErrorCode());
+        details.put("errorMessage", resolvePythonErrorMessage(response));
+        details.put("stacktrace", response.getStacktrace());
+        details.put("startedAt", response.getStartedAt());
+        details.put("finishedAt", response.getFinishedAt());
+        details.put("executionDurationMs", response.getExecutionDurationMs());
+        details.put("engineVersion", resolveEngineVersion(response.getEngineVersion()));
+        return details;
+    }
+
+    private Map<String, Object> buildJavaErrorDetails(RunEntity run, RuntimeException exception) {
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("source", "java");
+        details.put("stage", "python-client");
+        details.put("endpoint", PYTHON_EXECUTE_ENDPOINT);
+        details.put("runId", run.getId());
+        details.put("correlationId", run.getCorrelationId());
+        details.put("errorCode", "JAVA_EXECUTION_ERROR");
+        details.put("errorMessage", firstNonBlank(exception.getMessage(), "Run execution failed"));
+        details.put("exceptionClass", exception.getClass().getName());
+        details.put("stacktrace", stackTrace(exception));
+        return details;
+    }
+
+    private String resolvePythonErrorMessage(PythonRunExecuteResponse response) {
+        return firstNonBlank(response.getErrorMessage(), response.getError());
+    }
+
+    private String firstNonBlank(String primary, String fallback) {
+        if (primary != null && !primary.isBlank()) {
+            return primary;
+        }
+        return fallback;
+    }
+
+    private Long resolveExecutionDurationMs(Instant startedAt, Instant finishedAt) {
+        if (startedAt == null || finishedAt == null) {
+            return null;
+        }
+        return finishedAt.toEpochMilli() - startedAt.toEpochMilli();
+    }
+
+    private String stackTrace(Throwable throwable) {
+        StringWriter writer = new StringWriter();
+        throwable.printStackTrace(new PrintWriter(writer));
+        return writer.toString();
     }
 
     private String resolveEngineVersion(String engineVersion) {
@@ -344,7 +466,10 @@ public class RunOrchestrationService {
             return Map.of();
         }
         try {
-            return objectMapper.readValue(json, objectMapper.getTypeFactory().constructMapType(LinkedHashMap.class, String.class, Object.class));
+            return objectMapper.readValue(
+                    json,
+                    objectMapper.getTypeFactory().constructMapType(LinkedHashMap.class, String.class, Object.class)
+            );
         } catch (JsonProcessingException exception) {
             throw new IllegalStateException("Failed to parse JSON payload", exception);
         }

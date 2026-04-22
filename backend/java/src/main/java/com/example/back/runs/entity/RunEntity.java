@@ -75,8 +75,14 @@ public class RunEntity {
     @Column(name = "error_message")
     private String errorMessage;
 
+    @Column(name = "error_details_json", columnDefinition = "TEXT")
+    private String errorDetailsJson;
+
     @Column(name = "engine_version")
     private String engineVersion;
+
+    @Column(name = "execution_duration_ms")
+    private Long executionDurationMs;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;

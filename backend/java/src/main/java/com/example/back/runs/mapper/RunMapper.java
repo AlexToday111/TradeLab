@@ -42,6 +42,7 @@ public class RunMapper {
                 .createdAt(entity.getCreatedAt())
                 .startedAt(entity.getStartedAt())
                 .finishedAt(entity.getFinishedAt())
+                .executionDurationMs(resolveExecutionDurationMs(entity))
                 .engineVersion(entity.getEngineVersion())
                 .config(config)
                 .snapshot(toSnapshot(snapshotEntity))
@@ -50,6 +51,7 @@ public class RunMapper {
                 .metrics(readNullableJsonMap(entity.getMetricsJson()))
                 .artifacts(readNullableJsonMap(entity.getArtifactsJson()))
                 .errorMessage(entity.getErrorMessage())
+                .errorDetails(readNullableJsonMap(entity.getErrorDetailsJson()))
                 .build();
     }
 
@@ -111,5 +113,15 @@ public class RunMapper {
             return typedParams;
         }
         return payload;
+    }
+
+    private Long resolveExecutionDurationMs(RunEntity entity) {
+        if (entity.getExecutionDurationMs() != null) {
+            return entity.getExecutionDurationMs();
+        }
+        if (entity.getStartedAt() == null || entity.getFinishedAt() == null) {
+            return null;
+        }
+        return entity.getFinishedAt().toEpochMilli() - entity.getStartedAt().toEpochMilli();
     }
 }

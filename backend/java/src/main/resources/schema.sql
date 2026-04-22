@@ -72,7 +72,9 @@ CREATE TABLE IF NOT EXISTS runs (
     metrics_json TEXT,
     artifacts_json TEXT,
     error_message TEXT,
+    error_details_json TEXT,
     engine_version VARCHAR(128),
+    execution_duration_ms BIGINT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     started_at TIMESTAMPTZ,
     finished_at TIMESTAMPTZ
@@ -95,6 +97,12 @@ ALTER TABLE runs
 
 ALTER TABLE runs
     ADD COLUMN IF NOT EXISTS engine_version VARCHAR(128);
+
+ALTER TABLE runs
+    ADD COLUMN IF NOT EXISTS error_details_json TEXT;
+
+ALTER TABLE runs
+    ADD COLUMN IF NOT EXISTS execution_duration_ms BIGINT;
 
 
 CREATE TABLE IF NOT EXISTS run_snapshots (

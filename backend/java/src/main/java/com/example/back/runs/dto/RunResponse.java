@@ -21,6 +21,7 @@ public record RunResponse(
         Instant createdAt,
         Instant startedAt,
         Instant finishedAt,
+        Long executionDurationMs,
         String engineVersion,
         Map<String, Object> config,
         Map<String, Object> snapshot,
@@ -28,6 +29,7 @@ public record RunResponse(
         Map<String, Object> summary,
         Map<String, Object> metrics,
         Map<String, Object> artifacts,
-        String errorMessage
+        String errorMessage,
+        Map<String, Object> errorDetails
 ) {
 }

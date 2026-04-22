@@ -126,6 +126,7 @@ class RunControllerIntegrationTest {
                 .andExpect(jsonPath("$[0].status").value("FAILED"))
                 .andExpect(jsonPath("$[0].strategyName").value("EMA"))
                 .andExpect(jsonPath("$[0].correlationId").isString())
+                .andExpect(jsonPath("$[0].executionDurationMs").value(5000))
                 .andExpect(jsonPath("$[1].id").value(completedRun.getId()))
                 .andExpect(jsonPath("$[1].status").value("SUCCEEDED"))
                 .andExpect(jsonPath("$[1].metrics.profit").value(9.5))
@@ -152,6 +153,7 @@ class RunControllerIntegrationTest {
                 .andExpect(jsonPath("$.status").value("SUCCEEDED"))
                 .andExpect(jsonPath("$.strategyName").value("EMA"))
                 .andExpect(jsonPath("$.correlationId").isString())
+                .andExpect(jsonPath("$.executionDurationMs").value(5000))
                 .andExpect(jsonPath("$.metrics.profit").value(9.5))
                 .andExpect(jsonPath("$.parameters.fastPeriod").value(10))
                 .andExpect(jsonPath("$.config.fastPeriod").value(10))
@@ -173,6 +175,7 @@ class RunControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.runId").value(run.getId()))
                 .andExpect(jsonPath("$.status").value("SUCCEEDED"))
+                .andExpect(jsonPath("$.executionDurationMs").value(5000))
                 .andExpect(jsonPath("$.metrics.profit").value(9.5));
     }
 
@@ -211,6 +214,7 @@ class RunControllerIntegrationTest {
                 .andExpect(jsonPath("$.status").value("SUCCEEDED"))
                 .andExpect(jsonPath("$.strategyName").value("EMA"))
                 .andExpect(jsonPath("$.correlationId").isString())
+                .andExpect(jsonPath("$.executionDurationMs").isNumber())
                 .andExpect(jsonPath("$.metrics.profit").value(9.5))
                 .andExpect(jsonPath("$.parameters.fastPeriod").value(10))
                 .andExpect(jsonPath("$.config.strategyId").value(strategyId))
@@ -218,6 +222,51 @@ class RunControllerIntegrationTest {
                 .andExpect(jsonPath("$.artifacts.tradesCount").value(1))
                 .andExpect(jsonPath("$.runId").doesNotExist())
                 .andExpect(jsonPath("$.result").doesNotExist());
+    }
+
+    @Test
+    void postRunPersistsStructuredPythonFailure() throws Exception {
+        PythonRunExecuteResponse response = new PythonRunExecuteResponse();
+        response.setSuccess(false);
+        response.setRunId("1");
+        response.setCorrelationId("run-1");
+        response.setStartedAt("2024-01-01T00:00:00Z");
+        response.setFinishedAt("2024-01-01T00:00:01Z");
+        response.setExecutionDurationMs(1000L);
+        response.setEngineVersion("python-execution-engine/0.2.1-alpha.1");
+        response.setErrorCode("STRATEGY_RUNTIME_ERROR");
+        response.setErrorMessage("Strategy.run raised exception: boom");
+        response.setStacktrace("ValueError: boom");
+        response.setError("Strategy.run raised exception: boom");
+
+        when(pythonParserClient.executeRun(any())).thenReturn(response);
+
+        mockMvc.perform(post("/api/runs")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "strategyId": %d,
+                                  "exchange": "binance",
+                                  "symbol": "BTCUSDT",
+                                  "interval": "1h",
+                                  "from": "2024-01-01T00:00:00Z",
+                                  "to": "2024-01-01T01:00:00Z",
+                                  "params": {
+                                    "fastPeriod": 10
+                                  },
+                                  "initialCash": 10000.0,
+                                  "feeRate": 0.001,
+                                  "slippageBps": 1.0,
+                                  "strictData": true
+                                }
+                                """.formatted(strategyId)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("FAILED"))
+                .andExpect(jsonPath("$.errorMessage").value("Strategy.run raised exception: boom"))
+                .andExpect(jsonPath("$.errorDetails.source").value("python"))
+                .andExpect(jsonPath("$.errorDetails.errorCode").value("STRATEGY_RUNTIME_ERROR"))
+                .andExpect(jsonPath("$.errorDetails.stacktrace").value("ValueError: boom"))
+                .andExpect(jsonPath("$.executionDurationMs").isNumber());
     }
 
     @Test
@@ -277,9 +326,11 @@ class RunControllerIntegrationTest {
         entity.setParamsJson(paramsJson);
         entity.setMetricsJson(metricsJson);
         entity.setErrorMessage(errorMessage);
+        entity.setErrorDetailsJson(errorMessage == null ? null : "{\"source\":\"python\"}");
         entity.setCreatedAt(createdAt);
         entity.setStartedAt(createdAt.plusSeconds(5));
         entity.setFinishedAt(createdAt.plusSeconds(10));
+        entity.setExecutionDurationMs(5000L);
         return runRepository.saveAndFlush(entity);
     }
 
@@ -332,7 +383,12 @@ class RunControllerIntegrationTest {
         response.setTrades(result.getTrades());
         response.setEquityCurve(result.getEquityCurve());
         response.setArtifacts(Map.of("tradesCount", 1, "equityPointCount", 1));
-        response.setEngineVersion("python-execution-engine/0.2.0-alpha");
+        response.setEngineVersion("python-execution-engine/0.2.1-alpha.1");
+        response.setRunId("1");
+        response.setCorrelationId("run-1");
+        response.setStartedAt("2024-01-01T00:00:00Z");
+        response.setFinishedAt("2024-01-01T00:00:01Z");
+        response.setExecutionDurationMs(1000L);
         response.setError(null);
         return response;
     }
