@@ -69,6 +69,8 @@ class RunExecuteRequest(BaseModel):
 
 
 class RunExecuteResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     success: bool = Field(description="Whether execution completed successfully.", examples=[True])
     summary: dict[str, Any] | None = Field(
         default=None,
@@ -92,4 +94,42 @@ class RunExecuteResponse(BaseModel):
         alias="engineVersion",
         serialization_alias="engineVersion",
     )
-    error: str | None = Field(default=None, description="Execution error message.", examples=[None])
+    run_id: str | None = Field(
+        default=None,
+        alias="runId",
+        serialization_alias="runId",
+    )
+    correlation_id: str | None = Field(
+        default=None,
+        alias="correlationId",
+        serialization_alias="correlationId",
+    )
+    started_at: str | None = Field(
+        default=None,
+        alias="startedAt",
+        serialization_alias="startedAt",
+    )
+    finished_at: str | None = Field(
+        default=None,
+        alias="finishedAt",
+        serialization_alias="finishedAt",
+    )
+    execution_duration_ms: int | None = Field(
+        default=None,
+        alias="executionDurationMs",
+        serialization_alias="executionDurationMs",
+    )
+    error_code: str | None = Field(
+        default=None,
+        alias="errorCode",
+        serialization_alias="errorCode",
+    )
+    error_message: str | None = Field(
+        default=None,
+        alias="errorMessage",
+        serialization_alias="errorMessage",
+        description="Execution error message.",
+        examples=[None],
+    )
+    stacktrace: str | None = Field(default=None)
+    error: str | None = Field(default=None, description="Legacy execution error message.", examples=[None])

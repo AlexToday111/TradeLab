@@ -1,4 +1,8 @@
 import logging
+from datetime import UTC, datetime
+from pathlib import Path
+import time
+import traceback
 from uuid import uuid4
 
 import uvicorn
@@ -15,7 +19,7 @@ from parser.imports.dto.candle_import_dto import CandleImportRequest, CandleImpo
 from parser.imports.repositories.candle_import_repository import CandleImportRepository
 from parser.imports.services.candle_import_service import CandleImportService
 from parser.runs.dto.run_execute_dto import RunExecuteRequest, RunExecuteResponse
-from parser.runs.services.strategy_execution_service import StrategyExecutionService
+from parser.runs.services.strategy_execution_service import ENGINE_VERSION, StrategyExecutionService
 from parser.strategies.dto.strategy_validation_dto import (
     StrategyValidationRequest,
     StrategyValidationResponse,
@@ -59,9 +63,43 @@ def create_app() -> FastAPI:
     @app.middleware("http")
     async def add_correlation_context(request: Request, call_next):
         correlation_id = request.headers.get("X-Correlation-Id") or f"py-{uuid4().hex}"
-        with bind_log_context(correlation_id=correlation_id):
-            response = await call_next(request)
+        run_id = request.headers.get("X-Run-Id")
+        started_monotonic = time.perf_counter()
+        with bind_log_context(correlation_id=correlation_id, run_id=run_id):
+            logger.info(
+                "Incoming HTTP request",
+                extra={
+                    "event": "http_request_started",
+                    "method": request.method,
+                    "path": request.url.path,
+                },
+            )
+            try:
+                response = await call_next(request)
+            except Exception:  # noqa: BLE001
+                logger.exception(
+                    "Unhandled HTTP request error",
+                    extra={
+                        "event": "http_request_failed",
+                        "method": request.method,
+                        "path": request.url.path,
+                        "execution_duration_ms": int((time.perf_counter() - started_monotonic) * 1000),
+                    },
+                )
+                raise
+            logger.info(
+                "Completed HTTP request",
+                extra={
+                    "event": "http_request_completed",
+                    "method": request.method,
+                    "path": request.url.path,
+                    "status_code": response.status_code,
+                    "execution_duration_ms": int((time.perf_counter() - started_monotonic) * 1000),
+                },
+            )
         response.headers["X-Correlation-Id"] = correlation_id
+        if run_id:
+            response.headers["X-Run-Id"] = run_id
         return response
 
     @app.on_event("startup")
@@ -138,27 +176,77 @@ def create_app() -> FastAPI:
         responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}},
     )
     async def execute_run(request: RunExecuteRequest) -> RunExecuteResponse:
-        logger.info("Incoming strategy run request for %s", request.strategy_file_path)
-
-        connection = None
-        try:
-            connection = get_connection()
-            repository = CandleRepository(connection)
-            service = StrategyExecutionService(repository)
-            return service.execute(request)
-        except AppError as exc:
-            logger.exception("Strategy run failed with application error")
-            return RunExecuteResponse(success=False, metrics=None, error=exc.message)
-        except Exception:  # noqa: BLE001
-            logger.exception("Strategy run failed with unexpected error")
-            return RunExecuteResponse(
-                success=False,
-                metrics=None,
-                error="Unexpected execution error",
+        with bind_log_context(
+            correlation_id=request.correlation_id,
+            run_id=request.run_id,
+        ):
+            logger.info(
+                "Incoming strategy run request",
+                extra={
+                    "event": "run_request_received",
+                    "strategy_file": Path(request.strategy_file_path).name,
+                    "exchange": request.exchange,
+                    "symbol": request.symbol,
+                    "interval": request.interval,
+                    "from_time": request.from_time,
+                    "to_time": request.to_time,
+                    "parameter_keys": sorted(request.params.keys()),
+                },
             )
-        finally:
-            if connection is not None:
-                connection.close()
+
+            connection = None
+            started_monotonic = time.perf_counter()
+            started_at = datetime.now(tz=UTC)
+            try:
+                connection = get_connection()
+                repository = CandleRepository(connection)
+                service = StrategyExecutionService(repository)
+                return service.execute(request)
+            except AppError as exc:
+                finished_at = datetime.now(tz=UTC)
+                logger.exception("Strategy run failed with application error")
+                return RunExecuteResponse(
+                    success=False,
+                    summary=None,
+                    metrics=None,
+                    trades=[],
+                    equity_curve=[],
+                    artifacts=None,
+                    engine_version=ENGINE_VERSION,
+                    run_id=request.run_id,
+                    correlation_id=request.correlation_id,
+                    started_at=started_at.isoformat().replace("+00:00", "Z"),
+                    finished_at=finished_at.isoformat().replace("+00:00", "Z"),
+                    execution_duration_ms=int((time.perf_counter() - started_monotonic) * 1000),
+                    error_code="APP_ERROR",
+                    error_message=exc.message,
+                    stacktrace=traceback.format_exc(),
+                    error=exc.message,
+                )
+            except Exception:  # noqa: BLE001
+                finished_at = datetime.now(tz=UTC)
+                logger.exception("Strategy run failed with unexpected error")
+                return RunExecuteResponse(
+                    success=False,
+                    summary=None,
+                    metrics=None,
+                    trades=[],
+                    equity_curve=[],
+                    artifacts=None,
+                    engine_version=ENGINE_VERSION,
+                    run_id=request.run_id,
+                    correlation_id=request.correlation_id,
+                    started_at=started_at.isoformat().replace("+00:00", "Z"),
+                    finished_at=finished_at.isoformat().replace("+00:00", "Z"),
+                    execution_duration_ms=int((time.perf_counter() - started_monotonic) * 1000),
+                    error_code="UNEXPECTED_ERROR",
+                    error_message="Unexpected execution error",
+                    stacktrace=traceback.format_exc(),
+                    error="Unexpected execution error",
+                )
+            finally:
+                if connection is not None:
+                    connection.close()
 
     return app
 

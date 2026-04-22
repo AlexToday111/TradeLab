@@ -26,6 +26,8 @@ def build_request(strategy_file_path: str, **overrides) -> RunExecuteRequest:
         "from": "2024-01-01T00:00:00Z",
         "to": "2024-01-01T02:00:00Z",
         "params": {"fast": 9},
+        "runId": "101",
+        "correlationId": "run-101",
     }
     payload.update(overrides)
     return RunExecuteRequest(**payload)
@@ -70,6 +72,11 @@ class Strategy:
     assert response.success is True
     assert response.metrics == {"total_return": 9}
     assert response.error is None
+    assert response.run_id == "101"
+    assert response.correlation_id == "run-101"
+    assert response.started_at is not None
+    assert response.finished_at is not None
+    assert response.execution_duration_ms is not None
     assert repository.calls[0]["exchange"] == "binance"
     assert repository.calls[0]["symbol"] == "BTCUSDT"
 
@@ -91,7 +98,10 @@ class Strategy:
     )
 
     assert response.success is False
+    assert response.error_code == "INVALID_FROM_DATETIME"
+    assert response.error_message == "Invalid datetime for 'from': not-a-date"
     assert response.error == "Invalid datetime for 'from': not-a-date"
+    assert response.execution_duration_ms is not None
 
 
 def test_execute_rejects_strategy_result_without_metrics(tmp_path):
@@ -109,4 +119,25 @@ class Strategy:
     response = StrategyExecutionService(repository).execute(build_request(strategy_path))
 
     assert response.success is False
-    assert response.error == "metrics missing in result"
+    assert response.error_code == "RESULT_METRICS_MISSING"
+    assert response.error_message == "metrics missing in result"
+
+
+def test_execute_returns_structured_runtime_error(tmp_path):
+    strategy_path = write_strategy(
+        tmp_path,
+        "runtime_error_strategy.py",
+        """
+class Strategy:
+    def run(self, candles, params):
+        raise ValueError("boom")
+""".strip(),
+    )
+    repository = FakeCandleRepository([sample_candle()])
+
+    response = StrategyExecutionService(repository).execute(build_request(strategy_path))
+
+    assert response.success is False
+    assert response.error_code == "STRATEGY_RUNTIME_ERROR"
+    assert response.error_message == "Strategy.run raised exception: boom"
+    assert "ValueError: boom" in response.stacktrace
