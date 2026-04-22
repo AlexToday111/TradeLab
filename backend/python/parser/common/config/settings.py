@@ -20,6 +20,7 @@ class Settings:
     moex_base_url: str
     python_service_port: int
     request_timeout_seconds: int
+    internal_shared_secret: str
     binance_klines_page_limit: int
     bybit_klines_page_limit: int
     binance_max_retries: int
@@ -50,6 +51,10 @@ def load_settings() -> Settings:
         moex_base_url=os.getenv("MOEX_BASE_URL", "https://iss.moex.com/iss"),
         python_service_port=int(os.getenv("PYTHON_SERVICE_PORT", "8000")),
         request_timeout_seconds=int(os.getenv("REQUEST_TIMEOUT_SECONDS", "15")),
+        internal_shared_secret=os.getenv(
+            "PYTHON_PARSER_INTERNAL_SECRET",
+            os.getenv("PYTHON_INTERNAL_SHARED_SECRET", "change-me-parser-internal-secret"),
+        ),
         binance_klines_page_limit=int(os.getenv("BINANCE_KLINES_PAGE_LIMIT", "1000")),
         bybit_klines_page_limit=int(os.getenv("BYBIT_KLINES_PAGE_LIMIT", "1000")),
         binance_max_retries=int(os.getenv("BINANCE_MAX_RETRIES", "3")),
