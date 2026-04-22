@@ -53,7 +53,7 @@ This release introduces the core execution pipeline and reproducibility layer.
 ### Added
 
 * Run domain for strategy execution lifecycle (create, track, complete runs).
-* End-to-end execution flow: Java API → Python engine → result persistence.
+* End-to-end execution flow: Java API -> Python engine -> result persistence.
 * Internal Python execution endpoint for running strategies/backtests.
 * Run result storage:
 
@@ -73,8 +73,8 @@ This release introduces the core execution pipeline and reproducibility layer.
 
 * Backend architecture evolved into:
 
-  * Java → control plane (API, orchestration)
-  * Python → execution plane (compute engine)
+  * Java -> control plane (API, orchestration)
+  * Python -> execution plane (compute engine)
 * Python service extended from data parser into execution-capable engine.
 
 ### Notes
@@ -92,24 +92,40 @@ This release improves system visibility and execution transparency.
 
 ### Added
 
-* Structured logging across backend services.
-* Run execution logs and error tracking.
-* Correlation identifiers for tracing execution (run_id / job_id).
-* Extended run status tracking:
+* Structured JSON logging in Java and Python with shared trace fields:
 
-  * progress
-  * failure reasons
-* Basic execution timing metrics.
+  * `service`
+  * `correlation_id`
+  * `run_id`
+  * `error`
+* End-to-end run correlation across Java API and Python execution requests and responses.
+* Run diagnostics persistence:
+
+  * `error_details_json`
+  * `execution_duration_ms`
+* Extended run API payloads with timing metadata and structured error details.
+* Structured Python execution failure contract:
+
+  * `errorCode`
+  * `errorMessage`
+  * `stacktrace`
+  * execution timing metadata
 
 ### Changed
 
-* Improved error handling in Java ↔ Python integration.
-* Enhanced run lifecycle visibility for debugging and monitoring.
+* Improved Java <-> Python interaction logging with request/response timing and status.
+* Run lifecycle transitions are now explicitly logged:
+
+  * `CREATED -> QUEUED`
+  * `QUEUED -> RUNNING`
+  * `RUNNING -> SUCCEEDED | FAILED`
+* Java now persists Python-side diagnostics instead of collapsing failures into a single message.
+* Engine version advanced to `python-execution-engine/0.2.1-alpha.1`.
 
 ### Notes
 
-* Focus is on internal reliability and debugging capabilities.
-* No major product-facing changes.
+* Focus remains internal reliability, debuggability, and operational transparency.
+* No external metrics stack was introduced in this release.
 
 ---
 
