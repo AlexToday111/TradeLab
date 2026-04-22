@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <springProperty scope="context" name="serviceName" source="spring.application.name" defaultValue="tradelab-java"/>
+
+    <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+            <providers>
+                <timestamp>
+                    <fieldName>timestamp</fieldName>
+                    <pattern>yyyy-MM-dd'T'HH:mm:ss.SSSXXX</pattern>
+                    <timeZone>UTC</timeZone>
+                </timestamp>
+                <logLevel>
+                    <fieldName>level</fieldName>
+                </logLevel>
+                <pattern>
+                    <pattern>{"service":"${serviceName}"}</pattern>
+                </pattern>
+                <loggerName>
+                    <fieldName>logger</fieldName>
+                </loggerName>
+                <mdc>
+                    <includeMdcKeyName>correlation_id</includeMdcKeyName>
+                    <includeMdcKeyName>run_id</includeMdcKeyName>
+                </mdc>
+                <message>
+                    <fieldName>message</fieldName>
+                </message>
+                <arguments/>
+                <stackTrace>
+                    <fieldName>error</fieldName>
+                </stackTrace>
+            </providers>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="JSON_CONSOLE"/>
+    </root>
+</configuration>

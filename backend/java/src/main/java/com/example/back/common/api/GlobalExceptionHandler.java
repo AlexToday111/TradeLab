@@ -3,6 +3,7 @@ package com.example.back.common.api;
 import com.example.back.backtest.exception.BacktestResourceNotFoundException;
 import com.example.back.backtest.exception.BacktestValidationException;
 import com.example.back.backtest.executor.PythonExecutionException;
+import com.example.back.common.logging.LogContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import java.time.Instant;
@@ -91,7 +92,7 @@ public class GlobalExceptionHandler {
                 status.value(),
                 status.getReasonPhrase(),
                 message,
-                (String) request.getAttribute(RequestCorrelationFilter.CORRELATION_ID_KEY),
+                (String) request.getAttribute(LogContext.REQUEST_CORRELATION_ID_ATTRIBUTE),
                 request.getRequestURI()
         );
         return ResponseEntity.status(status).body(body);

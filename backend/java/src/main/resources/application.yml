@@ -1,11 +1,9 @@
 server:
   port: 8080
 
-logging:
-  pattern:
-    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} level=%p logger=%logger correlationId=%X{correlationId:-} runId=%X{runId:-} message=%m%n"
-
 spring:
+  application:
+    name: tradelab-java
   sql:
     init:
       mode: always
