@@ -99,6 +99,38 @@
 ]
 ```
 
+## Run artifacts API
+
+### GET `/api/runs/{id}/artifacts`
+
+Возвращает metadata артефактов запуска, доступных текущему пользователю.
+
+### GET `/api/runs/{id}/artifacts/{artifactId}`
+
+Возвращает metadata и JSON payload конкретного артефакта.
+
+### GET `/api/runs/{id}/artifacts/{artifactId}/download`
+
+Возвращает содержимое артефакта как downloadable file.
+
+## Dataset platform API
+
+### GET `/api/datasets/{id}`
+
+Возвращает dataset payload, latest snapshot и latest quality report.
+
+### GET `/api/datasets/{id}/versions`
+
+Возвращает snapshot/version history dataset.
+
+### GET `/api/datasets/{id}/quality`
+
+Возвращает сохраненные quality reports dataset.
+
+### GET `/api/dataset-snapshots/{snapshotId}`
+
+Возвращает metadata конкретного dataset snapshot с ownership-проверкой через parent dataset.
+
 ## Ошибки
 
 Все ошибки возвращаются в JSON:

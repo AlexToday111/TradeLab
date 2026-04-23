@@ -4,6 +4,46 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.4.0-alpha.1] - 2026-04-23
+
+### Artifact Storage & Data Platform Foundation
+
+### Added
+
+* Run artifact metadata and JSON payload storage:
+
+  * summary export
+  * metrics export
+  * trades export
+  * equity curve export
+  * run report JSON
+* Artifact APIs:
+
+  * `GET /api/runs/{id}/artifacts`
+  * `GET /api/runs/{id}/artifacts/{artifactId}`
+  * `GET /api/runs/{id}/artifacts/{artifactId}/download`
+* Dataset snapshot/version tables and API:
+
+  * `dataset_snapshots`
+  * `dataset_quality_reports`
+  * `GET /api/datasets/{id}/versions`
+  * `GET /api/datasets/{id}/quality`
+  * `GET /api/dataset-snapshots/{snapshotId}`
+* Python import quality report with gaps, duplicates, ordering, timeframe consistency, empty dataset, and too-small dataset checks.
+* Frontend display for run artifacts and dataset quality/snapshot metadata.
+
+### Changed
+
+* Run snapshots now include `dataset_snapshot_id` when a matching dataset snapshot exists.
+* Dataset import/upsert now creates snapshot and quality report records from existing dataset metadata.
+
+### Notes
+
+* Artifact storage uses DB-backed JSON payloads for MVP; the schema keeps `storage_path` for future file/object storage.
+* No S3/MinIO/Kafka or feature store layer was introduced.
+
+---
+
 ## [0.1.0-alpha.1] - 2026-04-13
 
 ### Platform Skeleton
