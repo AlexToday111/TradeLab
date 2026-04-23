@@ -1,4 +1,4 @@
-import type { Run, RunMetrics, RunParams, RunStatus, Strategy } from "@/lib/types";
+import type { Run, RunArtifact, RunMetrics, RunParams, RunStatus, Strategy } from "@/lib/types";
 import { apiFetch } from "@/lib/api/client";
 
 type BackendRunResponse = {
@@ -17,6 +17,14 @@ type BackendRunResponse = {
   errorMessage?: string | null;
   createdAt: string;
   finishedAt?: string | null;
+};
+
+type BackendRunArtifactResponse = {
+  id: number;
+  artifactType: string;
+  artifactName: string;
+  contentType: string;
+  sizeBytes?: number | null;
 };
 
 export type CreateRunPayload = {
@@ -138,6 +146,43 @@ function toRunParams(interval: string, from: string, to: string): RunParams {
     symbols: [],
     timeframe: interval,
     period: `${from} -> ${to}`,
+  };
+}
+
+function formatArtifactSize(sizeBytes: number | null | undefined) {
+  if (!sizeBytes || sizeBytes <= 0) {
+    return "0 B";
+  }
+
+  const units = ["B", "KB", "MB", "GB"];
+  let value = sizeBytes;
+  let index = 0;
+
+  while (value >= 1024 && index < units.length - 1) {
+    value /= 1024;
+    index += 1;
+  }
+
+  return `${value.toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
+}
+
+function toArtifactType(artifactType: string): RunArtifact["type"] {
+  if (artifactType.includes("CSV") || artifactType.includes("EXPORT")) {
+    return "export";
+  }
+  if (artifactType.includes("REPORT") || artifactType.includes("SUMMARY")) {
+    return "report";
+  }
+  return "log";
+}
+
+function toFrontendArtifact(artifact: BackendRunArtifactResponse, runId: number): RunArtifact {
+  return {
+    id: String(artifact.id),
+    label: artifact.artifactName || artifact.artifactType,
+    type: toArtifactType(artifact.artifactType),
+    size: formatArtifactSize(artifact.sizeBytes),
+    downloadUrl: `/api/runs/${runId}/artifacts/${artifact.id}/download`,
   };
 }
 
@@ -289,6 +334,34 @@ export async function fetchRunById(id: number | string, strategiesById?: Map<num
   }
 
   return toFrontendRun(backendRun, strategiesById);
+}
+
+export async function fetchRunArtifacts(runId: number): Promise<RunArtifact[]> {
+  const response = await apiFetch(`/api/runs/${runId}/artifacts`, {
+    method: "GET",
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+
+  const payload = (await response.json()) as unknown;
+  if (!Array.isArray(payload)) {
+    return [];
+  }
+
+  return payload
+    .filter(
+      (item): item is BackendRunArtifactResponse =>
+        item !== null &&
+        typeof item === "object" &&
+        typeof (item as BackendRunArtifactResponse).id === "number" &&
+        typeof (item as BackendRunArtifactResponse).artifactType === "string" &&
+        typeof (item as BackendRunArtifactResponse).artifactName === "string" &&
+        typeof (item as BackendRunArtifactResponse).contentType === "string"
+    )
+    .map((artifact) => toFrontendArtifact(artifact, runId));
 }
 
 export async function createRun(payload: CreateRunPayload, strategiesById?: Map<number, Strategy>) {

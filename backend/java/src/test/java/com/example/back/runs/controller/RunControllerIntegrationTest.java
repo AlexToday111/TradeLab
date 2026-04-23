@@ -7,6 +7,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.example.back.artifacts.entity.RunArtifactEntity;
+import com.example.back.artifacts.repository.RunArtifactRepository;
 import com.example.back.backtest.dto.BacktestResult;
 import com.example.back.backtest.dto.BacktestTrade;
 import com.example.back.backtest.dto.EquityPoint;
@@ -55,6 +57,9 @@ class RunControllerIntegrationTest {
     private RunRepository runRepository;
 
     @Autowired
+    private RunArtifactRepository runArtifactRepository;
+
+    @Autowired
     private StrategyFileRepository strategyFileRepository;
 
     @Autowired
@@ -74,6 +79,7 @@ class RunControllerIntegrationTest {
     @BeforeEach
     void setUp() {
         runRepository.deleteAll();
+        runArtifactRepository.deleteAll();
         strategyFileRepository.deleteAll();
         datasetRepository.deleteAll();
 
@@ -180,6 +186,36 @@ class RunControllerIntegrationTest {
                 .andExpect(jsonPath("$.status").value("SUCCEEDED"))
                 .andExpect(jsonPath("$.executionDurationMs").value(5000))
                 .andExpect(jsonPath("$.metrics.profit").value(9.5));
+    }
+
+    @Test
+    void getRunArtifactsReturnsOwnedArtifactMetadataAndPayload() throws Exception {
+        RunEntity run = saveRun(
+                BacktestStatus.SUCCEEDED,
+                Instant.parse("2024-01-01T00:00:00Z"),
+                "{\"fastPeriod\":10}",
+                "{\"profit\":9.5}",
+                null
+        );
+        RunArtifactEntity artifact = new RunArtifactEntity();
+        artifact.setRunId(run.getId());
+        artifact.setArtifactType("METRICS_JSON");
+        artifact.setArtifactName("metrics.json");
+        artifact.setContentType("application/json");
+        artifact.setPayloadJson("{\"profit\":9.5}");
+        artifact.setSizeBytes(14L);
+        RunArtifactEntity savedArtifact = runArtifactRepository.saveAndFlush(artifact);
+
+        mockMvc.perform(get("/api/runs/" + run.getId() + "/artifacts").with(TestAuth.authenticatedRequest()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(savedArtifact.getId()))
+                .andExpect(jsonPath("$[0].artifactType").value("METRICS_JSON"))
+                .andExpect(jsonPath("$[0].artifactName").value("metrics.json"));
+
+        mockMvc.perform(get("/api/runs/" + run.getId() + "/artifacts/" + savedArtifact.getId())
+                        .with(TestAuth.authenticatedRequest()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.payload.profit").value(9.5));
     }
 
     @Test

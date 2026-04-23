@@ -26,6 +26,9 @@ public class RunSnapshotEntity {
     @Column(name = "dataset_version", nullable = false, length = 128)
     private String datasetVersion;
 
+    @Column(name = "dataset_snapshot_id")
+    private Long datasetSnapshotId;
+
     @Column(name = "params_snapshot_json", nullable = false, columnDefinition = "TEXT")
     private String paramsSnapshotJson;
 

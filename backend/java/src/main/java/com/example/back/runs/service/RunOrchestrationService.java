@@ -1,6 +1,7 @@
 package com.example.back.runs.service;
 
 import com.example.back.auth.security.AuthContext;
+import com.example.back.artifacts.service.RunArtifactService;
 import com.example.back.backtest.dto.BacktestTrade;
 import com.example.back.backtest.dto.CreateBacktestRunRequest;
 import com.example.back.backtest.dto.EquityPoint;
@@ -13,7 +14,9 @@ import com.example.back.backtest.repository.BacktestEquityPointRepository;
 import com.example.back.backtest.repository.BacktestTradeRepository;
 import com.example.back.common.logging.LogContext;
 import com.example.back.datasets.entity.DatasetEntity;
+import com.example.back.datasets.entity.DatasetSnapshotEntity;
 import com.example.back.datasets.repository.DatasetRepository;
+import com.example.back.datasets.repository.DatasetSnapshotRepository;
 import com.example.back.imports.client.PythonParserClient;
 import com.example.back.runs.dto.PythonRunExecuteRequest;
 import com.example.back.runs.dto.PythonRunExecuteResponse;
@@ -50,10 +53,12 @@ public class RunOrchestrationService {
     private final RunSnapshotRepository runSnapshotRepository;
     private final StrategyFileRepository strategyFileRepository;
     private final DatasetRepository datasetRepository;
+    private final DatasetSnapshotRepository datasetSnapshotRepository;
     private final BacktestTradeRepository backtestTradeRepository;
     private final BacktestEquityPointRepository backtestEquityPointRepository;
     private final PythonParserClient pythonParserClient;
     private final RunFailureStateService runFailureStateService;
+    private final RunArtifactService runArtifactService;
     private final ObjectMapper objectMapper;
 
     @Transactional
@@ -164,14 +169,27 @@ public class RunOrchestrationService {
         Optional<DatasetEntity> dataset = findDataset(request, userId);
 
         RunSnapshotEntity snapshot = new RunSnapshotEntity();
+        DatasetEntity datasetEntity = dataset.orElse(null);
         snapshot.setRunId(run.getId());
         snapshot.setStrategyVersion(resolveStrategyVersion(strategy));
-        snapshot.setDatasetVersion(resolveDatasetVersion(dataset.orElse(null)));
+        snapshot.setDatasetVersion(resolveDatasetVersion(datasetEntity));
+        snapshot.setDatasetSnapshotId(resolveDatasetSnapshotId(datasetEntity));
         snapshot.setParamsSnapshotJson(writeJson(request.getParams()));
         snapshot.setExecutionConfigSnapshotJson(writeJson(buildExecutionConfigSnapshot(request)));
         snapshot.setMarketAssumptionsSnapshotJson(writeJson(buildMarketAssumptionsSnapshot(request)));
         snapshot.setEngineVersion(DEFAULT_ENGINE_VERSION);
         return snapshot;
+    }
+
+    private Long resolveDatasetSnapshotId(DatasetEntity dataset) {
+        if (dataset == null) {
+            return null;
+        }
+        return datasetSnapshotRepository
+                .findByDatasetIdAndDatasetVersion(dataset.getId(), resolveDatasetVersion(dataset))
+                .or(() -> datasetSnapshotRepository.findFirstByDatasetIdOrderByCreatedAtDesc(dataset.getId()))
+                .map(DatasetSnapshotEntity::getId)
+                .orElse(null);
     }
 
     private Optional<DatasetEntity> findDataset(CreateBacktestRunRequest request, Long userId) {
@@ -301,6 +319,7 @@ public class RunOrchestrationService {
         run.setArtifactsJson(null);
         run.setErrorMessage(null);
         run.setErrorDetailsJson(null);
+        runArtifactService.deleteArtifacts(runId);
         backtestTradeRepository.deleteByRunId(runId);
         backtestEquityPointRepository.deleteByRunId(runId);
         runRepository.save(run);
@@ -333,8 +352,37 @@ public class RunOrchestrationService {
         backtestEquityPointRepository.saveAll(defaultList(response.getEquityCurve()).stream()
                 .map(point -> toEquityPointEntity(runId, point))
                 .toList());
+        runArtifactService.replaceArtifacts(
+                runId,
+                defaultMap(response.getSummary()),
+                defaultMap(response.getMetrics()),
+                defaultList(response.getTrades()),
+                defaultList(response.getEquityCurve()),
+                buildRunReport(run, response)
+        );
 
         log.info("Run execution completed successfully in {} ms", run.getExecutionDurationMs());
+    }
+
+    private Map<String, Object> buildRunReport(RunEntity run, PythonRunExecuteResponse response) {
+        Map<String, Object> report = new LinkedHashMap<>();
+        report.put("runId", run.getId());
+        report.put("correlationId", run.getCorrelationId());
+        report.put("status", run.getStatus());
+        report.put("strategyId", run.getStrategyId());
+        report.put("strategyName", run.getStrategyName());
+        report.put("datasetId", run.getDatasetId());
+        report.put("exchange", run.getExchange());
+        report.put("symbol", run.getSymbol());
+        report.put("interval", run.getInterval());
+        report.put("from", run.getDateFrom());
+        report.put("to", run.getDateTo());
+        report.put("engineVersion", resolveEngineVersion(response.getEngineVersion()));
+        report.put("executionDurationMs", run.getExecutionDurationMs());
+        report.put("summary", defaultMap(response.getSummary()));
+        report.put("metrics", defaultMap(response.getMetrics()));
+        report.put("artifacts", defaultMap(response.getArtifacts()));
+        return report;
     }
 
     private void markFailed(Long runId, String message, String errorDetailsJson) {

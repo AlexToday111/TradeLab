@@ -2,51 +2,52 @@
 
 ## 1. Introduction
 
-Trade360Lab is a monorepo for a trading platform focused on research, market data preparation, strategy execution, and result analysis.
+Trade360Lab is a monorepo for a trading research and execution platform. It combines a Next.js frontend, a Java control plane, a Python execution plane, and PostgreSQL as the main persistence layer.
 
-This `CONTRIBUTING.md` explains how to work with the repository, how to make safe changes, and how to prepare clean pull requests.
+This document explains how to contribute safely and efficiently. It is written for both internal developers and external contributors who want to understand the repository, make focused changes, and submit clean pull requests.
 
-It is intended for both internal developers and external contributors who want to improve the platform without breaking existing flows.
+We welcome contributors who can improve working flows, keep the architecture coherent, and prefer practical, testable changes over speculative rewrites.
 
 ## 2. Project Structure
 
-Trade360Lab is organized as a monorepo with separate runtime responsibilities.
+The repository is organized as a monorepo with clear runtime boundaries.
 
 - `frontend/`
   - Next.js application.
-  - Contains UI, feature modules, API integration, and user-facing workflows.
+  - Contains the user interface, client-side features, API integration, and workspace screens.
 - `backend/java/`
   - Spring Boot service.
-  - Acts as the control plane: public API, orchestration, run management, persistence of metadata and results.
+  - Acts as the control plane: public API, orchestration, run management, strategy metadata, and result persistence.
 - `backend/python/`
-  - FastAPI service plus execution modules.
-  - Acts as the execution and data plane: market data import, strategy validation, strategy execution, and backtesting logic.
+  - FastAPI service plus local execution modules.
+  - Acts as the execution and data plane: candle import, strategy validation, strategy execution, and backtesting logic.
 - `backend/java/src/main/resources/schema.sql`
   - Java-side database schema initialization.
 - `backend/python/parser/schema.sql`
   - Python-side schema initialization for parser-owned tables.
 - `docker-compose.yml`
-  - Starts the full local stack: PostgreSQL, Python service, Java API, and frontend.
+  - Main entry point for running the full stack locally.
 - `docs/`
-  - Project and release documentation.
+  - Project documentation, release notes, and supporting documents.
 - `CHANGELOG.md`
-  - Release history and notable user-visible or architecture-relevant changes.
+  - Release history and notable changes.
 
-At the moment, the repository does not use a dedicated migration framework such as Flyway or Alembic. Schema changes are handled through the existing SQL schema files.
+At the moment, the project does not use a dedicated migration framework such as Flyway or Alembic. Schema changes must be made carefully in the existing SQL initialization files.
 
 ## 3. Getting Started
 
 ### Prerequisites
 
-Install the following tools before working on the project:
+Install the following tools before contributing:
 
 - Node.js 20+ and npm
 - Java 17+
 - Maven 3.9+
 - Python 3.11+
 - Docker and Docker Compose
+- PostgreSQL client tools are optional but useful for debugging
 
-### Install Dependencies
+### Install dependencies
 
 Frontend:
 
@@ -71,22 +72,22 @@ cd backend/java
 mvn test -q
 ```
 
-### Run the Full Stack
+### Run the full project with Docker
 
-Preferred local setup:
+This is the preferred way to start the full stack:
 
 ```bash
 docker compose up --build
 ```
 
-Default endpoints:
+Default service endpoints:
 
 - Frontend: `http://localhost:3000`
 - Java API: `http://localhost:18080`
 - Python service: `http://localhost:18000`
 - PostgreSQL: `localhost:55432`
 
-### Run Services Individually
+### Run services locally
 
 Frontend:
 
@@ -110,36 +111,36 @@ cd backend/java
 mvn spring-boot:run
 ```
 
-Running services individually is useful when you are working on one part of the system and want faster iteration than rebuilding Docker images.
+Use local service execution when you are working on one area and want faster iteration than Docker rebuilds.
 
 ## 4. Development Workflow
 
-Use short-lived branches for focused changes.
+Use short-lived branches for each task.
 
 Recommended branch prefixes:
 
-- `feature/`
-- `fix/`
-- `chore/`
-- `docs/`
-- `refactor/`
-- `test/`
+- `feature/...`
+- `fix/...`
+- `chore/...`
+- `docs/...`
+- `refactor/...`
+- `test/...`
 
 Examples:
 
-- `feature/run-snapshot-layer`
+- `feature/run-snapshots`
 - `fix/python-execution-timeout`
-- `chore/update-local-docs`
+- `chore/update-dev-docs`
 
-Recommended workflow:
+Workflow:
 
-1. Create a branch from the current main integration branch.
-2. Read the existing implementation before adding new code.
-3. Extend existing flows where possible instead of creating parallel ones.
-4. Keep the change scoped to one problem.
-5. Run tests before opening a PR.
+1. Create a focused branch from the main integration branch.
+2. Understand the existing implementation before adding code.
+3. Prefer extending current entities, services, and flows instead of introducing parallel ones.
+4. Keep changes scoped to one problem.
+5. Run tests locally before opening a PR.
 
-If your change touches several layers, keep it vertical and coherent. For example, a new run field should usually include schema, entity, DTO, service, and tests in the same task.
+If you touch multiple layers, keep the flow vertical and intentional. For example, if you add a new run field, update the schema, entity, DTO, service, and tests in one coherent change.
 
 ## 5. Commit Convention
 
@@ -178,34 +179,43 @@ Common scopes:
 
 Guidelines:
 
-- Use the smallest correct scope.
-- Write messages that describe the actual change.
-- Avoid vague commit messages such as `update code` or `fix bug`.
+- Use the smallest accurate scope.
+- Keep commit messages concrete.
+- Avoid vague messages such as `fix stuff` or `update code`.
 - Split unrelated changes into separate commits.
 
 ## 6. Pull Request Guidelines
 
-PRs must be atomic and reviewable.
+Every PR should be atomic.
 
-Rules:
+Do:
 
-- One PR should solve one problem or one closely related vertical flow.
-- Do not mix unrelated backend, frontend, and schema work unless they belong to the same feature.
-- Describe the change clearly.
+- Keep one PR focused on one task or one closely related vertical flow.
+- Explain what changed.
+- Explain why the change is needed.
+- Explain how to verify it.
+- Link the related issue if one exists.
 
-Every PR should include:
+Do not:
 
-- What was changed
-- Why it was changed
-- How to verify it
-- Linked issue, if one exists
+- Mix schema changes, UI redesign, and unrelated refactors in one PR.
+- Hide risky architecture changes inside a bug fix PR.
+
+Recommended PR description:
+
+- `What was changed`
+- `Why it was changed`
+- `How to test`
+- `Screenshots` if frontend behavior changed
+- `Breaking changes` if any
 
 Checklist before merge:
 
 - Tests pass
 - Lint or static checks pass where applicable
 - New logic has tests
-- `CHANGELOG.md` is updated when the change affects release notes, behavior, or architecture
+- API changes are reflected in the relevant layer
+- `CHANGELOG.md` is updated when the change affects releases or user-visible behavior
 
 ## 7. Coding Standards
 
@@ -214,28 +224,28 @@ Checklist before merge:
 - Follow the existing Spring Boot structure: controller, service, repository, entity, dto.
 - Use DTOs at API boundaries.
 - Keep controllers thin.
-- Put business logic and orchestration in services.
-- Do not mix persistence logic into controllers.
-- Do not collapse layers for convenience.
+- Keep orchestration and business logic in services.
+- Do not mix persistence concerns into controllers.
+- Do not bypass existing abstractions unless there is a strong reason.
 
 ### Python
 
-- Follow FastAPI-style structure already present in `backend/python`.
-- Type hints are required for new code.
-- Keep endpoint logic thin.
-- Put business logic in services.
-- Separate API, DTO, repository, and execution logic clearly.
+- Follow FastAPI and service-oriented structure already used in `backend/python`.
+- Type hints are expected for new code.
+- Keep API layer, DTOs, repositories, and services separated.
+- Put execution logic in services, not in endpoint functions.
+- Prefer explicit result contracts over ad hoc dictionaries.
 
 ### Frontend
 
-- Use TypeScript for new code.
-- Linting and type checking must stay clean.
-- Follow the existing Next.js application structure.
-- Keep UI changes aligned with backend API contracts.
+- Use TypeScript for all new code.
+- Keep ESLint and type checking clean.
+- Follow existing Next.js structure and feature boundaries.
+- Avoid UI-only fixes that silently break API expectations.
 
 ## 8. Testing
 
-Run the relevant test suite before opening a PR.
+Run relevant tests before opening a PR.
 
 Java:
 
@@ -259,7 +269,7 @@ cd frontend
 npm test
 ```
 
-Useful frontend validation:
+Useful frontend checks:
 
 ```bash
 cd frontend
@@ -271,76 +281,78 @@ Minimum expectation:
 
 - Every new behavior should have at least one test.
 - Bug fixes should include a regression test when practical.
-- If a change affects a full flow, prefer integration-style coverage over mocks only.
+- If a change affects an end-to-end flow, prefer integration-style coverage over isolated mocks only.
 
 ## 9. Database Changes
 
-Database changes must be conservative and backward-compatible.
+Database changes must be conservative.
 
-Current state:
+Current project state:
 
-- There is no dedicated migration framework yet.
-- Schema is initialized through:
+- There is no dedicated migration tool yet.
+- Schema is initialized from SQL files:
   - `backend/java/src/main/resources/schema.sql`
   - `backend/python/parser/schema.sql`
 
-Rules:
+Rules for schema changes:
 
 - Add new tables and columns in a backward-compatible way.
-- Prefer additive changes over destructive changes.
-- Do not rename or remove fields casually.
-- Update schema, application code, and tests together.
-- Do not break Docker startup or test schema initialization.
+- Prefer additive changes over destructive ones.
+- Do not rename or remove columns casually.
+- Update the owning service model, repository, DTOs, and tests together.
+- Avoid changes that break existing Docker startup or test initialization.
 
-If both Java and Python depend on the same table, validate both paths before finalizing the change.
+If both Java and Python rely on a table, check both code paths before changing the schema.
 
 ## 10. Release Process
 
-The project uses alpha-stage versioning such as:
+The project uses alpha-stage semantic versioning such as:
 
 - `v0.2.0-alpha.1`
 - `v0.3.0-alpha.1`
 
-Rules:
+Release notes should be reflected in `CHANGELOG.md`.
 
-- `CHANGELOG.md` is required for meaningful release changes.
-- Release tags may be created manually or through CI, depending on the current workflow.
-- Releases may also have semantic milestone names, for example:
-  - `Reproducible Execution Engine`
-  - `Observability Foundation`
-  - `Multi-User & Security Base`
+Release tags may be created manually or through CI, depending on the release workflow used at the time.
 
-If your change affects architecture, public API, reproducibility, or release behavior, it should be reflected in the changelog.
+Releases may also carry semantic milestone names, for example:
+
+- `Reproducible Execution Engine`
+- `Observability Foundation`
+- `Multi-User & Security Base`
+
+If your change materially affects release behavior, architecture, public API, or reproducibility, it should be visible in the changelog.
 
 ## 11. Architecture Principles
 
 Keep these principles in mind when contributing:
 
-- Java = control plane
-- Python = execution plane
-- Minimize coupling between services
-- Do not introduce microservices prematurely
-- Build a working flow first, optimize second
+- Java is the control plane.
+- Python is the execution plane.
+- Keep coupling between services as low as possible.
+- Do not introduce microservices prematurely.
+- Prefer one working end-to-end flow over incomplete abstraction layers.
+- Optimize after the flow works, not before.
 
-In practice:
+In practice, this means:
 
-- Public API and orchestration belong in Java
-- Execution-heavy logic belongs in Python
-- Shared behavior should be expressed through contracts, not duplicated logic
+- API and orchestration belong in Java.
+- Execution-heavy logic belongs in Python.
+- Shared behavior should be expressed through clear contracts, not duplicated logic.
 
 ## 12. What NOT to Do
 
 - Do not duplicate entities that already exist.
-- Do not create parallel run, result, strategy, or dataset models without a strong reason.
-- Do not break an existing API without explicit justification.
-- Do not introduce Kafka, Celery, distributed workers, or similar heavy infrastructure without real need.
-- Do not over-engineer for speculative scale.
-- Do not write “ideal architecture” that does not produce a working scenario.
+- Do not create parallel run, result, or dataset models unless the current model is truly insufficient.
+- Do not break existing APIs without a clear reason and explicit coordination.
+- Do not add Kafka, Celery, distributed workers, or other heavy infrastructure without a real need.
+- Do not over-engineer for hypothetical future scale.
+- Do not write “perfect architecture” that does not deliver a working flow.
 - Do not rewrite large modules when a minimal extension is enough.
 
 ## 13. Communication
 
-Ask questions early when ownership, behavior, or expected architecture is unclear.
+Ask questions early if the ownership or intent of a change is unclear.
 
 When discussing changes:
 
@@ -352,11 +364,11 @@ When discussing changes:
 
 Good discussion topics:
 
+- Why a new field is needed
 - Why a contract should change
-- Why a schema change is needed
-- How to preserve backward compatibility
-- How to test an end-to-end flow safely
+- How to keep backward compatibility
+- How to test a vertical flow safely
 
-If you disagree with an approach, suggest a better one and explain why it is better.
+If you challenge an approach, propose a better one with clear reasoning.
 
 Thanks for contributing to Trade360Lab.
