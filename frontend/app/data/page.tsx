@@ -80,6 +80,33 @@ type BacktestCompatibility = {
   notes: string[];
 };
 
+type DatasetQualityIssue = {
+  code?: string;
+  severity?: string;
+  message?: string;
+};
+
+type DatasetQualityReport = {
+  id?: number;
+  datasetSnapshotId?: number | null;
+  qualityStatus: "OK" | "WARNING" | "FAILED" | string;
+  issues: DatasetQualityIssue[];
+  checkedAt?: string;
+};
+
+type DatasetSnapshot = {
+  id: number;
+  datasetVersion: string;
+  sourceExchange?: string | null;
+  symbol?: string | null;
+  interval?: string | null;
+  startTime?: string | null;
+  endTime?: string | null;
+  rowCount?: number | null;
+  checksum?: string | null;
+  createdAt?: string | null;
+};
+
 type UiDataset = DatasetVersion & {
   source: DatasetSource;
   marketType: MarketType;
@@ -88,6 +115,10 @@ type UiDataset = DatasetVersion & {
   profile: DatasetProfile;
   compatibility: BacktestCompatibility;
   tags: string[];
+  version?: string;
+  qualityStatus?: string;
+  qualityReport?: DatasetQualityReport | null;
+  latestSnapshot?: DatasetSnapshot | null;
   rowsHint?: string;
   mergedCsvUrl?: string;
   mergedCsvName?: string;
@@ -140,6 +171,12 @@ type PersistedDatasetPayload = Omit<
   UiDataset,
   "candleRows" | "mergedCsvUrl"
 >;
+
+type DatasetDetailsApiResponse = {
+  dataset: PersistedDatasetPayload;
+  latestSnapshot?: DatasetSnapshot | null;
+  latestQualityReport?: DatasetQualityReport | null;
+};
 
 type MergedCsv = {
   url: string;
@@ -260,6 +297,21 @@ const loadStatusMeta: Record<
   error: {
     label: "Ошибка",
     className: "border border-status-failed/40 bg-status-failed/15 text-status-failed",
+  },
+};
+
+const qualityStatusMeta: Record<string, { label: string; className: string }> = {
+  OK: {
+    label: "Quality OK",
+    className: "border border-status-success/40 bg-status-success/15 text-status-success",
+  },
+  WARNING: {
+    label: "Quality warning",
+    className: "border border-status-warning/40 bg-status-warning/15 text-status-warning",
+  },
+  FAILED: {
+    label: "Quality failed",
+    className: "border border-status-error/40 bg-status-error/15 text-status-error",
   },
 };
 
@@ -446,6 +498,33 @@ function hydrateDataset(dataset: PersistedDatasetPayload): UiDataset {
     marketType: normalizedMarketType,
     archived: dataset.archived ?? false,
     loadStatus: dataset.loadStatus ?? "ready",
+    qualityStatus: dataset.qualityStatus ?? dataset.qualityReport?.qualityStatus ?? "OK",
+    qualityReport: dataset.qualityReport ?? null,
+    latestSnapshot: dataset.latestSnapshot ?? null,
+  };
+}
+
+function mergeDatasetDetails(current: UiDataset, details: DatasetDetailsApiResponse): UiDataset {
+  const latestQualityReport = details.latestQualityReport ?? current.qualityReport ?? null;
+  const hydrated = hydrateDataset({
+    ...details.dataset,
+    qualityStatus:
+      latestQualityReport?.qualityStatus ??
+      details.dataset.qualityStatus ??
+      current.qualityStatus ??
+      "OK",
+    qualityReport: latestQualityReport,
+    latestSnapshot: details.latestSnapshot ?? current.latestSnapshot ?? null,
+    version:
+      details.latestSnapshot?.datasetVersion ??
+      details.dataset.version ??
+      current.version,
+  });
+  return {
+    ...current,
+    ...hydrated,
+    candleRows: current.candleRows,
+    mergedCsvUrl: current.mergedCsvUrl,
   };
 }
 
@@ -533,6 +612,10 @@ function getDatasetCoverageLabel(dataset: UiDataset) {
   }
 
   return formatCoverage(days);
+}
+
+function getQualityMeta(status: string | undefined) {
+  return qualityStatusMeta[(status ?? "OK").toUpperCase()] ?? qualityStatusMeta.WARNING;
 }
 
 function buildDatasetTags(
@@ -873,6 +956,38 @@ export default function DataPage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!selectedDatasetId) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadDatasetDetails() {
+      try {
+        const response = await apiFetch(`/api/datasets/${selectedDatasetId}`, {
+          cache: "no-store",
+        });
+        const details = await readJsonOrThrow<DatasetDetailsApiResponse>(response);
+        if (!cancelled) {
+          setDatasets((prev) =>
+            prev.map((dataset) =>
+              dataset.id === selectedDatasetId ? mergeDatasetDetails(dataset, details) : dataset
+            )
+          );
+        }
+      } catch {
+        // Dataset detail metadata is additive; keep the list view usable if it is unavailable.
+      }
+    }
+
+    void loadDatasetDetails();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedDatasetId]);
 
   useEffect(() => {
     if (!selectedDataset?.backendRequest || selectedDataset.candleRows?.length) {
@@ -1789,6 +1904,9 @@ export default function DataPage() {
                         {loadStatusMeta[dataset.loadStatus].label}
                       </Badge>
                       {dataset.archived ? <Badge variant="secondary">Архив</Badge> : null}
+                      <Badge className={getQualityMeta(dataset.qualityStatus).className}>
+                        {getQualityMeta(dataset.qualityStatus).label}
+                      </Badge>
                       <Badge variant="secondary">{sourceLabels[dataset.source]}</Badge>
                       <Badge variant="secondary">{marketTypeLabels[dataset.marketType]}</Badge>
                     </div>
@@ -2266,6 +2384,18 @@ export default function DataPage() {
                     <TableCell className="text-xs text-muted-foreground">{selectedDataset.period}</TableCell>
                   </TableRow>
                   <TableRow>
+                    <TableCell className="text-xs text-muted-foreground">Версия dataset</TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground">
+                      {selectedDataset.latestSnapshot?.datasetVersion ?? selectedDataset.version ?? selectedDataset.pipelineHash}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="text-xs text-muted-foreground">Snapshot ID</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {selectedDataset.latestSnapshot?.id ?? "N/A"}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
                     <TableCell className="text-xs text-muted-foreground">Покрытие времени</TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {getDatasetCoverageLabel(selectedDataset)}
@@ -2304,6 +2434,31 @@ export default function DataPage() {
                   ) : null}
                 </TableBody>
               </Table>
+
+              <div className="rounded-[18px] border border-border bg-panel-subtle p-4">
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <div className="text-sm font-semibold text-foreground">Качество dataset</div>
+                  <Badge className={getQualityMeta(selectedDataset.qualityStatus).className}>
+                    {getQualityMeta(selectedDataset.qualityStatus).label}
+                  </Badge>
+                  {selectedDataset.qualityReport?.checkedAt ? (
+                    <Badge variant="secondary">
+                      {formatTimestampLabel(selectedDataset.qualityReport.checkedAt)}
+                    </Badge>
+                  ) : null}
+                </div>
+                <div className="space-y-1 text-xs text-muted-foreground">
+                  {selectedDataset.qualityReport?.issues.length ? (
+                    selectedDataset.qualityReport.issues.slice(0, 5).map((issue, index) => (
+                      <div key={`${issue.code ?? "issue"}-${index}`}>
+                        {issue.severity ?? "INFO"} / {issue.code ?? "issue"}: {issue.message ?? "N/A"}
+                      </div>
+                    ))
+                  ) : (
+                    <div>Проблем качества не обнаружено.</div>
+                  )}
+                </div>
+              </div>
 
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <div className="rounded-[16px] border border-border bg-panel-subtle p-3">

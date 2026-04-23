@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { AlertCircle, Expand, Minimize2, Play, RotateCcw } from "lucide-react";
+import { AlertCircle, Download, Expand, Minimize2, Play, RotateCcw } from "lucide-react";
 import { ChartCard } from "@/components/shared/chart-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { LoadingState } from "@/components/shared/loading-state";
@@ -26,16 +26,18 @@ import { Badge } from "@/components/ui/badge";
 import { previewRows } from "@/lib/demo-data/datasets";
 import { logLines } from "@/lib/demo-data/logs";
 import { trades } from "@/lib/demo-data/trades";
+import { fetchRunArtifacts } from "@/lib/api/runs";
 import { fetchStrategyById } from "@/lib/api/strategies";
 
 export default function RunDetailsPage() {
   const params = useParams();
-  const { getRunById, isLoading, createRemoteRun } = useRuns();
+  const { getRunById, isLoading, createRemoteRun, updateRun } = useRuns();
   const [isAnalyzerFullscreen, setIsAnalyzerFullscreen] = useState(false);
   const runId = Array.isArray(params?.id) ? params?.id[0] : params?.id;
   const run = runId ? getRunById(runId) : undefined;
   const [runActionState, setRunActionState] = useState<"idle" | "running" | "error">("idle");
   const [runActionError, setRunActionError] = useState<string | null>(null);
+  const [artifactState, setArtifactState] = useState<"idle" | "loading" | "error">("idle");
   const tradeSummary = useMemo(() => {
     const wins = trades.filter((trade) => trade.pnl > 0).length;
     const losses = trades.filter((trade) => trade.pnl <= 0).length;
@@ -53,6 +55,31 @@ export default function RunDetailsPage() {
       avgDuration,
     };
   }, []);
+
+  useEffect(() => {
+    if (!run?.backendRunId || run.status !== "done") {
+      return;
+    }
+
+    let cancelled = false;
+    setArtifactState("loading");
+    fetchRunArtifacts(run.backendRunId)
+      .then((artifacts) => {
+        if (!cancelled) {
+          updateRun(run.id, { artifacts });
+          setArtifactState("idle");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setArtifactState("error");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [run?.backendRunId, run?.id, run?.status]);
 
   if (isLoading) {
     return <LoadingState label="Загрузка запуска..." />;
@@ -339,11 +366,11 @@ export default function RunDetailsPage() {
             <TabsContent value="artifacts" className="flex-1 p-3">
               <div className="space-y-2 text-xs text-muted-foreground">
                 {run.artifacts.length === 0 ? (
-                  run.status === "running" || run.status === "queued" ? (
+                  run.status === "running" || run.status === "queued" || artifactState === "loading" ? (
                     <LoadingState label="Артефакты формируются..." />
                   ) : (
                     <div className="rounded-md border border-border bg-panel-subtle p-2">
-                      Артефактов пока нет.
+                      {artifactState === "error" ? "Не удалось загрузить артефакты." : "Артефактов пока нет."}
                     </div>
                   )
                 ) : (
@@ -353,7 +380,19 @@ export default function RunDetailsPage() {
                       className="flex items-center justify-between rounded-md border border-border bg-panel-subtle p-2"
                     >
                       <div>{artifact.label}</div>
-                      <Badge variant="secondary">{artifact.size}</Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary">{artifact.size}</Badge>
+                        {artifact.downloadUrl ? (
+                          <a
+                            href={artifact.downloadUrl}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-panel text-foreground transition hover:border-white hover:bg-white hover:text-black"
+                            aria-label={`Скачать ${artifact.label}`}
+                            title={`Скачать ${artifact.label}`}
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                          </a>
+                        ) : null}
+                      </div>
                     </div>
                   ))
                 )}
