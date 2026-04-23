@@ -1,5 +1,8 @@
 package com.example.back.datasets.controller;
 
+import com.example.back.datasets.dto.DatasetDetailsResponse;
+import com.example.back.datasets.dto.DatasetQualityReportResponse;
+import com.example.back.datasets.dto.DatasetSnapshotResponse;
 import com.example.back.datasets.dto.RenameDatasetRequest;
 import com.example.back.datasets.service.DatasetService;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -56,6 +59,30 @@ public class DatasetController {
     @GetMapping
     public List<JsonNode> getDatasets() {
         return datasetService.getDatasets();
+    }
+
+    @GetMapping("/{id}")
+    public DatasetDetailsResponse getDataset(
+            @Parameter(description = "Идентификатор датасета", example = "dataset-001")
+            @PathVariable String id
+    ) {
+        return datasetService.getDatasetDetails(id);
+    }
+
+    @GetMapping("/{id}/versions")
+    public List<DatasetSnapshotResponse> getDatasetVersions(
+            @Parameter(description = "Идентификатор датасета", example = "dataset-001")
+            @PathVariable String id
+    ) {
+        return datasetService.getDatasetVersions(id);
+    }
+
+    @GetMapping("/{id}/quality")
+    public List<DatasetQualityReportResponse> getDatasetQuality(
+            @Parameter(description = "Идентификатор датасета", example = "dataset-001")
+            @PathVariable String id
+    ) {
+        return datasetService.getDatasetQuality(id);
     }
 
     @Operation(

@@ -3,11 +3,16 @@ package com.example.back.datasets.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 import com.example.back.datasets.dto.RenameDatasetRequest;
 import com.example.back.datasets.entity.DatasetEntity;
+import com.example.back.datasets.entity.DatasetQualityReportEntity;
+import com.example.back.datasets.entity.DatasetSnapshotEntity;
+import com.example.back.datasets.repository.DatasetQualityReportRepository;
 import com.example.back.datasets.repository.DatasetRepository;
+import com.example.back.datasets.repository.DatasetSnapshotRepository;
 import com.example.back.imports.dto.ImportCandlesResponse;
 import com.example.back.support.TestAuth;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -32,6 +37,12 @@ class DatasetServiceTest {
     @Mock
     private DatasetRepository datasetRepository;
 
+    @Mock
+    private DatasetSnapshotRepository datasetSnapshotRepository;
+
+    @Mock
+    private DatasetQualityReportRepository datasetQualityReportRepository;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private DatasetService datasetService;
@@ -39,7 +50,23 @@ class DatasetServiceTest {
     @BeforeEach
     void setUp() {
         TestAuth.setAuthenticatedUser();
-        datasetService = new DatasetService(datasetRepository, objectMapper);
+        datasetService = new DatasetService(
+                datasetRepository,
+                datasetSnapshotRepository,
+                datasetQualityReportRepository,
+                objectMapper
+        );
+        lenient().when(datasetSnapshotRepository.save(any(DatasetSnapshotEntity.class))).thenAnswer(invocation -> {
+            DatasetSnapshotEntity snapshot = invocation.getArgument(0);
+            if (snapshot.getId() == null) {
+                snapshot.setId(1L);
+            }
+            return snapshot;
+        });
+        lenient().when(datasetSnapshotRepository.findByDatasetIdAndDatasetVersion(any(String.class), any(String.class)))
+                .thenReturn(Optional.empty());
+        lenient().when(datasetQualityReportRepository.save(any(DatasetQualityReportEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
     }
 
     @AfterEach

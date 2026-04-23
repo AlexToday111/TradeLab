@@ -78,6 +78,7 @@ public class RunMapper {
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("strategyVersion", entity.getStrategyVersion());
         snapshot.put("datasetVersion", entity.getDatasetVersion());
+        snapshot.put("datasetSnapshotId", entity.getDatasetSnapshotId());
         snapshot.put("paramsSnapshot", readJsonMap(entity.getParamsSnapshotJson()));
         snapshot.put("executionConfigSnapshot", readJsonMap(entity.getExecutionConfigSnapshotJson()));
         snapshot.put("marketAssumptionsSnapshot", readJsonMap(entity.getMarketAssumptionsSnapshotJson()));

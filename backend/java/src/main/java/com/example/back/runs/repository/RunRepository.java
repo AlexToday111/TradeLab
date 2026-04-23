@@ -13,4 +13,6 @@ public interface RunRepository extends JpaRepository<RunEntity, Long> {
     List<RunEntity> findAllByUserIdOrderByCreatedAtDesc(Long userId);
 
     Optional<RunEntity> findByIdAndUserId(Long id, Long userId);
+
+    boolean existsByIdAndUserId(Long id, Long userId);
 }
