@@ -261,7 +261,10 @@ class CandleImportService:
                     self._quality_issue(
                         code="timeframe_inconsistency",
                         severity="WARNING",
-                        message="Observed candle spacing does not always match the requested timeframe.",
+                        message=(
+                            "Observed candle spacing does not always match "
+                            "the requested timeframe."
+                        ),
                         details={"expectedStepSeconds": int(expected_step.total_seconds())},
                     )
                 )

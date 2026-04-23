@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { AlertCircle, Download, Expand, Minimize2, Play, RotateCcw } from "lucide-react";
 import { ChartCard } from "@/components/shared/chart-card";
@@ -37,7 +37,8 @@ export default function RunDetailsPage() {
   const run = runId ? getRunById(runId) : undefined;
   const [runActionState, setRunActionState] = useState<"idle" | "running" | "error">("idle");
   const [runActionError, setRunActionError] = useState<string | null>(null);
-  const [artifactState, setArtifactState] = useState<"idle" | "loading" | "error">("idle");
+  const [artifactState, setArtifactState] = useState<"idle" | "error">("idle");
+  const updateRunRef = useRef(updateRun);
   const tradeSummary = useMemo(() => {
     const wins = trades.filter((trade) => trade.pnl > 0).length;
     const losses = trades.filter((trade) => trade.pnl <= 0).length;
@@ -57,16 +58,19 @@ export default function RunDetailsPage() {
   }, []);
 
   useEffect(() => {
+    updateRunRef.current = updateRun;
+  }, [updateRun]);
+
+  useEffect(() => {
     if (!run?.backendRunId || run.status !== "done") {
       return;
     }
 
     let cancelled = false;
-    setArtifactState("loading");
     fetchRunArtifacts(run.backendRunId)
       .then((artifacts) => {
         if (!cancelled) {
-          updateRun(run.id, { artifacts });
+          updateRunRef.current(run.id, { artifacts });
           setArtifactState("idle");
         }
       })
@@ -366,7 +370,7 @@ export default function RunDetailsPage() {
             <TabsContent value="artifacts" className="flex-1 p-3">
               <div className="space-y-2 text-xs text-muted-foreground">
                 {run.artifacts.length === 0 ? (
-                  run.status === "running" || run.status === "queued" || artifactState === "loading" ? (
+                  run.status === "running" || run.status === "queued" ? (
                     <LoadingState label="Артефакты формируются..." />
                   ) : (
                     <div className="rounded-md border border-border bg-panel-subtle p-2">
