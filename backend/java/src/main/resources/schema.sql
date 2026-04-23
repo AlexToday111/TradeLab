@@ -143,12 +143,80 @@ CREATE TABLE IF NOT EXISTS run_snapshots (
                                              run_id BIGINT PRIMARY KEY REFERENCES runs(id) ON DELETE CASCADE,
     strategy_version VARCHAR(128) NOT NULL,
     dataset_version VARCHAR(128) NOT NULL,
+    dataset_snapshot_id BIGINT,
+    dataset_snapshot_json TEXT,
     params_snapshot_json TEXT NOT NULL,
     execution_config_snapshot_json TEXT NOT NULL,
     market_assumptions_snapshot_json TEXT NOT NULL,
     engine_version VARCHAR(128),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+ALTER TABLE run_snapshots
+    ADD COLUMN IF NOT EXISTS dataset_snapshot_id BIGINT;
+
+ALTER TABLE run_snapshots
+    ADD COLUMN IF NOT EXISTS dataset_snapshot_json TEXT;
+
+
+CREATE TABLE IF NOT EXISTS run_artifacts (
+                                             id BIGSERIAL PRIMARY KEY,
+                                             run_id BIGINT NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
+                                             artifact_type VARCHAR(64) NOT NULL,
+    artifact_name VARCHAR(255) NOT NULL,
+    content_type VARCHAR(128) NOT NULL,
+    storage_path TEXT,
+    payload_json TEXT,
+    size_bytes BIGINT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+CREATE INDEX IF NOT EXISTS idx_run_artifacts_run_id_created_at
+    ON run_artifacts (run_id, created_at);
+
+
+CREATE TABLE IF NOT EXISTS dataset_snapshots (
+                                                 id BIGSERIAL PRIMARY KEY,
+                                                 dataset_id VARCHAR(64) NOT NULL REFERENCES datasets(id) ON DELETE CASCADE,
+    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+    dataset_version VARCHAR(128) NOT NULL,
+    source_exchange VARCHAR(64),
+    symbol VARCHAR(64),
+    timeframe VARCHAR(32),
+    start_time TIMESTAMPTZ,
+    end_time TIMESTAMPTZ,
+    row_count INTEGER,
+    checksum VARCHAR(128),
+    source_metadata_json TEXT,
+    coverage_metadata_json TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+CREATE INDEX IF NOT EXISTS idx_dataset_snapshots_dataset_created_at
+    ON dataset_snapshots (dataset_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_dataset_snapshots_user_created_at
+    ON dataset_snapshots (user_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_dataset_snapshots_dataset_version
+    ON dataset_snapshots (dataset_id, dataset_version);
+
+
+CREATE TABLE IF NOT EXISTS dataset_quality_reports (
+                                                       id BIGSERIAL PRIMARY KEY,
+                                                       dataset_id VARCHAR(64) NOT NULL REFERENCES datasets(id) ON DELETE CASCADE,
+    snapshot_id BIGINT REFERENCES dataset_snapshots(id) ON DELETE CASCADE,
+    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+    quality_status VARCHAR(32) NOT NULL,
+    issues_json TEXT NOT NULL,
+    checked_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+CREATE INDEX IF NOT EXISTS idx_dataset_quality_reports_dataset_checked_at
+    ON dataset_quality_reports (dataset_id, checked_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_dataset_quality_reports_snapshot_id
+    ON dataset_quality_reports (snapshot_id);
 
 
 CREATE TABLE IF NOT EXISTS backtest_trades (
