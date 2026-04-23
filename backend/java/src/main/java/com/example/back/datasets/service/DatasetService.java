@@ -1,9 +1,17 @@
 package com.example.back.datasets.service;
 
 import com.example.back.auth.security.AuthContext;
+import com.example.back.datasets.dto.DatasetDetailsResponse;
+import com.example.back.datasets.dto.DatasetQualityReportResponse;
+import com.example.back.datasets.dto.DatasetSnapshotResponse;
 import com.example.back.datasets.dto.RenameDatasetRequest;
 import com.example.back.datasets.entity.DatasetEntity;
+import com.example.back.datasets.entity.DatasetQualityReportEntity;
+import com.example.back.datasets.entity.DatasetQualityReportEntity.QualityStatus;
+import com.example.back.datasets.entity.DatasetSnapshotEntity;
+import com.example.back.datasets.repository.DatasetQualityReportRepository;
 import com.example.back.datasets.repository.DatasetRepository;
+import com.example.back.datasets.repository.DatasetSnapshotRepository;
 import com.example.back.imports.dto.ImportCandlesResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -22,10 +30,19 @@ import org.springframework.web.server.ResponseStatusException;
 public class DatasetService {
 
     private final DatasetRepository datasetRepository;
+    private final DatasetSnapshotRepository datasetSnapshotRepository;
+    private final DatasetQualityReportRepository datasetQualityReportRepository;
     private final ObjectMapper objectMapper;
 
-    public DatasetService(DatasetRepository datasetRepository, ObjectMapper objectMapper) {
+    public DatasetService(
+            DatasetRepository datasetRepository,
+            DatasetSnapshotRepository datasetSnapshotRepository,
+            DatasetQualityReportRepository datasetQualityReportRepository,
+            ObjectMapper objectMapper
+    ) {
         this.datasetRepository = datasetRepository;
+        this.datasetSnapshotRepository = datasetSnapshotRepository;
+        this.datasetQualityReportRepository = datasetQualityReportRepository;
         this.objectMapper = objectMapper;
     }
 
@@ -44,7 +61,28 @@ public class DatasetService {
         DatasetEntity entity = datasetRepository.findByIdAndUserId(datasetId, userId).orElseGet(DatasetEntity::new);
         entity.setUserId(userId);
         applyPayload(entity, normalizedPayload);
-        return readPayload(datasetRepository.save(entity));
+        DatasetEntity saved = datasetRepository.save(entity);
+        persistSnapshotAndQuality(saved, normalizedPayload);
+        return readPayload(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public DatasetDetailsResponse getDatasetDetails(String id) {
+        Long userId = AuthContext.requireUserId();
+        DatasetEntity entity = datasetRepository.findByIdAndUserId(id, userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Dataset not found"));
+
+        return DatasetDetailsResponse.builder()
+                .dataset(readPayload(entity))
+                .latestSnapshot(datasetSnapshotRepository
+                        .findFirstByDatasetIdAndUserIdOrderByCreatedAtDesc(id, userId)
+                        .map(this::toSnapshotResponse)
+                        .orElse(null))
+                .latestQualityReport(datasetQualityReportRepository
+                        .findFirstByDatasetIdAndUserIdOrderByCheckedAtDesc(id, userId)
+                        .map(this::toQualityReportResponse)
+                        .orElse(null))
+                .build();
     }
 
     @Transactional
@@ -83,7 +121,9 @@ public class DatasetService {
         duplicate.setUserId(userId);
         applyPayload(duplicate, payload);
 
-        return readPayload(datasetRepository.save(duplicate));
+        DatasetEntity saved = datasetRepository.save(duplicate);
+        persistSnapshotAndQuality(saved, payload);
+        return readPayload(saved);
     }
 
     @Transactional
@@ -95,7 +135,9 @@ public class DatasetService {
         DatasetEntity entity = datasetRepository.findByIdAndUserId(datasetId, userId).orElseGet(DatasetEntity::new);
         entity.setUserId(userId);
         applyPayload(entity, payload);
-        return readPayload(datasetRepository.save(entity));
+        DatasetEntity saved = datasetRepository.save(entity);
+        persistSnapshotAndQuality(saved, payload);
+        return readPayload(saved);
     }
 
     @Transactional(readOnly = true)
@@ -125,6 +167,37 @@ public class DatasetService {
         DatasetEntity entity = datasetRepository.findByIdAndUserId(id, userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Dataset not found"));
         datasetRepository.delete(entity);
+    }
+
+    @Transactional(readOnly = true)
+    public List<DatasetSnapshotResponse> getDatasetVersions(String id) {
+        Long userId = AuthContext.requireUserId();
+        requireOwnedDataset(id, userId);
+        return datasetSnapshotRepository.findAllByDatasetIdAndUserIdOrderByCreatedAtDesc(id, userId).stream()
+                .map(this::toSnapshotResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<DatasetQualityReportResponse> getDatasetQualityReports(String id) {
+        Long userId = AuthContext.requireUserId();
+        requireOwnedDataset(id, userId);
+        return datasetQualityReportRepository.findAllByDatasetIdAndUserIdOrderByCheckedAtDesc(id, userId).stream()
+                .map(this::toQualityReportResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public DatasetSnapshotResponse getDatasetSnapshot(Long snapshotId) {
+        Long userId = AuthContext.requireUserId();
+        return datasetSnapshotRepository.findByIdAndUserId(snapshotId, userId)
+                .map(this::toSnapshotResponse)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Dataset snapshot not found"));
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<DatasetSnapshotEntity> findLatestSnapshotForDataset(String datasetId, Long userId) {
+        return datasetSnapshotRepository.findFirstByDatasetIdAndUserIdOrderByCreatedAtDesc(datasetId, userId);
     }
 
     private String resolveDatasetId(String requestedId, Long userId) {
@@ -173,6 +246,112 @@ public class DatasetService {
         entity.setPayload(writePayload(normalizedPayload));
     }
 
+    private void persistSnapshotAndQuality(DatasetEntity entity, ObjectNode payload) {
+        DatasetSnapshotEntity snapshot = new DatasetSnapshotEntity();
+        snapshot.setDatasetId(entity.getId());
+        snapshot.setUserId(entity.getUserId());
+        snapshot.setDatasetVersion(firstNonBlank(entity.getVersion(), entity.getFingerprint(), entity.getId()));
+        snapshot.setSourceExchange(entity.getSource());
+        snapshot.setSymbol(entity.getSymbol());
+        snapshot.setTimeframe(entity.getInterval());
+        snapshot.setStartTime(entity.getStartAt());
+        snapshot.setEndTime(entity.getEndAt());
+        snapshot.setRowCount(entity.getRowsCount());
+        snapshot.setChecksum(firstNonBlank(entity.getFingerprint(), entity.getVersion(), null));
+        snapshot.setSourceMetadataJson(writePayload(sourceMetadata(payload)));
+        snapshot.setCoverageMetadataJson(writePayload(coverageMetadata(payload, entity)));
+        DatasetSnapshotEntity savedSnapshot = datasetSnapshotRepository.save(snapshot);
+
+        DatasetQualityReportEntity qualityReport = new DatasetQualityReportEntity();
+        qualityReport.setDatasetId(entity.getId());
+        qualityReport.setSnapshotId(savedSnapshot.getId());
+        qualityReport.setUserId(entity.getUserId());
+        qualityReport.setQualityStatus(resolveQualityStatus(payload));
+        qualityReport.setIssuesJson(writePayload(resolveQualityIssues(payload)));
+        qualityReport.setCheckedAt(resolveCheckedAt(payload).orElse(Instant.now()));
+        datasetQualityReportRepository.save(qualityReport);
+    }
+
+    private ObjectNode sourceMetadata(ObjectNode payload) {
+        ObjectNode source = objectMapper.createObjectNode();
+        source.put("sourceExchange", payload.path("source").asText(null));
+        source.set("lineage", payload.path("lineage").isMissingNode()
+                ? objectMapper.createObjectNode()
+                : payload.path("lineage"));
+        source.set("raw", payload.path("raw").isMissingNode()
+                ? objectMapper.createObjectNode()
+                : payload.path("raw"));
+        return source;
+    }
+
+    private ObjectNode coverageMetadata(ObjectNode payload, DatasetEntity entity) {
+        ObjectNode coverage = objectMapper.createObjectNode();
+        coverage.put("startTime", entity.getStartAt() == null ? null : entity.getStartAt().toString());
+        coverage.put("endTime", entity.getEndAt() == null ? null : entity.getEndAt().toString());
+        coverage.put("rowCount", entity.getRowsCount());
+        coverage.put("timeframe", entity.getInterval());
+        coverage.set("coverage", payload.path("coverage").isMissingNode()
+                ? objectMapper.createObjectNode()
+                : payload.path("coverage"));
+        return coverage;
+    }
+
+    private QualityStatus resolveQualityStatus(ObjectNode payload) {
+        String status = payload.path("qualityStatus").asText("").trim();
+        if (!status.isEmpty()) {
+            try {
+                return QualityStatus.valueOf(status.toUpperCase());
+            } catch (IllegalArgumentException ignored) {
+                return QualityStatus.WARNING;
+            }
+        }
+
+        JsonNode issues = resolveQualityIssues(payload);
+        if (issues.isArray() && issues.size() == 0) {
+            return QualityStatus.OK;
+        }
+        if (issues.isArray() && hasFatalIssue(issues)) {
+            return QualityStatus.FAILED;
+        }
+        return QualityStatus.WARNING;
+    }
+
+    private boolean hasFatalIssue(JsonNode issues) {
+        for (JsonNode issue : issues) {
+            String severity = issue.path("severity").asText("").trim();
+            if ("FAILED".equalsIgnoreCase(severity) || "ERROR".equalsIgnoreCase(severity)) {
+                return true;
+            }
+            String code = issue.path("code").asText("").trim();
+            if ("empty_dataset".equals(code)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private JsonNode resolveQualityIssues(ObjectNode payload) {
+        JsonNode reportIssues = payload.path("qualityReport").path("issues");
+        if (reportIssues.isArray()) {
+            return reportIssues;
+        }
+
+        JsonNode flags = payload.path("qualityFlags");
+        if (!flags.isArray()) {
+            return objectMapper.createArrayNode();
+        }
+
+        return flags;
+    }
+
+    private Optional<Instant> resolveCheckedAt(ObjectNode payload) {
+        String checkedAt = payload.path("qualityReport").path("checkedAt").asText("").trim();
+        if (checkedAt.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(Instant.parse(checkedAt));
+    }
+
     private ObjectNode normalizeImportedDatasetPayload(ImportCandlesResponse response) {
         if (response.getDataset() == null || response.getDataset().isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Import response does not contain dataset metadata");
@@ -205,6 +384,51 @@ public class DatasetService {
         return payload;
     }
 
+    private void requireOwnedDataset(String id, Long userId) {
+        if (!datasetRepository.existsByIdAndUserId(id, userId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Dataset not found");
+        }
+    }
+
+    private DatasetSnapshotResponse toSnapshotResponse(DatasetSnapshotEntity entity) {
+        return DatasetSnapshotResponse.builder()
+                .id(entity.getId())
+                .datasetId(entity.getDatasetId())
+                .datasetVersion(entity.getDatasetVersion())
+                .sourceExchange(entity.getSourceExchange())
+                .symbol(entity.getSymbol())
+                .timeframe(entity.getTimeframe())
+                .startTime(entity.getStartTime())
+                .endTime(entity.getEndTime())
+                .rowCount(entity.getRowCount())
+                .checksum(entity.getChecksum())
+                .sourceMetadata(readJson(entity.getSourceMetadataJson()))
+                .coverageMetadata(readJson(entity.getCoverageMetadataJson()))
+                .createdAt(entity.getCreatedAt())
+                .build();
+    }
+
+    private DatasetQualityReportResponse toQualityReportResponse(DatasetQualityReportEntity entity) {
+        return DatasetQualityReportResponse.builder()
+                .id(entity.getId())
+                .datasetId(entity.getDatasetId())
+                .snapshotId(entity.getSnapshotId())
+                .qualityStatus(entity.getQualityStatus())
+                .issues(readJson(entity.getIssuesJson()))
+                .checkedAt(entity.getCheckedAt())
+                .build();
+    }
+
+    private String firstNonBlank(String first, String second, String fallback) {
+        if (first != null && !first.isBlank()) {
+            return first;
+        }
+        if (second != null && !second.isBlank()) {
+            return second;
+        }
+        return fallback;
+    }
+
     private String textOrNull(ObjectNode payload, String... fields) {
         for (String field : fields) {
             String value = payload.path(field).asText("").trim();
@@ -235,8 +459,15 @@ public class DatasetService {
     }
 
     private JsonNode readPayload(DatasetEntity entity) {
+        return readJson(entity.getPayload());
+    }
+
+    private JsonNode readJson(String json) {
         try {
-            return objectMapper.readTree(entity.getPayload());
+            if (json == null || json.isBlank()) {
+                return objectMapper.createObjectNode();
+            }
+            return objectMapper.readTree(json);
         } catch (IOException ex) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to parse dataset payload", ex);
         }
