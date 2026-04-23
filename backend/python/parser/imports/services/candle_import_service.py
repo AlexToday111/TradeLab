@@ -1,5 +1,5 @@
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from parser.common.exceptions import ValidationError
 from parser.imports.dto.candle_import_dto import (
@@ -135,7 +135,12 @@ class CandleImportService:
                 str(rows_count),
             ]
         )
-        quality_flags = self._quality_flags(candles, raw_rows=raw_rows)
+        quality_report = self._quality_report(
+            candles,
+            raw_rows=raw_rows,
+            interval=interval,
+            checked_at=imported_at,
+        )
 
         return {
             "datasetId": make_dataset_id(exchange, symbol, interval, fingerprint),
@@ -148,7 +153,21 @@ class CandleImportService:
             "endAt": end_at.isoformat().replace("+00:00", "Z"),
             "version": fingerprint,
             "fingerprint": fingerprint,
-            "qualityFlags": quality_flags,
+            "qualityStatus": quality_report["status"],
+            "qualityFlags": [issue["code"] for issue in quality_report["issues"]],
+            "qualityReport": quality_report,
+            "coverage": {
+                "startTime": start_at.isoformat().replace("+00:00", "Z"),
+                "endTime": end_at.isoformat().replace("+00:00", "Z"),
+                "rowCount": rows_count,
+                "timeframe": interval,
+            },
+            "canonical": {
+                "format": "ohlcv",
+                "timeColumn": "open_time",
+                "timezone": "UTC",
+                "priceType": "decimal",
+            },
             "lineage": {
                 "importRange": {
                     "from": from_time.isoformat().replace("+00:00", "Z"),
@@ -156,20 +175,58 @@ class CandleImportService:
                 },
                 "rawRows": raw_rows,
                 "exchangeClient": exchange,
+                "normalization": {
+                    "layer": "canonical_candles",
+                    "dedupeKey": ["exchange", "symbol", "interval", "open_time"],
+                },
                 "sourceOptions": {
                     key: value for key, value in source_options.items() if value is not None
                 },
             },
         }
 
-    def _quality_flags(self, candles: list, *, raw_rows: int) -> list[str]:
-        if not candles:
-            return ["empty_dataset"]
+    def _quality_report(
+        self,
+        candles: list,
+        *,
+        raw_rows: int,
+        interval: str,
+        checked_at: datetime,
+    ) -> dict[str, object]:
+        issues = self._quality_issues(candles, raw_rows=raw_rows, interval=interval)
+        if not issues:
+            status = "OK"
+        elif any(issue["severity"] == "FAILED" for issue in issues):
+            status = "FAILED"
+        else:
+            status = "WARNING"
 
-        flags: list[str] = []
+        return {
+            "status": status,
+            "issues": issues,
+            "checkedAt": checked_at.isoformat().replace("+00:00", "Z"),
+        }
+
+    def _quality_issues(self, candles: list, *, raw_rows: int, interval: str) -> list[dict[str, object]]:
+        if not candles:
+            return [
+                {
+                    "code": "empty_dataset",
+                    "severity": "FAILED",
+                    "message": "Dataset contains no canonical candles",
+                }
+            ]
+
+        issues: list[dict[str, object]] = []
         open_times = [self._normalize_datetime(candle.open_time) for candle in candles]
         if len(set(open_times)) != len(open_times):
-            flags.append("duplicate_open_time")
+            issues.append(
+                {
+                    "code": "duplicate_open_time",
+                    "severity": "FAILED",
+                    "message": "Duplicate candle open_time values detected",
+                }
+            )
 
         if any(
             candle.open <= 0
@@ -179,18 +236,108 @@ class CandleImportService:
             or candle.volume < 0
             for candle in candles
         ):
-            flags.append("non_positive_ohlcv")
+            issues.append(
+                {
+                    "code": "non_positive_ohlcv",
+                    "severity": "WARNING",
+                    "message": "One or more candles contain non-positive OHLC or negative volume",
+                }
+            )
 
         if raw_rows != len(candles):
-            flags.append("raw_to_mapped_count_mismatch")
+            issues.append(
+                {
+                    "code": "raw_to_mapped_count_mismatch",
+                    "severity": "WARNING",
+                    "message": "Raw source row count differs from normalized candle count",
+                    "rawRows": raw_rows,
+                    "canonicalRows": len(candles),
+                }
+            )
 
         if any(
             current >= next_time
             for current, next_time in zip(open_times, open_times[1:], strict=False)
         ):
-            flags.append("non_monotonic_open_time")
+            issues.append(
+                {
+                    "code": "non_monotonic_open_time",
+                    "severity": "FAILED",
+                    "message": "Candle open_time values are not strictly increasing",
+                }
+            )
 
-        return flags
+        if len(candles) < 2:
+            issues.append(
+                {
+                    "code": "too_small_dataset",
+                    "severity": "WARNING",
+                    "message": "Dataset has fewer than two candles",
+                }
+            )
+
+        expected_step = self._interval_to_timedelta(interval)
+        if expected_step is not None:
+            gaps = []
+            inconsistent_duration_count = 0
+            for previous, current in zip(candles, candles[1:], strict=False):
+                previous_open = self._normalize_datetime(previous.open_time)
+                current_open = self._normalize_datetime(current.open_time)
+                actual_step = current_open - previous_open
+                if actual_step > expected_step:
+                    gaps.append(
+                        {
+                            "from": previous_open.isoformat().replace("+00:00", "Z"),
+                            "to": current_open.isoformat().replace("+00:00", "Z"),
+                            "missingIntervals": max(0, int(actual_step / expected_step) - 1),
+                        }
+                    )
+
+            for candle in candles:
+                actual_duration = (
+                    self._normalize_datetime(candle.close_time)
+                    - self._normalize_datetime(candle.open_time)
+                )
+                if actual_duration != expected_step:
+                    inconsistent_duration_count += 1
+
+            if gaps:
+                issues.append(
+                    {
+                        "code": "gaps_detected",
+                        "severity": "WARNING",
+                        "message": "Gaps detected between adjacent candle open_time values",
+                        "gaps": gaps[:50],
+                        "gapsCount": len(gaps),
+                    }
+                )
+
+            if inconsistent_duration_count > 0:
+                issues.append(
+                    {
+                        "code": "timeframe_inconsistency",
+                        "severity": "WARNING",
+                        "message": "Candle close_time-open_time duration differs from requested interval",
+                        "count": inconsistent_duration_count,
+                    }
+                )
+
+        return issues
+
+    def _interval_to_timedelta(self, interval: str) -> timedelta | None:
+        normalized = interval.strip().lower()
+        units = {
+            "m": "minutes",
+            "h": "hours",
+            "d": "days",
+            "w": "weeks",
+        }
+        for suffix, keyword in units.items():
+            if normalized.endswith(suffix):
+                raw_value = normalized[: -len(suffix)]
+                if raw_value.isdigit():
+                    return timedelta(**{keyword: int(raw_value)})
+        return None
 
     def _map_klines(
         self,
