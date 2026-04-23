@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { AlertCircle, Expand, Minimize2, Play, RotateCcw } from "lucide-react";
+import { AlertCircle, Download, Expand, Minimize2, Play, RotateCcw } from "lucide-react";
 import { ChartCard } from "@/components/shared/chart-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { LoadingState } from "@/components/shared/loading-state";
@@ -27,6 +27,8 @@ import { previewRows } from "@/lib/demo-data/datasets";
 import { logLines } from "@/lib/demo-data/logs";
 import { trades } from "@/lib/demo-data/trades";
 import { fetchStrategyById } from "@/lib/api/strategies";
+import { fetchRunArtifacts } from "@/lib/api/runs";
+import type { RunArtifact } from "@/lib/types";
 
 export default function RunDetailsPage() {
   const params = useParams();
@@ -36,6 +38,8 @@ export default function RunDetailsPage() {
   const run = runId ? getRunById(runId) : undefined;
   const [runActionState, setRunActionState] = useState<"idle" | "running" | "error">("idle");
   const [runActionError, setRunActionError] = useState<string | null>(null);
+  const [remoteArtifacts, setRemoteArtifacts] = useState<RunArtifact[]>([]);
+  const [artifactLoadError, setArtifactLoadError] = useState<string | null>(null);
   const tradeSummary = useMemo(() => {
     const wins = trades.filter((trade) => trade.pnl > 0).length;
     const losses = trades.filter((trade) => trade.pnl <= 0).length;
@@ -53,6 +57,38 @@ export default function RunDetailsPage() {
       avgDuration,
     };
   }, []);
+
+  useEffect(() => {
+    if (!run?.backendRunId) {
+      setRemoteArtifacts([]);
+      return;
+    }
+
+    let cancelled = false;
+    const backendRunId = run.backendRunId;
+
+    async function loadArtifacts() {
+      try {
+        const artifacts = await fetchRunArtifacts(backendRunId);
+        if (!cancelled) {
+          setRemoteArtifacts(artifacts);
+          setArtifactLoadError(null);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setArtifactLoadError(
+            error instanceof Error ? error.message : "Не удалось загрузить артефакты."
+          );
+        }
+      }
+    }
+
+    void loadArtifacts();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [run?.backendRunId]);
 
   if (isLoading) {
     return <LoadingState label="Загрузка запуска..." />;
@@ -72,6 +108,7 @@ export default function RunDetailsPage() {
   const hasRunMetrics = run.status === "done";
   const isLaunchAction = run.status === "queued";
   const runActionLabel = isLaunchAction ? "Запуск" : "Перезапуск";
+  const displayedArtifacts = remoteArtifacts.length > 0 ? remoteArtifacts : run.artifacts;
 
   const handleRunAction = async () => {
     if (!run.strategyId) {
@@ -338,7 +375,11 @@ export default function RunDetailsPage() {
             </TabsContent>
             <TabsContent value="artifacts" className="flex-1 p-3">
               <div className="space-y-2 text-xs text-muted-foreground">
-                {run.artifacts.length === 0 ? (
+                {artifactLoadError ? (
+                  <div className="rounded-md border border-status-warning/35 bg-status-warning/10 p-2 text-status-warning">
+                    {artifactLoadError}
+                  </div>
+                ) : displayedArtifacts.length === 0 ? (
                   run.status === "running" || run.status === "queued" ? (
                     <LoadingState label="Артефакты формируются..." />
                   ) : (
@@ -347,13 +388,34 @@ export default function RunDetailsPage() {
                     </div>
                   )
                 ) : (
-                  run.artifacts.map((artifact) => (
+                  displayedArtifacts.map((artifact) => (
                     <div
                       key={artifact.id}
                       className="flex items-center justify-between rounded-md border border-border bg-panel-subtle p-2"
                     >
-                      <div>{artifact.label}</div>
-                      <Badge variant="secondary">{artifact.size}</Badge>
+                      <div>
+                        <div className="text-foreground">{artifact.label}</div>
+                        <div className="mt-0.5 text-[11px] uppercase text-muted-foreground">
+                          {artifact.type}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary">{artifact.size}</Badge>
+                        {artifact.downloadUrl ? (
+                          <Button
+                            asChild
+                            size="icon"
+                            variant="secondary"
+                            className="h-7 w-7"
+                            aria-label={`Скачать ${artifact.label}`}
+                            title={`Скачать ${artifact.label}`}
+                          >
+                            <a href={artifact.downloadUrl}>
+                              <Download className="h-3.5 w-3.5" />
+                            </a>
+                          </Button>
+                        ) : null}
+                      </div>
                     </div>
                   ))
                 )}

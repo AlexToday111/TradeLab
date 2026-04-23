@@ -94,6 +94,10 @@ type UiDataset = DatasetVersion & {
   mergedCsvRows?: number;
   candleRows?: CandleTableRow[];
   backendRequest?: BackendRequestMeta;
+  datasetVersion?: string;
+  qualityStatus?: "OK" | "WARNING" | "FAILED";
+  qualityIssueCount?: number;
+  latestSnapshotId?: number;
 };
 
 type CandleTableRow = {
@@ -121,6 +125,7 @@ type ImportCandlesApiResponse = {
   imported: number;
   from: string;
   to: string;
+  dataset?: Record<string, unknown>;
 };
 
 type CandleApiResponse = {
@@ -140,6 +145,29 @@ type PersistedDatasetPayload = Omit<
   UiDataset,
   "candleRows" | "mergedCsvUrl"
 >;
+
+type DatasetSnapshotApiResponse = {
+  id: number;
+  datasetId: string;
+  datasetVersion: string;
+  sourceExchange?: string | null;
+  symbol?: string | null;
+  timeframe?: string | null;
+  startTime?: string | null;
+  endTime?: string | null;
+  rowCount?: number | null;
+  checksum?: string | null;
+  createdAt?: string | null;
+};
+
+type DatasetQualityApiResponse = {
+  id: number;
+  datasetId: string;
+  snapshotId?: number | null;
+  qualityStatus: "OK" | "WARNING" | "FAILED";
+  issues?: unknown[];
+  checkedAt?: string | null;
+};
 
 type MergedCsv = {
   url: string;
@@ -430,22 +458,69 @@ function sanitizeDatasetForPersistence(dataset: UiDataset): PersistedDatasetPayl
 }
 
 function hydrateDataset(dataset: PersistedDatasetPayload): UiDataset {
+  const raw = dataset as PersistedDatasetPayload & Record<string, unknown>;
+  const sourceValue = typeof raw.source === "string" ? raw.source : "local";
+  const symbolValue = typeof raw.symbol === "string" ? raw.symbol : null;
+  const timeframeValue =
+    typeof raw.timeframe === "string"
+      ? raw.timeframe
+      : typeof raw.interval === "string"
+        ? raw.interval
+        : "N/A";
+  const rowsCount = typeof raw.rowsCount === "number" ? raw.rowsCount : null;
+  const startAt = typeof raw.startAt === "string" ? raw.startAt : null;
+  const endAt = typeof raw.endAt === "string" ? raw.endAt : null;
+  const versionValue = typeof raw.version === "string" ? raw.version : dataset.datasetVersion;
   const normalizedSource =
-    dataset.source === "bybit" &&
+    sourceValue === "bybit" &&
     dataset.backendRequest?.exchange === "binance"
       ? "binance"
-      : dataset.source;
+      : sourceValue;
   const normalizedMarketType =
     normalizedSource === "moex" && dataset.marketType === "spot"
       ? "shares"
-      : dataset.marketType;
+      : dataset.marketType ?? "spot";
 
   return {
     ...dataset,
-    source: normalizedSource,
+    id: dataset.id,
+    name: dataset.name ?? String(dataset.id),
+    period: dataset.period ?? (startAt && endAt ? `${startAt} -> ${endAt}` : "N/A"),
+    timeframe: dataset.timeframe ?? timeframeValue,
+    symbols: dataset.symbols ?? (symbolValue ? [symbolValue] : ["N/A"]),
+    size: dataset.size ?? (rowsCount === null ? "N/A" : `${rowsCount.toLocaleString("ru-RU")} свечей`),
+    pipelineHash: dataset.pipelineHash ?? "canonical_candles",
+    source: normalizedSource as DatasetSource,
     marketType: normalizedMarketType,
     archived: dataset.archived ?? false,
     loadStatus: dataset.loadStatus ?? "ready",
+    profile: dataset.profile ?? {
+      rowCount: rowsCount === null ? "N/A" : `${rowsCount.toLocaleString("ru-RU")} строк`,
+      dateRange: startAt && endAt ? `${startAt} -> ${endAt}` : "N/A",
+      timeStep: timeframeValue,
+      symbolCoverage: symbolValue ? "1 символ" : "N/A",
+    },
+    compatibility: dataset.compatibility ?? {
+      compatible: true,
+      missingFields: [],
+      notes: ["Canonical candles готовы для execution"],
+    },
+    tags: dataset.tags ?? buildDatasetTags(
+      normalizedSource as DatasetSource,
+      normalizedMarketType,
+      timeframeValue,
+      symbolValue ? [symbolValue] : ["N/A"]
+    ),
+    datasetVersion: versionValue,
+    qualityStatus:
+      dataset.qualityStatus ??
+      (typeof raw.qualityStatus === "string" &&
+      ["OK", "WARNING", "FAILED"].includes(raw.qualityStatus)
+        ? (raw.qualityStatus as "OK" | "WARNING" | "FAILED")
+        : undefined),
+    qualityIssueCount:
+      dataset.qualityIssueCount ??
+      (Array.isArray(raw.qualityFlags) ? raw.qualityFlags.length : undefined),
   };
 }
 
@@ -932,6 +1007,52 @@ export default function DataPage() {
   }, [selectedDataset?.id, selectedDataset?.name]);
 
   useEffect(() => {
+    if (!selectedDataset?.id) {
+      return;
+    }
+
+    let cancelled = false;
+    const selectedId = selectedDataset.id;
+
+    async function loadDatasetPlatformMetadata() {
+      try {
+        const [versionsResponse, qualityResponse] = await Promise.all([
+          apiFetch(`/api/datasets/${selectedId}/versions`, { cache: "no-store" }),
+          apiFetch(`/api/datasets/${selectedId}/quality`, { cache: "no-store" }),
+        ]);
+        const versions = await readJsonOrThrow<DatasetSnapshotApiResponse[]>(versionsResponse);
+        const quality = await readJsonOrThrow<DatasetQualityApiResponse[]>(qualityResponse);
+        const latestVersion = versions[0];
+        const latestQuality = quality[0];
+
+        if (!cancelled) {
+          setDatasets((prev) =>
+            prev.map((dataset) =>
+              dataset.id === selectedId
+                ? {
+                    ...dataset,
+                    datasetVersion: latestVersion?.datasetVersion ?? dataset.datasetVersion,
+                    latestSnapshotId: latestVersion?.id ?? dataset.latestSnapshotId,
+                    qualityStatus: latestQuality?.qualityStatus ?? dataset.qualityStatus,
+                    qualityIssueCount: latestQuality?.issues?.length ?? dataset.qualityIssueCount,
+                  }
+                : dataset
+            )
+          );
+        }
+      } catch {
+        // The dataset list remains usable even when platform metadata is unavailable.
+      }
+    }
+
+    void loadDatasetPlatformMetadata();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedDataset?.id]);
+
+  useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
@@ -1349,6 +1470,7 @@ export default function DataPage() {
       try {
         const collectedCandles: CandleApiResponse[] = [];
         let importedCount = 0;
+        let latestDatasetMetadata: Record<string, unknown> | null = null;
 
         for (const symbol of symbols) {
           const importResponse = await apiFetch("/api/imports/candles", {
@@ -1367,6 +1489,7 @@ export default function DataPage() {
           });
           const importPayload = await readJsonOrThrow<ImportCandlesApiResponse>(importResponse);
           importedCount += importPayload.imported;
+          latestDatasetMetadata = importPayload.dataset ?? latestDatasetMetadata;
 
           const query = new URLSearchParams({
             exchange: datasetSource,
@@ -1415,6 +1538,18 @@ export default function DataPage() {
             from: requestRange.from,
             to: requestRange.to,
           },
+          datasetVersion:
+            typeof latestDatasetMetadata?.version === "string"
+              ? latestDatasetMetadata.version
+              : undefined,
+          qualityStatus:
+            typeof latestDatasetMetadata?.qualityStatus === "string" &&
+            ["OK", "WARNING", "FAILED"].includes(latestDatasetMetadata.qualityStatus)
+              ? (latestDatasetMetadata.qualityStatus as "OK" | "WARNING" | "FAILED")
+              : undefined,
+          qualityIssueCount: Array.isArray(latestDatasetMetadata?.qualityFlags)
+            ? latestDatasetMetadata.qualityFlags.length
+            : undefined,
         };
 
         const persistedResponse = await apiFetch("/api/datasets", {
@@ -2289,6 +2424,27 @@ export default function DataPage() {
                     <TableCell className="text-xs text-muted-foreground">Статус</TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {selectedDataset.rowsHint ?? "Готов"}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="text-xs text-muted-foreground">Версия dataset</TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground">
+                      {selectedDataset.datasetVersion ?? "N/A"}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="text-xs text-muted-foreground">Snapshot</TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground">
+                      {selectedDataset.latestSnapshotId ?? "N/A"}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="text-xs text-muted-foreground">Quality</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="secondary">{selectedDataset.qualityStatus ?? "N/A"}</Badge>
+                        <span>{selectedDataset.qualityIssueCount ?? 0} issues</span>
+                      </div>
                     </TableCell>
                   </TableRow>
                   {selectedDataset.backendRequest ? (

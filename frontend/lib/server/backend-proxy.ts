@@ -26,6 +26,10 @@ function buildResponse(response: Response, payload: string) {
   if (contentType) {
     headers.set("content-type", contentType);
   }
+  const contentDisposition = response.headers.get("content-disposition");
+  if (contentDisposition) {
+    headers.set("content-disposition", contentDisposition);
+  }
   return new NextResponse(payload, {
     status: response.status,
     headers,

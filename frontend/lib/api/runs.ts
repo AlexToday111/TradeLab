@@ -1,9 +1,10 @@
-import type { Run, RunMetrics, RunParams, RunStatus, Strategy } from "@/lib/types";
+import type { Run, RunArtifact, RunMetrics, RunParams, RunStatus, Strategy } from "@/lib/types";
 import { apiFetch } from "@/lib/api/client";
 
 type BackendRunResponse = {
   id: number;
   strategyId: number;
+  datasetId?: string | null;
   status: string;
   startedAt?: string | null;
   exchange: string;
@@ -14,9 +15,22 @@ type BackendRunResponse = {
   parameters?: Record<string, unknown> | null;
   params?: Record<string, unknown> | null;
   metrics?: Record<string, unknown> | null;
+  snapshot?: Record<string, unknown> | null;
+  artifacts?: Record<string, unknown> | null;
   errorMessage?: string | null;
   createdAt: string;
   finishedAt?: string | null;
+};
+
+type BackendRunArtifactResponse = {
+  id: number;
+  runId: number;
+  artifactType: string;
+  artifactName: string;
+  contentType: string;
+  storagePath?: string | null;
+  sizeBytes?: number | null;
+  createdAt?: string | null;
 };
 
 export type CreateRunPayload = {
@@ -128,6 +142,43 @@ function toFrontendMetrics(metrics: Record<string, unknown> | null | undefined):
   };
 }
 
+function formatArtifactSize(sizeBytes: number | null | undefined) {
+  if (!sizeBytes || sizeBytes <= 0) {
+    return "0 B";
+  }
+
+  const units = ["B", "KB", "MB", "GB"];
+  let value = sizeBytes;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+
+  return `${value.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+}
+
+function toArtifactType(type: string): RunArtifact["type"] {
+  if (type.includes("TRADES") || type.includes("EXPORT")) {
+    return "export";
+  }
+  if (type.includes("REPORT") || type.includes("SUMMARY") || type.includes("METRICS")) {
+    return "report";
+  }
+  return "log";
+}
+
+function toFrontendArtifact(artifact: BackendRunArtifactResponse): RunArtifact {
+  return {
+    id: String(artifact.id),
+    label: artifact.artifactName,
+    type: toArtifactType(artifact.artifactType),
+    size: formatArtifactSize(artifact.sizeBytes),
+    downloadUrl: `/api/runs/${artifact.runId}/artifacts/${artifact.id}/download`,
+    contentType: artifact.contentType,
+  };
+}
+
 function toRunParams(interval: string, from: string, to: string): RunParams {
   return {
     fees: "Backend managed",
@@ -192,6 +243,15 @@ function normalizeBackendRun(payload: unknown): BackendRunResponse | null {
       candidate.metrics && typeof candidate.metrics === "object"
         ? (candidate.metrics as Record<string, unknown>)
         : null,
+    snapshot:
+      candidate.snapshot && typeof candidate.snapshot === "object"
+        ? (candidate.snapshot as Record<string, unknown>)
+        : null,
+    artifacts:
+      candidate.artifacts && typeof candidate.artifacts === "object"
+        ? (candidate.artifacts as Record<string, unknown>)
+        : null,
+    datasetId: typeof candidate.datasetId === "string" ? candidate.datasetId : null,
     errorMessage: typeof candidate.errorMessage === "string" ? candidate.errorMessage : null,
     createdAt: candidate.createdAt,
     startedAt: typeof candidate.startedAt === "string" ? candidate.startedAt : null,
@@ -204,6 +264,12 @@ export function toFrontendRun(
   strategiesById?: Map<number, Strategy>
 ): Run {
   const strategy = strategiesById?.get(backendRun.strategyId);
+  const datasetVersion =
+    typeof backendRun.snapshot?.datasetVersion === "string"
+      ? backendRun.snapshot.datasetVersion
+      : typeof backendRun.datasetId === "string"
+        ? backendRun.datasetId
+        : `${backendRun.exchange}:${backendRun.symbol}`;
   const configPayload = {
     exchange: backendRun.exchange,
     symbol: backendRun.symbol,
@@ -218,7 +284,7 @@ export function toFrontendRun(
     backendRunId: backendRun.id,
     strategyId: backendRun.strategyId,
     strategy: toDisplayStrategyName(backendRun, strategiesById),
-    datasetVersion: `${backendRun.exchange}:${backendRun.symbol}`,
+    datasetVersion,
     period: `${backendRun.from} -> ${backendRun.to}`,
     timeframe: backendRun.interval,
     params: toRunParams(backendRun.interval, backendRun.from, backendRun.to),
@@ -311,4 +377,33 @@ export async function createRun(payload: CreateRunPayload, strategiesById?: Map<
   }
 
   return toFrontendRun(backendRun, strategiesById);
+}
+
+export async function fetchRunArtifacts(runId: number | string) {
+  const response = await apiFetch(`/api/runs/${runId}/artifacts`, {
+    method: "GET",
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+
+  const payload = (await response.json()) as unknown;
+  if (!Array.isArray(payload)) {
+    return [];
+  }
+
+  return payload
+    .filter((item): item is BackendRunArtifactResponse => {
+      const artifact = item as Partial<BackendRunArtifactResponse>;
+      return (
+        typeof artifact.id === "number" &&
+        typeof artifact.runId === "number" &&
+        typeof artifact.artifactType === "string" &&
+        typeof artifact.artifactName === "string" &&
+        typeof artifact.contentType === "string"
+      );
+    })
+    .map(toFrontendArtifact);
 }

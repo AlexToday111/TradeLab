@@ -26,6 +26,8 @@ export type RunArtifact = {
   label: string;
   type: "log" | "report" | "model" | "export";
   size: string;
+  downloadUrl?: string;
+  contentType?: string;
 };
 
 export type Run = {
