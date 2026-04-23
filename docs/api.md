@@ -99,6 +99,51 @@
 ]
 ```
 
+## GET `/api/runs/{id}/artifacts`
+
+Возвращает список артефактов запуска, доступный только владельцу run.
+
+### Пример ответа
+
+```json
+[
+  {
+    "id": 1,
+    "runId": 101,
+    "artifactType": "EQUITY_CURVE",
+    "artifactName": "equity_curve.json",
+    "contentType": "application/json",
+    "storagePath": "db://run_artifacts/101/equity_curve.json",
+    "sizeBytes": 2048,
+    "createdAt": "2026-04-23T12:00:00Z"
+  }
+]
+```
+
+## GET `/api/runs/{id}/artifacts/{artifactId}`
+
+Возвращает metadata и JSON payload конкретного артефакта.
+
+## GET `/api/runs/{id}/artifacts/{artifactId}/download`
+
+Возвращает артефакт как downloadable JSON file.
+
+## GET `/api/datasets/{id}`
+
+Возвращает payload датасета, latest snapshot и latest quality report.
+
+## GET `/api/datasets/{id}/versions`
+
+Возвращает список dataset snapshots/versions.
+
+## GET `/api/datasets/{id}/quality`
+
+Возвращает сохраненные quality reports датасета.
+
+## GET `/api/dataset-snapshots/{snapshotId}`
+
+Возвращает metadata конкретного dataset snapshot.
+
 ## Ошибки
 
 Все ошибки возвращаются в JSON:

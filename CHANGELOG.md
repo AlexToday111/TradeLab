@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.3.0-alpha.1] - 2026-04-23
+
+### Artifact Storage And Data Platform Foundation
+
+### Added
+
+* Run artifact storage backed by `run_artifacts` metadata/payload records.
+* API endpoints for run artifact listing, content reads, and JSON download.
+* Dataset snapshot/version tables with source, coverage, row count, and checksum metadata.
+* Dataset quality report persistence with `OK`, `WARNING`, and `FAILED` statuses.
+* Python import quality checks for gaps, duplicate candles, ordering, timeframe consistency, empty, and small datasets.
+* Run snapshots now reference dataset snapshot metadata when available.
+* Frontend displays run artifacts and dataset version/quality metadata.
+
+### Notes
+
+* Artifact payloads use PostgreSQL JSON text storage for the MVP; the metadata model leaves room for file/object storage later.
+* Data platform changes extend the existing candle import flow without adding new infrastructure.
+
+---
+
 ## [0.1.0-alpha.1] - 2026-04-13
 
 ### Platform Skeleton

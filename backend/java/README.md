@@ -40,6 +40,10 @@ OpenAPI JSON: `http://localhost:8080/v3/api-docs`
 - `GET /api/python/health`
 - `GET /api/datasets`
 - `POST /api/datasets`
+- `GET /api/datasets/{id}`
+- `GET /api/datasets/{id}/versions`
+- `GET /api/datasets/{id}/quality`
+- `GET /api/dataset-snapshots/{snapshotId}`
 - `PATCH /api/datasets/{id}`
 - `POST /api/datasets/{id}/duplicate`
 - `DELETE /api/datasets/{id}`
@@ -49,12 +53,17 @@ OpenAPI JSON: `http://localhost:8080/v3/api-docs`
 - `POST /api/runs`
 - `GET /api/runs/{id}`
 - `GET /api/runs/{id}/result`
+- `GET /api/runs/{id}/artifacts`
+- `GET /api/runs/{id}/artifacts/{artifactId}`
+- `GET /api/runs/{id}/artifacts/{artifactId}/download`
 - `POST /api/runs/{id}/rerun`
 
 `/api/runs` реализует release flow для reproducible execution:
 - Java сохраняет `run` и immutable snapshot
 - Java вызывает Python execution endpoint по HTTP
 - результат, trades и equity curve сохраняются в PostgreSQL
+- run artifacts сохраняются в `run_artifacts` и доступны только владельцу run
+- run snapshot содержит dataset version/snapshot reference, если датасет был найден
 
 <h2 align="center">Конфигурация</h2>
 
