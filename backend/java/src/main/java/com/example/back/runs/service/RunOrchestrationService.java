@@ -13,8 +13,11 @@ import com.example.back.backtest.repository.BacktestEquityPointRepository;
 import com.example.back.backtest.repository.BacktestTradeRepository;
 import com.example.back.common.logging.LogContext;
 import com.example.back.datasets.entity.DatasetEntity;
+import com.example.back.datasets.entity.DatasetSnapshotEntity;
 import com.example.back.datasets.repository.DatasetRepository;
+import com.example.back.datasets.service.DatasetService;
 import com.example.back.imports.client.PythonParserClient;
+import com.example.back.runs.artifacts.service.RunArtifactService;
 import com.example.back.runs.dto.PythonRunExecuteRequest;
 import com.example.back.runs.dto.PythonRunExecuteResponse;
 import com.example.back.runs.entity.RunEntity;
@@ -54,6 +57,8 @@ public class RunOrchestrationService {
     private final BacktestEquityPointRepository backtestEquityPointRepository;
     private final PythonParserClient pythonParserClient;
     private final RunFailureStateService runFailureStateService;
+    private final RunArtifactService runArtifactService;
+    private final DatasetService datasetService;
     private final ObjectMapper objectMapper;
 
     @Transactional
@@ -162,11 +167,15 @@ public class RunOrchestrationService {
             Long userId
     ) {
         Optional<DatasetEntity> dataset = findDataset(request, userId);
+        Optional<DatasetSnapshotEntity> datasetSnapshot = dataset.flatMap(value ->
+                datasetService.findLatestSnapshotForDataset(value.getId(), userId));
 
         RunSnapshotEntity snapshot = new RunSnapshotEntity();
         snapshot.setRunId(run.getId());
         snapshot.setStrategyVersion(resolveStrategyVersion(strategy));
         snapshot.setDatasetVersion(resolveDatasetVersion(dataset.orElse(null)));
+        snapshot.setDatasetSnapshotId(datasetSnapshot.map(DatasetSnapshotEntity::getId).orElse(null));
+        snapshot.setDatasetSnapshotJson(datasetSnapshot.map(this::buildDatasetSnapshotReference).map(this::writeJson).orElse(null));
         snapshot.setParamsSnapshotJson(writeJson(request.getParams()));
         snapshot.setExecutionConfigSnapshotJson(writeJson(buildExecutionConfigSnapshot(request)));
         snapshot.setMarketAssumptionsSnapshotJson(writeJson(buildMarketAssumptionsSnapshot(request)));
@@ -303,6 +312,7 @@ public class RunOrchestrationService {
         run.setErrorDetailsJson(null);
         backtestTradeRepository.deleteByRunId(runId);
         backtestEquityPointRepository.deleteByRunId(runId);
+        runArtifactService.clearArtifacts(runId);
         runRepository.save(run);
     }
 
@@ -327,14 +337,40 @@ public class RunOrchestrationService {
             runSnapshotRepository.save(snapshot);
         }
 
-        backtestTradeRepository.saveAll(defaultList(response.getTrades()).stream()
+        List<BacktestTrade> trades = defaultList(response.getTrades());
+        List<EquityPoint> equityCurve = defaultList(response.getEquityCurve());
+
+        backtestTradeRepository.saveAll(trades.stream()
                 .map(trade -> toTradeEntity(runId, trade))
                 .toList());
-        backtestEquityPointRepository.saveAll(defaultList(response.getEquityCurve()).stream()
+        backtestEquityPointRepository.saveAll(equityCurve.stream()
                 .map(point -> toEquityPointEntity(runId, point))
                 .toList());
+        runArtifactService.replaceArtifacts(
+                run,
+                defaultMap(response.getSummary()),
+                defaultMap(response.getMetrics()),
+                trades,
+                equityCurve,
+                defaultMap(response.getArtifacts())
+        );
 
         log.info("Run execution completed successfully in {} ms", run.getExecutionDurationMs());
+    }
+
+    private Map<String, Object> buildDatasetSnapshotReference(DatasetSnapshotEntity snapshot) {
+        Map<String, Object> reference = new LinkedHashMap<>();
+        reference.put("snapshotId", snapshot.getId());
+        reference.put("datasetId", snapshot.getDatasetId());
+        reference.put("datasetVersion", snapshot.getDatasetVersion());
+        reference.put("sourceExchange", snapshot.getSourceExchange());
+        reference.put("symbol", snapshot.getSymbol());
+        reference.put("timeframe", snapshot.getTimeframe());
+        reference.put("startTime", snapshot.getStartTime());
+        reference.put("endTime", snapshot.getEndTime());
+        reference.put("rowCount", snapshot.getRowCount());
+        reference.put("checksum", snapshot.getChecksum());
+        return reference;
     }
 
     private void markFailed(Long runId, String message, String errorDetailsJson) {
