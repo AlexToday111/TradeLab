@@ -64,8 +64,9 @@ def create_app() -> FastAPI:
     async def add_correlation_context(request: Request, call_next):
         correlation_id = request.headers.get("X-Correlation-Id") or f"py-{uuid4().hex}"
         run_id = request.headers.get("X-Run-Id")
+        job_id = request.headers.get("X-Job-Id")
         started_monotonic = time.perf_counter()
-        with bind_log_context(correlation_id=correlation_id, run_id=run_id):
+        with bind_log_context(correlation_id=correlation_id, run_id=run_id, job_id=job_id):
             if request.url.path.startswith("/internal/"):
                 internal_secret = request.headers.get("X-Internal-Auth")
                 if internal_secret != settings.internal_shared_secret:
@@ -84,6 +85,8 @@ def create_app() -> FastAPI:
                     response.headers["X-Correlation-Id"] = correlation_id
                     if run_id:
                         response.headers["X-Run-Id"] = run_id
+                    if job_id:
+                        response.headers["X-Job-Id"] = job_id
                     return response
             logger.info(
                 "Incoming HTTP request",
@@ -121,6 +124,8 @@ def create_app() -> FastAPI:
         response.headers["X-Correlation-Id"] = correlation_id
         if run_id:
             response.headers["X-Run-Id"] = run_id
+        if job_id:
+            response.headers["X-Job-Id"] = job_id
         return response
 
     @app.on_event("startup")
@@ -200,6 +205,7 @@ def create_app() -> FastAPI:
         with bind_log_context(
             correlation_id=request.correlation_id,
             run_id=request.run_id,
+            job_id=request.job_id,
         ):
             logger.info(
                 "Incoming strategy run request",
@@ -235,6 +241,7 @@ def create_app() -> FastAPI:
                     artifacts=None,
                     engine_version=ENGINE_VERSION,
                     run_id=request.run_id,
+                    job_id=request.job_id,
                     correlation_id=request.correlation_id,
                     started_at=started_at.isoformat().replace("+00:00", "Z"),
                     finished_at=finished_at.isoformat().replace("+00:00", "Z"),
@@ -256,6 +263,7 @@ def create_app() -> FastAPI:
                     artifacts=None,
                     engine_version=ENGINE_VERSION,
                     run_id=request.run_id,
+                    job_id=request.job_id,
                     correlation_id=request.correlation_id,
                     started_at=started_at.isoformat().replace("+00:00", "Z"),
                     finished_at=finished_at.isoformat().replace("+00:00", "Z"),

@@ -27,6 +27,7 @@ def build_request(strategy_file_path: str, **overrides) -> RunExecuteRequest:
         "to": "2024-01-01T02:00:00Z",
         "params": {"fast": 9},
         "runId": "101",
+        "jobId": "501",
         "correlationId": "run-101",
     }
     payload.update(overrides)
@@ -73,6 +74,7 @@ class Strategy:
     assert response.metrics == {"total_return": 9}
     assert response.error is None
     assert response.run_id == "101"
+    assert response.job_id == "501"
     assert response.correlation_id == "run-101"
     assert response.started_at is not None
     assert response.finished_at is not None

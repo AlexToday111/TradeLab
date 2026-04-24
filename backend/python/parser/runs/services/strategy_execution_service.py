@@ -29,6 +29,7 @@ class StrategyExecutionService:
         with bind_log_context(
             correlation_id=request.correlation_id,
             run_id=request.run_id,
+            job_id=request.job_id,
         ):
             exchange = request.exchange.strip().lower()
             symbol = request.symbol.strip().upper()
@@ -262,6 +263,7 @@ class StrategyExecutionService:
                     artifacts=artifacts,
                     engine_version=ENGINE_VERSION,
                     run_id=request.run_id,
+                    job_id=request.job_id,
                     correlation_id=request.correlation_id,
                     started_at=started_at.isoformat().replace("+00:00", "Z"),
                     finished_at=finished_at.isoformat().replace("+00:00", "Z"),
@@ -363,6 +365,7 @@ class StrategyExecutionService:
             artifacts=None,
             engine_version=ENGINE_VERSION,
             run_id=request.run_id,
+            job_id=request.job_id,
             correlation_id=request.correlation_id,
             started_at=started_at.isoformat().replace("+00:00", "Z"),
             finished_at=finished_at.isoformat().replace("+00:00", "Z"),

@@ -59,6 +59,13 @@ class RunExecuteRequest(BaseModel):
         description="Optional platform-level run identifier for logging correlation.",
         examples=["101"],
     )
+    job_id: str | None = Field(
+        default=None,
+        alias="jobId",
+        serialization_alias="jobId",
+        description="Optional execution job identifier for queue/worker correlation.",
+        examples=["501"],
+    )
     correlation_id: str | None = Field(
         default=None,
         alias="correlationId",
@@ -98,6 +105,11 @@ class RunExecuteResponse(BaseModel):
         default=None,
         alias="runId",
         serialization_alias="runId",
+    )
+    job_id: str | None = Field(
+        default=None,
+        alias="jobId",
+        serialization_alias="jobId",
     )
     correlation_id: str | None = Field(
         default=None,

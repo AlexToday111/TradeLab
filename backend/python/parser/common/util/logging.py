@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 
 _correlation_id: ContextVar[str | None] = ContextVar("correlation_id", default=None)
 _run_id: ContextVar[str | None] = ContextVar("run_id", default=None)
+_job_id: ContextVar[str | None] = ContextVar("job_id", default=None)
 _STANDARD_LOG_RECORD_KEYS = set(logging.makeLogRecord({}).__dict__.keys())
 
 
@@ -19,6 +20,7 @@ class JsonLogFormatter(logging.Formatter):
             "message": record.getMessage(),
             "correlation_id": _correlation_id.get(),
             "run_id": _run_id.get(),
+            "job_id": _job_id.get(),
         }
         for key, value in record.__dict__.items():
             if key in _STANDARD_LOG_RECORD_KEYS or key.startswith("_"):
@@ -36,11 +38,18 @@ def configure_logging() -> None:
 
 
 @contextmanager
-def bind_log_context(*, correlation_id: str | None = None, run_id: str | None = None):
+def bind_log_context(
+    *,
+    correlation_id: str | None = None,
+    run_id: str | None = None,
+    job_id: str | None = None,
+):
     correlation_token = _correlation_id.set(correlation_id)
     run_token = _run_id.set(run_id)
+    job_token = _job_id.set(job_id)
     try:
         yield
     finally:
+        _job_id.reset(job_token)
         _correlation_id.reset(correlation_token)
         _run_id.reset(run_token)
