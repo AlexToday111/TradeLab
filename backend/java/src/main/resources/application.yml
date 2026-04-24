@@ -44,6 +44,15 @@ telegram:
 app:
   strategy-storage-path: ./storage/strategies
 
+execution:
+  jobs:
+    worker-enabled: ${EXECUTION_JOBS_WORKER_ENABLED:true}
+    poll-fixed-delay-ms: ${EXECUTION_JOBS_POLL_FIXED_DELAY_MS:1000}
+    max-parallel-jobs: ${EXECUTION_JOBS_MAX_PARALLEL_JOBS:1}
+    max-attempts: ${EXECUTION_JOBS_MAX_ATTEMPTS:3}
+    max-execution-duration-ms: ${EXECUTION_JOBS_MAX_EXECUTION_DURATION_MS:0}
+    worker-id: ${EXECUTION_JOBS_WORKER_ID:}
+
 security:
   jwt:
     secret: ${SECURITY_JWT_SECRET:change-me-tradelab-jwt-secret-please-change}

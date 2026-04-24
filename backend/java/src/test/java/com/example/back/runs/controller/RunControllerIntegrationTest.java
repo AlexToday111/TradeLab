@@ -18,6 +18,10 @@ import com.example.back.candles.entity.CandleEntity;
 import com.example.back.candles.repository.CandleRepository;
 import com.example.back.datasets.entity.DatasetEntity;
 import com.example.back.datasets.repository.DatasetRepository;
+import com.example.back.executionjobs.entity.ExecutionJobEntity;
+import com.example.back.executionjobs.entity.ExecutionJobStatus;
+import com.example.back.executionjobs.repository.ExecutionJobRepository;
+import com.example.back.executionjobs.service.ExecutionJobWorker;
 import com.example.back.imports.client.PythonParserClient;
 import com.example.back.runs.dto.PythonRunExecuteResponse;
 import com.example.back.runs.entity.RunEntity;
@@ -25,6 +29,7 @@ import com.example.back.runs.repository.RunRepository;
 import com.example.back.strategies.entity.StrategyFileEntity;
 import com.example.back.strategies.repository.StrategyFileRepository;
 import com.example.back.support.TestAuth;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -46,7 +51,8 @@ import org.springframework.test.web.servlet.MockMvc;
         "spring.datasource.username=sa",
         "spring.datasource.password=",
         "spring.jpa.hibernate.ddl-auto=create-drop",
-        "spring.sql.init.mode=never"
+        "spring.sql.init.mode=never",
+        "execution.jobs.worker-enabled=false"
 })
 class RunControllerIntegrationTest {
 
@@ -58,6 +64,15 @@ class RunControllerIntegrationTest {
 
     @Autowired
     private RunArtifactRepository runArtifactRepository;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @Autowired
+    private ExecutionJobRepository executionJobRepository;
+
+    @Autowired
+    private ExecutionJobWorker executionJobWorker;
 
     @Autowired
     private StrategyFileRepository strategyFileRepository;
@@ -78,8 +93,9 @@ class RunControllerIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        runRepository.deleteAll();
+        executionJobRepository.deleteAll();
         runArtifactRepository.deleteAll();
+        runRepository.deleteAll();
         strategyFileRepository.deleteAll();
         datasetRepository.deleteAll();
 
@@ -228,7 +244,7 @@ class RunControllerIntegrationTest {
     void postRunCreatesAndReturnsFullRunObject() throws Exception {
         when(pythonParserClient.executeRun(any())).thenReturn(pythonRunExecuteResponse());
 
-        mockMvc.perform(post("/api/runs")
+        String responseBody = mockMvc.perform(post("/api/runs")
                         .with(TestAuth.authenticatedRequest())
                         .contentType("application/json")
                         .content("""
@@ -251,37 +267,28 @@ class RunControllerIntegrationTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").isNumber())
                 .andExpect(jsonPath("$.strategyId").value(strategyId))
-                .andExpect(jsonPath("$.status").value("SUCCEEDED"))
+                .andExpect(jsonPath("$.status").value("QUEUED"))
                 .andExpect(jsonPath("$.strategyName").value("EMA"))
                 .andExpect(jsonPath("$.correlationId").isString())
-                .andExpect(jsonPath("$.executionDurationMs").isNumber())
-                .andExpect(jsonPath("$.metrics.profit").value(9.5))
                 .andExpect(jsonPath("$.parameters.fastPeriod").value(10))
                 .andExpect(jsonPath("$.config.strategyId").value(strategyId))
-                .andExpect(jsonPath("$.summary.profit").value(9.5))
-                .andExpect(jsonPath("$.artifacts.tradesCount").value(1))
                 .andExpect(jsonPath("$.runId").doesNotExist())
-                .andExpect(jsonPath("$.result").doesNotExist());
+                .andExpect(jsonPath("$.result").doesNotExist())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        Long runId = objectMapper.readTree(responseBody).get("id").asLong();
+        ExecutionJobEntity job = executionJobRepository.findAll().get(0);
+        org.assertj.core.api.Assertions.assertThat(job.getRunId()).isEqualTo(runId);
+        org.assertj.core.api.Assertions.assertThat(job.getStatus()).isEqualTo(ExecutionJobStatus.QUEUED);
     }
 
     @Test
-    void postRunPersistsStructuredPythonFailure() throws Exception {
-        PythonRunExecuteResponse response = new PythonRunExecuteResponse();
-        response.setSuccess(false);
-        response.setRunId("1");
-        response.setCorrelationId("run-1");
-        response.setStartedAt("2024-01-01T00:00:00Z");
-        response.setFinishedAt("2024-01-01T00:00:01Z");
-        response.setExecutionDurationMs(1000L);
-        response.setEngineVersion("python-execution-engine/0.3.0-alpha.1");
-        response.setErrorCode("STRATEGY_RUNTIME_ERROR");
-        response.setErrorMessage("Strategy.run raised exception: boom");
-        response.setStacktrace("ValueError: boom");
-        response.setError("Strategy.run raised exception: boom");
+    void workerClaimsQueuedJobAndPersistsSuccessfulResult() throws Exception {
+        when(pythonParserClient.executeRun(any())).thenReturn(pythonRunExecuteResponse());
 
-        when(pythonParserClient.executeRun(any())).thenReturn(response);
-
-        mockMvc.perform(post("/api/runs")
+        String responseBody = mockMvc.perform(post("/api/runs")
                         .with(TestAuth.authenticatedRequest())
                         .contentType("application/json")
                         .content("""
@@ -302,12 +309,142 @@ class RunControllerIntegrationTest {
                                 }
                                 """.formatted(strategyId)))
                 .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        Long runId = objectMapper.readTree(responseBody).get("id").asLong();
+
+        org.assertj.core.api.Assertions.assertThat(executionJobWorker.processOneJobSync()).isTrue();
+
+        mockMvc.perform(get("/api/runs/" + runId).with(TestAuth.authenticatedRequest()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("SUCCEEDED"))
+                .andExpect(jsonPath("$.executionDurationMs").isNumber())
+                .andExpect(jsonPath("$.metrics.profit").value(9.5))
+                .andExpect(jsonPath("$.summary.profit").value(9.5))
+                .andExpect(jsonPath("$.artifacts.tradesCount").value(1));
+
+        ExecutionJobEntity job = executionJobRepository.findAll().get(0);
+        org.assertj.core.api.Assertions.assertThat(job.getStatus()).isEqualTo(ExecutionJobStatus.SUCCEEDED);
+        org.assertj.core.api.Assertions.assertThat(job.getAttemptCount()).isEqualTo(1);
+    }
+
+    @Test
+    void postRunPersistsStructuredPythonFailure() throws Exception {
+        PythonRunExecuteResponse response = new PythonRunExecuteResponse();
+        response.setSuccess(false);
+        response.setRunId("1");
+        response.setCorrelationId("run-1");
+        response.setStartedAt("2024-01-01T00:00:00Z");
+        response.setFinishedAt("2024-01-01T00:00:01Z");
+        response.setExecutionDurationMs(1000L);
+        response.setEngineVersion("python-execution-engine/0.3.0-alpha.1");
+        response.setErrorCode("STRATEGY_RUNTIME_ERROR");
+        response.setErrorMessage("Strategy.run raised exception: boom");
+        response.setStacktrace("ValueError: boom");
+        response.setError("Strategy.run raised exception: boom");
+
+        when(pythonParserClient.executeRun(any())).thenReturn(response);
+
+        String responseBody = mockMvc.perform(post("/api/runs")
+                        .with(TestAuth.authenticatedRequest())
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "strategyId": %d,
+                                  "exchange": "binance",
+                                  "symbol": "BTCUSDT",
+                                  "interval": "1h",
+                                  "from": "2024-01-01T00:00:00Z",
+                                  "to": "2024-01-01T01:00:00Z",
+                                  "params": {
+                                    "fastPeriod": 10
+                                  },
+                                  "initialCash": 10000.0,
+                                  "feeRate": 0.001,
+                                  "slippageBps": 1.0,
+                                  "strictData": true
+                                }
+                                """.formatted(strategyId)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("QUEUED"))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        Long runId = objectMapper.readTree(responseBody).get("id").asLong();
+        org.assertj.core.api.Assertions.assertThat(executionJobWorker.processOneJobSync()).isTrue();
+
+        mockMvc.perform(get("/api/runs/" + runId).with(TestAuth.authenticatedRequest()))
+                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("FAILED"))
                 .andExpect(jsonPath("$.errorMessage").value("Strategy.run raised exception: boom"))
                 .andExpect(jsonPath("$.errorDetails.source").value("python"))
+                .andExpect(jsonPath("$.errorDetails.jobId").isString())
                 .andExpect(jsonPath("$.errorDetails.errorCode").value("STRATEGY_RUNTIME_ERROR"))
                 .andExpect(jsonPath("$.errorDetails.stacktrace").value("ValueError: boom"))
                 .andExpect(jsonPath("$.executionDurationMs").isNumber());
+    }
+
+    @Test
+    void retryFailedRunRequeuesExistingJobAndIncrementsAttemptOnClaim() throws Exception {
+        when(pythonParserClient.executeRun(any())).thenReturn(failedPythonRunExecuteResponse());
+
+        String responseBody = createQueuedRun();
+        Long runId = objectMapper.readTree(responseBody).get("id").asLong();
+        org.assertj.core.api.Assertions.assertThat(executionJobWorker.processOneJobSync()).isTrue();
+
+        mockMvc.perform(post("/api/runs/" + runId + "/retry").with(TestAuth.authenticatedRequest()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("QUEUED"))
+                .andExpect(jsonPath("$.attemptCount").value(1));
+
+        when(pythonParserClient.executeRun(any())).thenReturn(pythonRunExecuteResponse());
+        org.assertj.core.api.Assertions.assertThat(executionJobWorker.processOneJobSync()).isTrue();
+
+        ExecutionJobEntity job = executionJobRepository.findAll().get(0);
+        org.assertj.core.api.Assertions.assertThat(job.getStatus()).isEqualTo(ExecutionJobStatus.SUCCEEDED);
+        org.assertj.core.api.Assertions.assertThat(job.getAttemptCount()).isEqualTo(2);
+    }
+
+    @Test
+    void cancelQueuedRunMarksRunAndJobCanceled() throws Exception {
+        String responseBody = createQueuedRun();
+        Long runId = objectMapper.readTree(responseBody).get("id").asLong();
+
+        mockMvc.perform(post("/api/runs/" + runId + "/cancel").with(TestAuth.authenticatedRequest()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANCELED"))
+                .andExpect(jsonPath("$.cancelRequested").value(true));
+
+        mockMvc.perform(get("/api/runs/" + runId).with(TestAuth.authenticatedRequest()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANCELED"));
+    }
+
+    @Test
+    void executionJobDetailsRespectOwnership() throws Exception {
+        RunEntity otherRun = saveRun(
+                BacktestStatus.QUEUED,
+                Instant.parse("2024-01-01T00:00:00Z"),
+                "{\"fastPeriod\":10}",
+                null,
+                null
+        );
+        otherRun.setUserId(999L);
+        runRepository.saveAndFlush(otherRun);
+
+        ExecutionJobEntity job = new ExecutionJobEntity();
+        job.setRunId(otherRun.getId());
+        job.setUserId(999L);
+        job.setStatus(ExecutionJobStatus.QUEUED);
+        job.setPriority(0);
+        job.setAttemptCount(0);
+        job.setMaxAttempts(3);
+        ExecutionJobEntity savedJob = executionJobRepository.saveAndFlush(job);
+
+        mockMvc.perform(get("/api/execution-jobs/" + savedJob.getId()).with(TestAuth.authenticatedRequest()))
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -344,7 +481,35 @@ class RunControllerIntegrationTest {
                 .andExpect(jsonPath("$.id").isNotEmpty())
                 .andExpect(jsonPath("$.config.strategyId").value(strategyId))
                 .andExpect(jsonPath("$.parameters.fastPeriod").value(10))
-                .andExpect(jsonPath("$.status").value("SUCCEEDED"));
+                .andExpect(jsonPath("$.status").value("QUEUED"));
+    }
+
+    private String createQueuedRun() throws Exception {
+        return mockMvc.perform(post("/api/runs")
+                        .with(TestAuth.authenticatedRequest())
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "strategyId": %d,
+                                  "exchange": "binance",
+                                  "symbol": "BTCUSDT",
+                                  "interval": "1h",
+                                  "from": "2024-01-01T00:00:00Z",
+                                  "to": "2024-01-01T01:00:00Z",
+                                  "params": {
+                                    "fastPeriod": 10
+                                  },
+                                  "initialCash": 10000.0,
+                                  "feeRate": 0.001,
+                                  "slippageBps": 1.0,
+                                  "strictData": true
+                                }
+                                """.formatted(strategyId)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("QUEUED"))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
     }
 
     private RunEntity saveRun(
@@ -432,6 +597,23 @@ class RunControllerIntegrationTest {
         response.setFinishedAt("2024-01-01T00:00:01Z");
         response.setExecutionDurationMs(1000L);
         response.setError(null);
+        return response;
+    }
+
+    private PythonRunExecuteResponse failedPythonRunExecuteResponse() {
+        PythonRunExecuteResponse response = new PythonRunExecuteResponse();
+        response.setSuccess(false);
+        response.setRunId("1");
+        response.setJobId("1");
+        response.setCorrelationId("run-1");
+        response.setStartedAt("2024-01-01T00:00:00Z");
+        response.setFinishedAt("2024-01-01T00:00:01Z");
+        response.setExecutionDurationMs(1000L);
+        response.setEngineVersion("python-execution-engine/0.3.0-alpha.1");
+        response.setErrorCode("STRATEGY_RUNTIME_ERROR");
+        response.setErrorMessage("Strategy.run raised exception: boom");
+        response.setStacktrace("ValueError: boom");
+        response.setError("Strategy.run raised exception: boom");
         return response;
     }
 }

@@ -9,6 +9,8 @@ import com.example.back.backtest.model.BacktestEquityPointEntity;
 import com.example.back.backtest.model.BacktestTradeEntity;
 import com.example.back.backtest.repository.BacktestEquityPointRepository;
 import com.example.back.backtest.repository.BacktestTradeRepository;
+import com.example.back.executionjobs.dto.ExecutionJobResponse;
+import com.example.back.executionjobs.service.ExecutionJobService;
 import com.example.back.runs.dto.RunResultResponse;
 import com.example.back.runs.dto.RunResponse;
 import com.example.back.runs.entity.RunEntity;
@@ -31,6 +33,7 @@ public class RunService {
     private final BacktestEquityPointRepository backtestEquityPointRepository;
     private final RunMapper runMapper;
     private final RunOrchestrationService runOrchestrationService;
+    private final ExecutionJobService executionJobService;
 
     public List<RunResponse> listRuns() {
         Long userId = AuthContext.requireUserId();
@@ -45,13 +48,6 @@ public class RunService {
 
     public RunResponse createRun(CreateBacktestRunRequest request) {
         Long runId = runOrchestrationService.createRun(request);
-
-        try {
-            runOrchestrationService.executeRun(runId);
-        } catch (RuntimeException ex) {
-            return getRun(runId);
-        }
-
         return getRun(runId);
     }
 
@@ -78,14 +74,21 @@ public class RunService {
         request.setParams(getParameters(config));
 
         Long rerunId = runOrchestrationService.createRun(request);
-
-        try {
-            runOrchestrationService.executeRun(rerunId);
-        } catch (RuntimeException ex) {
-            return getRun(rerunId);
-        }
-
         return getRun(rerunId);
+    }
+
+    public ExecutionJobResponse getRunExecution(Long runId) {
+        return executionJobService.getLatestOwnedRunJob(runId);
+    }
+
+    public ExecutionJobResponse retryRun(Long runId) {
+        findRunEntity(runId);
+        return executionJobService.retryRun(runId);
+    }
+
+    public ExecutionJobResponse cancelRun(Long runId) {
+        findRunEntity(runId);
+        return executionJobService.cancelRun(runId);
     }
 
     public RunResultResponse getRunResult(Long runId) {

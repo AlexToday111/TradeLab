@@ -34,6 +34,8 @@ public class PythonRunExecuteResponse {
 
     private String runId;
 
+    private String jobId;
+
     private String correlationId;
 
     private String startedAt;

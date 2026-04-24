@@ -67,7 +67,11 @@ public class PythonParserClient {
 
     public PythonRunExecuteResponse executeRun(PythonRunExecuteRequest request) {
         long startedNanos = System.nanoTime();
-        try (LogContext.BoundContext ignored = LogContext.bind(request.getCorrelationId(), request.getRunId())) {
+        try (LogContext.BoundContext ignored = LogContext.bind(
+                request.getCorrelationId(),
+                request.getRunId(),
+                request.getJobId())
+        ) {
             log.info("Dispatching python run request {}", entries(buildRequestLogPayload(request)));
             ResponseEntity<PythonRunExecuteResponse> responseEntity = restClient.post()
                     .uri(RUN_EXECUTE_URI)
@@ -108,6 +112,9 @@ public class PythonParserClient {
         if (request.getRunId() != null && !request.getRunId().isBlank()) {
             headers.set(LogContext.RUN_ID_HEADER, request.getRunId());
         }
+        if (request.getJobId() != null && !request.getJobId().isBlank()) {
+            headers.set(LogContext.JOB_ID_HEADER, request.getJobId());
+        }
     }
 
     private void applyInternalHeaders(HttpHeaders headers) {
@@ -119,6 +126,7 @@ public class PythonParserClient {
         payload.put("event", "python_run_request");
         payload.put("endpoint", RUN_EXECUTE_URI);
         payload.put("run_id", request.getRunId());
+        payload.put("job_id", request.getJobId());
         payload.put("correlation_id", request.getCorrelationId());
         payload.put("strategy_file", safeFileName(request.getStrategyFilePath()));
         payload.put("exchange", request.getExchange());
@@ -141,6 +149,7 @@ public class PythonParserClient {
         payload.put("http_status", httpStatus);
         payload.put("execution_duration_ms", durationMs(startedNanos));
         if (response != null) {
+            payload.put("job_id", response.getJobId());
             payload.put("success", response.getSuccess());
             payload.put("error_code", response.getErrorCode());
             payload.put("error_message", firstNonBlank(response.getErrorMessage(), response.getError()));

@@ -1,6 +1,7 @@
 package com.example.back.runs.controller;
 
 import com.example.back.backtest.dto.CreateBacktestRunRequest;
+import com.example.back.executionjobs.dto.ExecutionJobResponse;
 import com.example.back.runs.dto.RunResultResponse;
 import com.example.back.runs.dto.RunResponse;
 import com.example.back.runs.service.RunService;
@@ -38,6 +39,11 @@ public class RunController {
         return runService.getRunResult(id);
     }
 
+    @GetMapping("/{id}/execution")
+    public ExecutionJobResponse getRunExecution(@PathVariable Long id) {
+        return runService.getRunExecution(id);
+    }
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public RunResponse createRun(@Valid @RequestBody CreateBacktestRunRequest request) {
@@ -48,5 +54,15 @@ public class RunController {
     @ResponseStatus(HttpStatus.CREATED)
     public RunResponse rerun(@PathVariable Long id) {
         return runService.rerun(id);
+    }
+
+    @PostMapping("/{id}/retry")
+    public ExecutionJobResponse retryRun(@PathVariable Long id) {
+        return runService.retryRun(id);
+    }
+
+    @PostMapping("/{id}/cancel")
+    public ExecutionJobResponse cancelRun(@PathVariable Long id) {
+        return runService.cancelRun(id);
     }
 }

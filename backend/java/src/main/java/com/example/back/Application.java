@@ -2,12 +2,16 @@ package com.example.back;
 
 
 import com.example.back.telegram.config.TelegramBotProperties;
+import com.example.back.executionjobs.config.ExecutionJobProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
+@EnableScheduling
 @EnableConfigurationProperties({
+        ExecutionJobProperties.class,
         TelegramBotProperties.class
 })
 public class Application {

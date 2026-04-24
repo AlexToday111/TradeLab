@@ -36,5 +36,7 @@ public class PythonRunExecuteRequest {
 
     private String runId;
 
+    private String jobId;
+
     private String correlationId;
 }

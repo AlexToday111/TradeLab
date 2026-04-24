@@ -17,6 +17,9 @@ import com.example.back.datasets.entity.DatasetEntity;
 import com.example.back.datasets.entity.DatasetSnapshotEntity;
 import com.example.back.datasets.repository.DatasetRepository;
 import com.example.back.datasets.repository.DatasetSnapshotRepository;
+import com.example.back.executionjobs.config.ExecutionJobProperties;
+import com.example.back.executionjobs.entity.ExecutionJobEntity;
+import com.example.back.executionjobs.service.ExecutionJobService;
 import com.example.back.imports.client.PythonParserClient;
 import com.example.back.runs.dto.PythonRunExecuteRequest;
 import com.example.back.runs.dto.PythonRunExecuteResponse;
@@ -59,6 +62,8 @@ public class RunOrchestrationService {
     private final PythonParserClient pythonParserClient;
     private final RunFailureStateService runFailureStateService;
     private final RunArtifactService runArtifactService;
+    private final ExecutionJobService executionJobService;
+    private final ExecutionJobProperties executionJobProperties;
     private final ObjectMapper objectMapper;
 
     @Transactional
@@ -76,39 +81,69 @@ public class RunOrchestrationService {
             log.info("Created run entity");
         }
         markQueued(savedRun.getId());
+        executionJobService.createQueuedJob(savedRun);
         return savedRun.getId();
     }
 
-    public void executeRun(Long runId) {
-        RunEntity run = findOwnedRun(runId);
+    public void executeJob(Long jobId) {
+        ExecutionJobEntity job = executionJobService.findJob(jobId);
+        RunEntity run = findRun(job.getRunId());
         StrategyFileEntity strategy = getValidatedStrategy(run.getStrategyId(), run.getUserId());
 
-        try (LogContext.BoundContext ignored = LogContext.bind(run.getCorrelationId(), String.valueOf(run.getId()))) {
-            markRunning(runId);
+        try (LogContext.BoundContext ignored = LogContext.bind(
+                run.getCorrelationId(),
+                String.valueOf(run.getId()),
+                String.valueOf(job.getId()))
+        ) {
+            if (executionJobService.isCancelRequested(job.getId())) {
+                executionJobService.markCanceled(job.getId(), "Job was canceled before execution started");
+                return;
+            }
 
+            markRunning(run.getId());
+
+            long startedNanos = System.nanoTime();
             try {
-                PythonRunExecuteResponse response = pythonParserClient.executeRun(buildPythonRequest(run, strategy));
+                PythonRunExecuteResponse response = pythonParserClient.executeRun(buildPythonRequest(run, strategy, job));
+                if (executionJobService.isCancelRequested(job.getId())) {
+                    executionJobService.markCanceled(job.getId(), "Job was canceled while Python execution was running");
+                    return;
+                }
                 if (response == null) {
+                    executionJobService.markFailed(
+                            job.getId(),
+                            "EMPTY_PYTHON_RESPONSE",
+                            "Python execution returned empty response"
+                    );
                     markFailed(
-                            runId,
+                            run.getId(),
                             "Python execution returned empty response",
-                            writeJson(buildEmptyPythonResponseDetails(run))
+                            writeJson(buildEmptyPythonResponseDetails(run, job))
                     );
                     return;
                 }
                 if (!Boolean.TRUE.equals(response.getSuccess())) {
                     String errorMessage = resolvePythonErrorMessage(response);
                     log.warn("Python execution reported failed run: {}", errorMessage);
-                    markFailed(runId, errorMessage, writeJson(buildPythonErrorDetails(run, response)));
+                    executionJobService.markFailed(job.getId(), response.getErrorCode(), errorMessage);
+                    markFailed(run.getId(), errorMessage, writeJson(buildPythonErrorDetails(run, job, response)));
                     return;
                 }
-                markSucceeded(runId, response);
+                if (exceededMaxExecutionDuration(startedNanos)) {
+                    String errorMessage = "Execution exceeded configured max duration";
+                    executionJobService.markFailed(job.getId(), "EXECUTION_TIMEOUT", errorMessage);
+                    markFailed(run.getId(), errorMessage, writeJson(buildTimeoutDetails(run, job)));
+                    return;
+                }
+                markSucceeded(run.getId(), response);
+                executionJobService.markSucceeded(job.getId());
             } catch (RuntimeException exception) {
                 log.error("Run execution failed", exception);
+                executionJobService.markFailed(job.getId(), "JAVA_EXECUTION_ERROR", exception.getMessage());
                 markFailed(
-                        runId,
+                        run.getId(),
                         exception.getMessage(),
-                        writeJson(buildJavaErrorDetails(run, exception))
+                        writeJson(buildJavaErrorDetails(run, job, exception))
                 );
             }
         }
@@ -257,7 +292,7 @@ public class RunOrchestrationService {
 
     private Map<String, Object> buildExecutionConfigSnapshot(CreateBacktestRunRequest request) {
         Map<String, Object> config = new LinkedHashMap<>();
-        config.put("mode", "sync-http");
+        config.put("mode", "queued-http");
         config.put("strict_data", request.getStrictData());
         config.put("from", request.getFrom());
         config.put("to", request.getTo());
@@ -277,7 +312,11 @@ public class RunOrchestrationService {
         return assumptions;
     }
 
-    private PythonRunExecuteRequest buildPythonRequest(RunEntity run, StrategyFileEntity strategy) {
+    private PythonRunExecuteRequest buildPythonRequest(
+            RunEntity run,
+            StrategyFileEntity strategy,
+            ExecutionJobEntity job
+    ) {
         Map<String, Object> config = readJsonMap(run.getParamsJson());
         Map<String, Object> params = Map.of();
         Object rawParams = config.get("params");
@@ -296,6 +335,7 @@ public class RunOrchestrationService {
         request.setTo(run.getDateTo().toString());
         request.setParams(params);
         request.setRunId(String.valueOf(run.getId()));
+        request.setJobId(String.valueOf(job.getId()));
         request.setCorrelationId(run.getCorrelationId());
         return request;
     }
@@ -415,23 +455,31 @@ public class RunOrchestrationService {
         }
     }
 
-    private Map<String, Object> buildEmptyPythonResponseDetails(RunEntity run) {
+    private Map<String, Object> buildEmptyPythonResponseDetails(RunEntity run, ExecutionJobEntity job) {
         Map<String, Object> details = new LinkedHashMap<>();
         details.put("source", "java");
         details.put("stage", "python-client");
         details.put("endpoint", PYTHON_EXECUTE_ENDPOINT);
         details.put("runId", run.getId());
+        details.put("jobId", job.getId());
+        details.put("attemptCount", job.getAttemptCount());
         details.put("correlationId", run.getCorrelationId());
         details.put("errorCode", "EMPTY_PYTHON_RESPONSE");
         details.put("errorMessage", "Python execution returned empty response");
         return details;
     }
 
-    private Map<String, Object> buildPythonErrorDetails(RunEntity run, PythonRunExecuteResponse response) {
+    private Map<String, Object> buildPythonErrorDetails(
+            RunEntity run,
+            ExecutionJobEntity job,
+            PythonRunExecuteResponse response
+    ) {
         Map<String, Object> details = new LinkedHashMap<>();
         details.put("source", "python");
         details.put("endpoint", PYTHON_EXECUTE_ENDPOINT);
         details.put("runId", firstNonBlank(response.getRunId(), String.valueOf(run.getId())));
+        details.put("jobId", firstNonBlank(response.getJobId(), String.valueOf(job.getId())));
+        details.put("attemptCount", job.getAttemptCount());
         details.put("correlationId", firstNonBlank(response.getCorrelationId(), run.getCorrelationId()));
         details.put("errorCode", response.getErrorCode());
         details.put("errorMessage", resolvePythonErrorMessage(response));
@@ -443,17 +491,38 @@ public class RunOrchestrationService {
         return details;
     }
 
-    private Map<String, Object> buildJavaErrorDetails(RunEntity run, RuntimeException exception) {
+    private Map<String, Object> buildJavaErrorDetails(
+            RunEntity run,
+            ExecutionJobEntity job,
+            RuntimeException exception
+    ) {
         Map<String, Object> details = new LinkedHashMap<>();
         details.put("source", "java");
         details.put("stage", "python-client");
         details.put("endpoint", PYTHON_EXECUTE_ENDPOINT);
         details.put("runId", run.getId());
+        details.put("jobId", job.getId());
+        details.put("attemptCount", job.getAttemptCount());
         details.put("correlationId", run.getCorrelationId());
         details.put("errorCode", "JAVA_EXECUTION_ERROR");
         details.put("errorMessage", firstNonBlank(exception.getMessage(), "Run execution failed"));
         details.put("exceptionClass", exception.getClass().getName());
         details.put("stacktrace", stackTrace(exception));
+        return details;
+    }
+
+    private Map<String, Object> buildTimeoutDetails(RunEntity run, ExecutionJobEntity job) {
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("source", "java");
+        details.put("stage", "execution-guardrail");
+        details.put("endpoint", PYTHON_EXECUTE_ENDPOINT);
+        details.put("runId", run.getId());
+        details.put("jobId", job.getId());
+        details.put("attemptCount", job.getAttemptCount());
+        details.put("correlationId", run.getCorrelationId());
+        details.put("errorCode", "EXECUTION_TIMEOUT");
+        details.put("errorMessage", "Execution exceeded configured max duration");
+        details.put("maxExecutionDurationMs", executionJobProperties.getMaxExecutionDurationMs());
         return details;
     }
 
@@ -475,6 +544,15 @@ public class RunOrchestrationService {
         return finishedAt.toEpochMilli() - startedAt.toEpochMilli();
     }
 
+    private boolean exceededMaxExecutionDuration(long startedNanos) {
+        long maxDurationMs = executionJobProperties.getMaxExecutionDurationMs();
+        if (maxDurationMs <= 0) {
+            return false;
+        }
+        long durationMs = (System.nanoTime() - startedNanos) / 1_000_000;
+        return durationMs > maxDurationMs;
+    }
+
     private String stackTrace(Throwable throwable) {
         StringWriter writer = new StringWriter();
         throwable.printStackTrace(new PrintWriter(writer));
@@ -490,12 +568,6 @@ public class RunOrchestrationService {
 
     private RunEntity findRun(Long runId) {
         return runRepository.findById(runId)
-                .orElseThrow(() -> new BacktestResourceNotFoundException("Run not found: " + runId));
-    }
-
-    private RunEntity findOwnedRun(Long runId) {
-        Long userId = AuthContext.requireUserId();
-        return runRepository.findByIdAndUserId(runId, userId)
                 .orElseThrow(() -> new BacktestResourceNotFoundException("Run not found: " + runId));
     }
 
