@@ -10,6 +10,7 @@ const statusStyles: Record<RunStatus, string> = {
   running: "bg-status-running/20 text-status-running border-status-running/40",
   done: "bg-status-success/20 text-status-success border-status-success/40",
   failed: "bg-status-error/20 text-status-error border-status-error/40",
+  canceled: "bg-muted text-muted-foreground border-border",
 };
 
 export function RunStatusBadge({ status }: { status: RunStatus }) {

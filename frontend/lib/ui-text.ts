@@ -5,6 +5,7 @@ const runStatusLabels: Record<RunStatus, string> = {
   running: "Выполняется",
   done: "Завершен",
   failed: "Ошибка",
+  canceled: "Отменен",
 };
 
 const runTagLabels = {

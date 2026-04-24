@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
-import { AlertCircle, Download, Expand, Minimize2, Play, RotateCcw } from "lucide-react";
+import { AlertCircle, Download, Expand, Minimize2, Play, RotateCcw, XCircle } from "lucide-react";
 import { ChartCard } from "@/components/shared/chart-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { LoadingState } from "@/components/shared/loading-state";
@@ -26,12 +26,12 @@ import { Badge } from "@/components/ui/badge";
 import { previewRows } from "@/lib/demo-data/datasets";
 import { logLines } from "@/lib/demo-data/logs";
 import { trades } from "@/lib/demo-data/trades";
-import { fetchRunArtifacts } from "@/lib/api/runs";
+import { cancelRun as cancelBackendRun, fetchRunArtifacts, retryRun as retryBackendRun } from "@/lib/api/runs";
 import { fetchStrategyById } from "@/lib/api/strategies";
 
 export default function RunDetailsPage() {
   const params = useParams();
-  const { getRunById, isLoading, createRemoteRun, updateRun } = useRuns();
+  const { getRunById, isLoading, createRemoteRun, updateRun, reloadRuns } = useRuns();
   const [isAnalyzerFullscreen, setIsAnalyzerFullscreen] = useState(false);
   const runId = Array.isArray(params?.id) ? params?.id[0] : params?.id;
   const run = runId ? getRunById(runId) : undefined;
@@ -103,6 +103,8 @@ export default function RunDetailsPage() {
   const hasRunMetrics = run.status === "done";
   const isLaunchAction = run.status === "queued";
   const runActionLabel = isLaunchAction ? "Запуск" : "Перезапуск";
+  const canCancelRun = run.backendRunId !== undefined && (run.status === "queued" || run.status === "running");
+  const canRetryRun = run.backendRunId !== undefined && run.status === "failed";
 
   const handleRunAction = async () => {
     if (!run.strategyId) {
@@ -164,6 +166,48 @@ export default function RunDetailsPage() {
     }
   };
 
+  const handleRetryRun = async () => {
+    if (!run.backendRunId) {
+      return;
+    }
+
+    setRunActionState("running");
+    setRunActionError(null);
+    try {
+      await retryBackendRun(run.backendRunId);
+      await reloadRuns();
+      setRunActionState("idle");
+    } catch (error) {
+      setRunActionState("error");
+      setRunActionError(
+        error instanceof Error && error.message.trim().length > 0
+          ? error.message
+          : "Не удалось повторить запуск."
+      );
+    }
+  };
+
+  const handleCancelRun = async () => {
+    if (!run.backendRunId) {
+      return;
+    }
+
+    setRunActionState("running");
+    setRunActionError(null);
+    try {
+      await cancelBackendRun(run.backendRunId);
+      await reloadRuns();
+      setRunActionState("idle");
+    } catch (error) {
+      setRunActionState("error");
+      setRunActionError(
+        error instanceof Error && error.message.trim().length > 0
+          ? error.message
+          : "Не удалось отменить запуск."
+      );
+    }
+  };
+
   const configJson = JSON.stringify(
     {
       fees: run.params.fees,
@@ -184,19 +228,45 @@ export default function RunDetailsPage() {
         eyebrow="Детали запуска"
         title={`Запуск ${run.id}`}
         actions={
-          <Button
-            type="button"
-            size="sm"
-            onClick={handleRunAction}
-            disabled={runActionState === "running"}
-          >
-            {isLaunchAction ? (
-              <Play className="mr-2 h-4 w-4" />
-            ) : (
-              <RotateCcw className="mr-2 h-4 w-4" />
-            )}
-            {runActionState === "running" ? "Выполняется..." : runActionLabel}
-          </Button>
+          <div className="flex items-center gap-2">
+            {canCancelRun ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={handleCancelRun}
+                disabled={runActionState === "running"}
+              >
+                <XCircle className="mr-2 h-4 w-4" />
+                Отменить
+              </Button>
+            ) : null}
+            {canRetryRun ? (
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleRetryRun}
+                disabled={runActionState === "running"}
+              >
+                <RotateCcw className="mr-2 h-4 w-4" />
+                {runActionState === "running" ? "Выполняется..." : "Повторить"}
+              </Button>
+            ) : !canCancelRun ? (
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleRunAction}
+                disabled={runActionState === "running" || run.status === "running"}
+              >
+                {isLaunchAction ? (
+                  <Play className="mr-2 h-4 w-4" />
+                ) : (
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                )}
+                {runActionState === "running" ? "Выполняется..." : runActionLabel}
+              </Button>
+            ) : null}
+          </div>
         }
       />
       <RunHeader run={run} />

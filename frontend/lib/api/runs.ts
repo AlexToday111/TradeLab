@@ -101,14 +101,20 @@ function getMetric(metrics: Record<string, unknown> | null | undefined, keys: st
 function toFrontendStatus(status: string): RunStatus {
   switch (status.toUpperCase()) {
     case "PENDING":
+    case "CREATED":
+    case "QUEUED":
+    case "RETRYING":
       return "queued";
     case "RUNNING":
       return "running";
     case "SUCCESS":
     case "COMPLETED":
+    case "SUCCEEDED":
       return "done";
     case "FAILED":
       return "failed";
+    case "CANCELED":
+      return "canceled";
     default:
       return "failed";
   }
@@ -384,4 +390,30 @@ export async function createRun(payload: CreateRunPayload, strategiesById?: Map<
   }
 
   return toFrontendRun(backendRun, strategiesById);
+}
+
+export async function retryRun(runId: number | string) {
+  const response = await apiFetch(`/api/runs/${runId}/retry`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+}
+
+export async function cancelRun(runId: number | string) {
+  const response = await apiFetch(`/api/runs/${runId}/cancel`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
 }

@@ -1,4 +1,4 @@
-export type RunStatus = "queued" | "running" | "done" | "failed";
+export type RunStatus = "queued" | "running" | "done" | "failed" | "canceled";
 
 export type RunMetrics = {
   pnl: number;
