@@ -114,6 +114,39 @@ CREATE INDEX IF NOT EXISTS idx_runs_user_created_at
 CREATE INDEX IF NOT EXISTS idx_runs_strategy_id
     ON runs (strategy_id);
 
+CREATE TABLE IF NOT EXISTS execution_jobs (
+                                              id BIGSERIAL PRIMARY KEY,
+                                              run_id BIGINT NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
+    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+    status VARCHAR(32) NOT NULL,
+    priority INTEGER NOT NULL DEFAULT 0,
+    attempt_count INTEGER NOT NULL DEFAULT 0,
+    max_attempts INTEGER NOT NULL DEFAULT 3,
+    queued_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    started_at TIMESTAMPTZ,
+    finished_at TIMESTAMPTZ,
+    locked_at TIMESTAMPTZ,
+    locked_by VARCHAR(128),
+    cancel_requested BOOLEAN NOT NULL DEFAULT FALSE,
+    error_code VARCHAR(128),
+    error_message TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+CREATE INDEX IF NOT EXISTS idx_execution_jobs_user_created_at
+    ON execution_jobs (user_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_execution_jobs_status_priority
+    ON execution_jobs (status, priority DESC, queued_at ASC);
+
+CREATE INDEX IF NOT EXISTS idx_execution_jobs_run_created_at
+    ON execution_jobs (run_id, created_at DESC);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_execution_jobs_one_active_per_run
+    ON execution_jobs (run_id)
+    WHERE status IN ('QUEUED', 'RETRYING', 'RUNNING');
+
 CREATE TABLE IF NOT EXISTS run_artifacts (
                                              id BIGSERIAL PRIMARY KEY,
                                              run_id BIGINT NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
