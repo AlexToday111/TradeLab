@@ -8,7 +8,7 @@
    Пользовательский интерфейс создает запросы на запуск бэктеста и отображает статусы, summary, сделки и equity curve.
 
 2. `backend/java`
-   Spring Boot backend принимает REST-запросы, управляет жизненным циклом запуска, хранит run artifacts, управляет dataset snapshots/quality metadata и сохраняет результаты в БД.
+   Spring Boot backend принимает REST-запросы, управляет жизненным циклом запуска, создает execution jobs, хранит run artifacts, управляет dataset snapshots/quality metadata и сохраняет результаты в БД.
 
 3. `backend/python`
    Python execution/data plane импортирует и нормализует market data, считает data quality report и выполняет стратегии по сохраненным свечам.
@@ -16,16 +16,35 @@
 4. `PostgreSQL`
    База данных хранит стратегии, свечи, запуски, сделки и точки кривой капитала.
 
-## Поток данных
+## Scalable Execution Flow
 
-1. Клиент вызывает `POST /backtests`.
-2. Java backend создает запись в `runs` со статусом `PENDING`.
-3. `BacktestService` переводит запуск в `RUNNING`.
-4. Сервис читает OHLCV из таблицы `candles` и формирует временный CSV.
-5. `PythonBacktestExecutor` запускает Python-скрипт через `ProcessBuilder`.
-6. Python возвращает JSON с `summary`, `trades`, `equity_curve`.
-7. Java backend сохраняет summary/metrics в `runs`, сделки в `backtest_trades`, equity curve в `backtest_equity_points` и JSON artifacts в `run_artifacts`.
-8. Запуск переводится в `COMPLETED` или `FAILED`.
+1. Клиент вызывает `POST /api/runs`.
+2. Java backend создает `runs` и immutable `run_snapshots`.
+3. Java backend создает `execution_jobs` со статусом `QUEUED`.
+4. In-process worker claims next queued job, sets `RUNNING`, `locked_by`, `locked_at`, and increments `attempt_count`.
+5. Worker calls Python `/internal/runs/execute` with `runId`, `jobId`, and `correlationId`.
+6. Python executes the strategy workload and returns structured success or error payload.
+7. Java persists metrics, trades, equity curve, and run artifacts on success.
+8. Java updates both `runs.status` and `execution_jobs.status`.
+
+The legacy `/backtests` endpoint remains a synchronous compatibility path. New scalable execution work should use `/api/runs`.
+
+## Execution Jobs
+
+`ExecutionJob` represents scheduling and worker lifecycle. `Run` remains the domain entity and reproducibility anchor.
+
+Supported job statuses:
+
+- `QUEUED`
+- `RUNNING`
+- `SUCCEEDED`
+- `FAILED`
+- `CANCELED`
+- `RETRYING`
+
+Worker readiness is provided through database-backed claiming with pessimistic locking, `locked_by`, `locked_at`, duplicate-active-job guardrails, configurable `max-attempts`, and configurable `max-parallel-jobs`.
+
+Running Python execution cannot be interrupted yet. Canceling a running job sets `cancel_requested`; Java marks the run canceled and discards the Python result when the call returns.
 
 ## Artifact Storage
 
@@ -51,6 +70,8 @@ Run reproducibility продолжает использовать `run_snapshots
 ## Границы ответственности
 
 - Контроллеры принимают и возвращают DTO.
-- `BacktestService` является единственной точкой orchestration.
+- `RunOrchestrationService` отвечает за queued run execution.
+- `ExecutionJobService` отвечает за job lifecycle, retry, cancel, claim, and ownership-aware job APIs.
+- `BacktestService` сохраняет legacy synchronous `/backtests` flow.
 - Репозитории работают только с persistence.
 - Python engine не знает о REST и БД Java backend.

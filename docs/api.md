@@ -99,6 +99,32 @@
 ]
 ```
 
+## Scalable runs API
+
+### POST `/api/runs`
+
+Создает `Run`, immutable snapshot и `ExecutionJob` со статусом `QUEUED`.
+
+### GET `/api/runs/{id}/execution`
+
+Возвращает latest execution job текущего пользователя для запуска.
+
+### POST `/api/runs/{id}/retry`
+
+Повторно ставит failed job в очередь, если лимит `maxAttempts` не исчерпан. Canceled jobs не retry-ятся.
+
+### POST `/api/runs/{id}/cancel`
+
+Отменяет queued job сразу. Для running job выставляет `cancelRequested=true`; Python interruption будет добавлен позже.
+
+### GET `/api/execution-jobs`
+
+Возвращает execution jobs текущего пользователя.
+
+### GET `/api/execution-jobs/{id}`
+
+Возвращает execution job по id с ownership-проверкой.
+
 ## Run artifacts API
 
 ### GET `/api/runs/{id}/artifacts`

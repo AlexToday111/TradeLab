@@ -4,6 +4,46 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.5.0-alpha.1] - 2026-04-24
+
+### Scalable Execution Foundation
+
+### Added
+
+* Database-backed execution job model with:
+
+  * `execution_jobs`
+  * queued/running/succeeded/failed/canceled/retrying statuses
+  * attempts and max attempts
+  * job locking fields (`locked_by`, `locked_at`)
+  * cancel request flag
+  * job timing and error fields
+* Queue-like `/api/runs` flow: run creation now creates a queued execution job instead of executing inline.
+* In-process Java execution worker with configurable max parallel jobs and polling interval.
+* Run/job APIs:
+
+  * `GET /api/runs/{id}/execution`
+  * `POST /api/runs/{id}/retry`
+  * `POST /api/runs/{id}/cancel`
+  * `GET /api/execution-jobs`
+  * `GET /api/execution-jobs/{id}`
+* Python execution contract now accepts and returns `jobId`.
+* Structured logs now include `job_id` in Java and Python execution paths.
+* Frontend status mapping for queued/running/failed/canceled execution states and minimal retry/cancel actions.
+
+### Changed
+
+* Java orchestration now separates the `Run` domain entity from `ExecutionJob` scheduling lifecycle.
+* Run snapshots mark execution mode as `queued-http`.
+* Result and artifact persistence remain on the existing successful-run path after worker execution.
+
+### Notes
+
+* The MVP uses a database-backed queue and in-process worker. No Kafka, RabbitMQ, Celery, or Kubernetes scheduler was introduced.
+* Running Python workloads cannot be interrupted yet; canceling a running job records `cancel_requested` and Java suppresses result persistence when the Python call returns.
+
+---
+
 ## [0.4.0-alpha.1] - 2026-04-23
 
 ### Artifact Storage & Data Platform Foundation

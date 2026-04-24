@@ -28,6 +28,36 @@
 - хранит summary результата в `metrics_json`
 - хранит текст ошибки в `error_message`
 
+## `execution_jobs`
+
+Таблица queue-like lifecycle для выполнения runs.
+
+Основные поля:
+
+- `id`
+- `run_id`
+- `user_id`
+- `status`
+- `priority`
+- `attempt_count`
+- `max_attempts`
+- `queued_at`
+- `started_at`
+- `finished_at`
+- `locked_at`
+- `locked_by`
+- `cancel_requested`
+- `error_code`
+- `error_message`
+- `created_at`
+- `updated_at`
+
+Связь:
+
+- `run_id -> runs.id`
+
+Активный job (`QUEUED`, `RETRYING`, `RUNNING`) должен быть единственным для run. Это защищает run от duplicate active execution.
+
 ## `backtest_trades`
 
 Таблица сделок конкретного запуска.
