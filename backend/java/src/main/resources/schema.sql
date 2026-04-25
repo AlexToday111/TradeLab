@@ -258,6 +258,88 @@ CREATE TABLE IF NOT EXISTS backtest_trades (
 CREATE INDEX IF NOT EXISTS idx_backtest_trades_run_id
     ON backtest_trades (run_id);
 
+CREATE TABLE IF NOT EXISTS paper_trading_sessions (
+                                                       id BIGSERIAL PRIMARY KEY,
+                                                       user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    exchange VARCHAR(64) NOT NULL,
+    symbol VARCHAR(64) NOT NULL,
+    timeframe VARCHAR(32) NOT NULL,
+    status VARCHAR(32) NOT NULL,
+    initial_balance NUMERIC(28, 8) NOT NULL,
+    current_balance NUMERIC(28, 8) NOT NULL,
+    base_currency VARCHAR(32) NOT NULL,
+    quote_currency VARCHAR(32) NOT NULL,
+    started_at TIMESTAMPTZ,
+    stopped_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+CREATE INDEX IF NOT EXISTS idx_paper_trading_sessions_user_created_at
+    ON paper_trading_sessions (user_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_paper_trading_sessions_user_status
+    ON paper_trading_sessions (user_id, status);
+
+CREATE TABLE IF NOT EXISTS paper_orders (
+                                            id BIGSERIAL PRIMARY KEY,
+                                            session_id BIGINT NOT NULL REFERENCES paper_trading_sessions(id) ON DELETE CASCADE,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    symbol VARCHAR(64) NOT NULL,
+    side VARCHAR(16) NOT NULL,
+    type VARCHAR(16) NOT NULL,
+    status VARCHAR(32) NOT NULL,
+    quantity NUMERIC(28, 8) NOT NULL,
+    price NUMERIC(28, 8),
+    filled_quantity NUMERIC(28, 8) NOT NULL DEFAULT 0,
+    average_fill_price NUMERIC(28, 8),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    filled_at TIMESTAMPTZ,
+    rejected_reason TEXT
+    );
+
+CREATE INDEX IF NOT EXISTS idx_paper_orders_session_created_at
+    ON paper_orders (session_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_paper_orders_user_created_at
+    ON paper_orders (user_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS paper_fills (
+                                           id BIGSERIAL PRIMARY KEY,
+                                           order_id BIGINT NOT NULL REFERENCES paper_orders(id) ON DELETE CASCADE,
+    session_id BIGINT NOT NULL REFERENCES paper_trading_sessions(id) ON DELETE CASCADE,
+    symbol VARCHAR(64) NOT NULL,
+    side VARCHAR(16) NOT NULL,
+    quantity NUMERIC(28, 8) NOT NULL,
+    price NUMERIC(28, 8) NOT NULL,
+    fee NUMERIC(28, 8) NOT NULL,
+    fee_currency VARCHAR(32) NOT NULL,
+    executed_at TIMESTAMPTZ NOT NULL
+    );
+
+CREATE INDEX IF NOT EXISTS idx_paper_fills_session_executed_at
+    ON paper_fills (session_id, executed_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_paper_fills_order_id
+    ON paper_fills (order_id);
+
+CREATE TABLE IF NOT EXISTS paper_positions (
+                                               id BIGSERIAL PRIMARY KEY,
+                                               session_id BIGINT NOT NULL REFERENCES paper_trading_sessions(id) ON DELETE CASCADE,
+    symbol VARCHAR(64) NOT NULL,
+    quantity NUMERIC(28, 8) NOT NULL,
+    average_entry_price NUMERIC(28, 8) NOT NULL,
+    realized_pnl NUMERIC(28, 8) NOT NULL,
+    unrealized_pnl NUMERIC(28, 8) NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT paper_positions_session_symbol_key UNIQUE (session_id, symbol)
+    );
+
+CREATE INDEX IF NOT EXISTS idx_paper_positions_session_id
+    ON paper_positions (session_id);
+
 CREATE INDEX IF NOT EXISTS idx_backtest_trades_run_id_entry_time
     ON backtest_trades (run_id, entry_time);
 
