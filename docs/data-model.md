@@ -172,3 +172,85 @@ Metadata и JSON payload артефактов запуска.
 - `low`
 - `close`
 - `volume`
+
+## `paper_trading_sessions`
+
+Paper trading session принадлежит пользователю и задает market/context для simulated execution.
+
+Основные поля:
+
+- `id`
+- `user_id`
+- `name`
+- `exchange`
+- `symbol`
+- `timeframe`
+- `status`
+- `initial_balance`
+- `current_balance`
+- `base_currency`
+- `quote_currency`
+- `started_at`
+- `stopped_at`
+- `created_at`
+- `updated_at`
+
+`status`: `CREATED`, `RUNNING`, `PAUSED`, `STOPPED`, `FAILED`.
+
+## `paper_orders`
+
+Simulated order внутри paper session.
+
+Основные поля:
+
+- `id`
+- `session_id`
+- `user_id`
+- `symbol`
+- `side`
+- `type`
+- `status`
+- `quantity`
+- `price`
+- `filled_quantity`
+- `average_fill_price`
+- `created_at`
+- `updated_at`
+- `filled_at`
+- `rejected_reason`
+
+Rejected orders сохраняются для audit/history, но не создают fills.
+
+## `paper_fills`
+
+История simulated fills/trades для восстановления paper trading history.
+
+Основные поля:
+
+- `id`
+- `order_id`
+- `session_id`
+- `symbol`
+- `side`
+- `quantity`
+- `price`
+- `fee`
+- `fee_currency`
+- `executed_at`
+
+## `paper_positions`
+
+Минимальная long-only позиция по session/symbol.
+
+Основные поля:
+
+- `id`
+- `session_id`
+- `symbol`
+- `quantity`
+- `average_entry_price`
+- `realized_pnl`
+- `unrealized_pnl`
+- `updated_at`
+
+MVP не моделирует margin, futures, leverage или short selling.

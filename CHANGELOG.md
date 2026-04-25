@@ -4,6 +4,43 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.6.0-alpha.1] - 2026-04-25
+
+### Paper Trading Foundation
+
+### Added
+
+* Paper trading session model and API lifecycle:
+
+  * create/list/get paper sessions
+  * start, pause, and stop session transitions
+  * owner-scoped access for all paper trading resources
+* Simulated paper orders with:
+
+  * market and limit order types
+  * accepted, rejected, filled, and canceled statuses
+  * persisted rejection reasons
+* Simulated fills/trades for paper execution history.
+* Paper position and balance tracking for long-only spot-style MVP flows.
+* Java exchange adapter foundation with a `PaperExchangeAdapter`.
+* Basic paper risk checks:
+
+  * running session requirement
+  * positive quantity
+  * session symbol match
+  * sufficient quote balance for buys
+  * sufficient position for sells
+  * max order notional guard
+* Minimal frontend Paper Trading page for sessions, order entry, positions, fills, and orders.
+
+### Notes
+
+* Market orders use the latest stored candle close as the simulated execution price.
+* Limit orders are accepted and filled only if the latest stored candle close satisfies the limit condition at submission time.
+* This release does not implement live trading, live exchange order placement, or exchange API key workflows.
+
+---
+
 ## [0.5.0-alpha.1] - 2026-04-24
 
 ### Scalable Execution Foundation

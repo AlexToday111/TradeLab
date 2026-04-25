@@ -157,6 +157,95 @@
 
 Возвращает metadata конкретного dataset snapshot с ownership-проверкой через parent dataset.
 
+## Paper trading API
+
+Все endpoints требуют JWT-auth и возвращают только ресурсы текущего пользователя.
+
+### POST `/api/paper/sessions`
+
+Создает paper trading session со статусом `CREATED`.
+
+```json
+{
+  "name": "BTC paper",
+  "exchange": "binance",
+  "symbol": "BTCUSDT",
+  "timeframe": "1h",
+  "initialBalance": 10000,
+  "baseCurrency": "BTC",
+  "quoteCurrency": "USDT"
+}
+```
+
+### GET `/api/paper/sessions`
+
+Возвращает sessions текущего пользователя.
+
+### GET `/api/paper/sessions/{id}`
+
+Возвращает одну owned session.
+
+### POST `/api/paper/sessions/{id}/start`
+
+Переводит session в `RUNNING`.
+
+### POST `/api/paper/sessions/{id}/pause`
+
+Переводит running session в `PAUSED`.
+
+### POST `/api/paper/sessions/{id}/stop`
+
+Переводит session в `STOPPED`.
+
+### POST `/api/paper/sessions/{id}/orders`
+
+Создает simulated order. Market orders fill immediately at the latest stored candle close. Limit orders are accepted and fill at submission time only when the latest close crosses the limit.
+
+```json
+{
+  "side": "BUY",
+  "type": "MARKET",
+  "quantity": 0.01
+}
+```
+
+```json
+{
+  "side": "BUY",
+  "type": "LIMIT",
+  "quantity": 0.01,
+  "price": 60000
+}
+```
+
+Rejected orders are persisted with `status=REJECTED` and `rejectedReason`; no fill is created.
+
+### GET `/api/paper/sessions/{id}/orders`
+
+Returns orders for an owned session.
+
+### GET `/api/paper/orders/{orderId}`
+
+Returns one owned paper order.
+
+### POST `/api/paper/orders/{orderId}/cancel`
+
+Cancels a `NEW` or `ACCEPTED` paper order.
+
+### GET `/api/paper/sessions/{id}/positions`
+
+Returns paper positions for an owned session.
+
+### GET `/api/paper/sessions/{id}/fills`
+
+Returns simulated fills for an owned session.
+
+### GET `/api/paper/sessions/{id}/summary`
+
+Returns balance, PnL, equity, order count, fill count, and open position count for an owned session.
+
+No endpoint in this release places real exchange orders.
+
 ## Ошибки
 
 Все ошибки возвращаются в JSON:

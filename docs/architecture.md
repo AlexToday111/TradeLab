@@ -8,7 +8,7 @@
    Пользовательский интерфейс создает запросы на запуск бэктеста и отображает статусы, summary, сделки и equity curve.
 
 2. `backend/java`
-   Spring Boot backend принимает REST-запросы, управляет жизненным циклом запуска, создает execution jobs, хранит run artifacts, управляет dataset snapshots/quality metadata и сохраняет результаты в БД.
+   Spring Boot backend принимает REST-запросы, управляет жизненным циклом запуска, создает execution jobs, хранит run artifacts, управляет dataset snapshots/quality metadata, обслуживает paper trading APIs и сохраняет результаты в БД.
 
 3. `backend/python`
    Python execution/data plane импортирует и нормализует market data, считает data quality report и выполняет стратегии по сохраненным свечам.
@@ -67,11 +67,27 @@ Data layer разделяет:
 
 Run reproducibility продолжает использовать `run_snapshots.dataset_version` и дополнительно сохраняет `dataset_snapshot_id`, если matching snapshot найден.
 
+## Paper Trading Layer
+
+Paper trading реализован в Java control plane как безопасный simulated execution слой:
+
+- `paper_trading_sessions` задают owner, exchange, symbol, timeframe, lifecycle и balances
+- `paper_orders` хранят simulated order lifecycle и rejection reasons
+- `paper_fills` хранят fill/trade history
+- `paper_positions` хранят long-only position state
+- `ExchangeAdapter` задает будущий adapter contract
+- `PaperExchangeAdapter` использует latest stored candle close as simulated price source
+
+Risk checks выполняются до acceptance/fill: session must be `RUNNING`, quantity must be positive, symbol must match the session, BUY requires sufficient quote balance, SELL requires sufficient long position, and order notional is capped.
+
+Live exchange order placement is intentionally not implemented in this layer.
+
 ## Границы ответственности
 
 - Контроллеры принимают и возвращают DTO.
 - `RunOrchestrationService` отвечает за queued run execution.
 - `ExecutionJobService` отвечает за job lifecycle, retry, cancel, claim, and ownership-aware job APIs.
+- `PaperTradingService` отвечает за paper session lifecycle, risk checks, simulated orders/fills, balances, positions and ownership-aware paper APIs.
 - `BacktestService` сохраняет legacy synchronous `/backtests` flow.
 - Репозитории работают только с persistence.
 - Python engine не знает о REST и БД Java backend.
