@@ -1,2 +1,10 @@
 export type { Run, RunArtifact, RunMetrics, RunParams, RunStatus } from "./run";
-export type { Strategy, StrategyStatus } from "./strategy";
+export type {
+  Strategy,
+  StrategyLifecycleStatus,
+  StrategyPreset,
+  StrategyStatus,
+  StrategyTemplate,
+  StrategyValidationStatus,
+  StrategyVersion,
+} from "./strategy";

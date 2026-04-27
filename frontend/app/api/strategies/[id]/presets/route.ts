@@ -8,28 +8,28 @@ export async function GET(
   const { id } = await context.params;
   return proxyToBackend({
     request,
-    path: `/api/strategies/${id}`,
+    path: `/api/strategies/${id}/presets`,
     headers: {
       Accept: "application/json",
     },
-    errorMessage: `Failed to reach backend /api/strategies/${id}`,
+    errorMessage: `Failed to reach backend /api/strategies/${id}/presets`,
   });
 }
 
-export async function PATCH(
+export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   const { id } = await context.params;
   return proxyToBackend({
     request,
-    path: `/api/strategies/${id}`,
-    method: "PATCH",
+    path: `/api/strategies/${id}/presets`,
+    method: "POST",
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
     },
     body: await request.text(),
-    errorMessage: `Failed to reach backend /api/strategies/${id}`,
+    errorMessage: `Failed to reach backend /api/strategies/${id}/presets`,
   });
 }

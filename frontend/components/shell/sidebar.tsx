@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, Rocket, Settings } from "lucide-react";
+import { Activity, FileCode2, Rocket, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LogoPlaceholder } from "@/components/shell/logo-placeholder";
 
@@ -29,6 +29,11 @@ export const navItems = [
     label: "\u0411\u044d\u043a\u0442\u0435\u0441\u0442\u044b",
     href: "/backtests",
     iconSrc: "/icons/Bag-Suitcase-1--Streamline-Core.svg",
+  },
+  {
+    label: "\u0421\u0442\u0440\u0430\u0442\u0435\u0433\u0438\u0438",
+    href: "/strategies",
+    icon: FileCode2,
   },
   {
     label: "Paper",
