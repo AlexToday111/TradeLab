@@ -30,6 +30,8 @@ public class RunMapper {
                 .id(entity.getId())
                 .runName(entity.getRunName())
                 .strategyId(entity.getStrategyId())
+                .strategyVersionId(entity.getStrategyVersionId())
+                .parameterPresetId(entity.getParameterPresetId())
                 .strategyName(entity.getStrategyName())
                 .datasetId(entity.getDatasetId())
                 .correlationId(entity.getCorrelationId())
@@ -77,9 +79,12 @@ public class RunMapper {
 
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("strategyVersion", entity.getStrategyVersion());
+        snapshot.put("strategyVersionId", entity.getStrategyVersionId());
         snapshot.put("datasetVersion", entity.getDatasetVersion());
         snapshot.put("datasetSnapshotId", entity.getDatasetSnapshotId());
         snapshot.put("paramsSnapshot", readJsonMap(entity.getParamsSnapshotJson()));
+        snapshot.put("parameterPresetId", entity.getParameterPresetId());
+        snapshot.put("parameterPresetSnapshot", readNullableJsonMap(entity.getParameterPresetSnapshotJson()));
         snapshot.put("executionConfigSnapshot", readJsonMap(entity.getExecutionConfigSnapshotJson()));
         snapshot.put("marketAssumptionsSnapshot", readJsonMap(entity.getMarketAssumptionsSnapshotJson()));
         snapshot.put("engineVersion", entity.getEngineVersion());

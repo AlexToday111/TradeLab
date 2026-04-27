@@ -125,6 +125,9 @@ public class PythonParserClient {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("event", "python_run_request");
         payload.put("endpoint", RUN_EXECUTE_URI);
+        payload.put("user_id", request.getUserId());
+        payload.put("strategy_id", request.getStrategyId());
+        payload.put("strategy_version_id", request.getStrategyVersionId());
         payload.put("run_id", request.getRunId());
         payload.put("job_id", request.getJobId());
         payload.put("correlation_id", request.getCorrelationId());

@@ -23,6 +23,9 @@ public class RunSnapshotEntity {
     @Column(name = "strategy_version", nullable = false, length = 128)
     private String strategyVersion;
 
+    @Column(name = "strategy_version_id")
+    private Long strategyVersionId;
+
     @Column(name = "dataset_version", nullable = false, length = 128)
     private String datasetVersion;
 
@@ -31,6 +34,12 @@ public class RunSnapshotEntity {
 
     @Column(name = "params_snapshot_json", nullable = false, columnDefinition = "TEXT")
     private String paramsSnapshotJson;
+
+    @Column(name = "parameter_preset_id")
+    private Long parameterPresetId;
+
+    @Column(name = "parameter_preset_snapshot_json", columnDefinition = "TEXT")
+    private String parameterPresetSnapshotJson;
 
     @Column(name = "execution_config_snapshot_json", nullable = false, columnDefinition = "TEXT")
     private String executionConfigSnapshotJson;
