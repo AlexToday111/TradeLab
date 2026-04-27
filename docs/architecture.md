@@ -67,6 +67,21 @@ Data layer разделяет:
 
 Run reproducibility продолжает использовать `run_snapshots.dataset_version` и дополнительно сохраняет `dataset_snapshot_id`, если matching snapshot найден.
 
+## Strategy Management Layer
+
+Strategy management делает стратегии first-class entities:
+
+- root registry хранится в `strategy_files` для совместимости с текущими `runs.strategy_id`
+- immutable source versions хранятся в `strategy_versions`
+- starter templates хранятся в `strategy_templates`
+- reusable parameter payloads хранятся в `strategy_parameter_presets`
+
+Execution flow больше не должен зависеть от “latest file” ambiguity. New `/api/runs` records `strategy_version_id` on the run and `run_snapshots.strategy_version_id` in the reproducibility snapshot. If an older client sends only `strategyId`, Java resolves the current latest version and persists the resolved version id.
+
+Validation is version-scoped. Python performs syntax checks, contract checks, parameter schema serialization checks, and metadata extraction before Java stores the validation report. `INVALID` and `PENDING` versions cannot be activated or executed.
+
+Security boundary: strategy source validation still imports strategy modules to inspect runtime metadata. This is not a full sandbox; uploaded source should be treated as trusted user code until process-level sandboxing is added.
+
 ## Paper Trading Layer
 
 Paper trading реализован в Java control plane как безопасный simulated execution слой:

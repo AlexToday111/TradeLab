@@ -50,9 +50,25 @@ OpenAPI JSON: `http://localhost:8080/v3/api-docs`
 - `GET /api/runs/{id}`
 - `GET /api/runs/{id}/result`
 - `POST /api/runs/{id}/rerun`
+- `POST /api/strategies`
+- `GET /api/strategies`
+- `GET /api/strategies/{id}`
+- `PATCH /api/strategies/{id}`
+- `POST /api/strategies/{id}/archive`
+- `POST /api/strategies/{id}/versions`
+- `GET /api/strategies/{id}/versions`
+- `GET /api/strategy-versions/{versionId}`
+- `POST /api/strategy-versions/{versionId}/validate`
+- `POST /api/strategy-versions/{versionId}/activate`
+- `GET /api/strategy-templates`
+- `POST /api/strategies/{id}/presets`
+- `GET /api/strategies/{id}/presets`
+- `PATCH /api/strategy-presets/{presetId}`
+- `DELETE /api/strategy-presets/{presetId}`
 
 `/api/runs` реализует release flow для reproducible execution:
 - Java сохраняет `run` и immutable snapshot
+- Java фиксирует exact `strategy_version_id`, если strategy management version доступна
 - Java вызывает Python execution endpoint по HTTP
 - результат, trades и equity curve сохраняются в PostgreSQL
 
