@@ -60,6 +60,8 @@ public class RunService {
 
         CreateBacktestRunRequest request = new CreateBacktestRunRequest();
         request.setStrategyId(sourceRun.getStrategyId());
+        request.setStrategyVersionId(sourceRun.getStrategyVersionId());
+        request.setParameterPresetId(sourceRun.getParameterPresetId());
         request.setRunName(sourceRun.getRunName());
         request.setExchange(sourceRun.getExchange());
         request.setSymbol(sourceRun.getSymbol());

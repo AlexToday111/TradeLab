@@ -12,4 +12,6 @@ public interface StrategyFileRepository extends JpaRepository<StrategyFileEntity
     List<StrategyFileEntity> findAllByUserIdOrderByCreatedAtDesc(Long userId);
 
     Optional<StrategyFileEntity> findByIdAndUserId(Long id, Long userId);
+
+    Optional<StrategyFileEntity> findByUserIdAndStrategyKey(Long userId, String strategyKey);
 }

@@ -57,6 +57,10 @@ Trade360Lab is designed with security and isolation in mind:
 - controlled handling of exchange credentials  
 - basic dependency review and updates  
 
+## Strategy Execution Boundary
+
+Uploaded strategy files are owner-scoped and validated before activation. The current Python validation flow checks syntax, required entrypoints, metadata, and parameter schema, but it still imports the Python module to inspect runtime metadata. This is not a full sandbox. Do not run untrusted strategy source in shared environments until process/container sandboxing is added.
+
 ---
 
 ## Notes

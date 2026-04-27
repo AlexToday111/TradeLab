@@ -35,3 +35,26 @@ class StrategyValidationResponse(BaseModel):
         description="Validation error message.",
         examples=[None],
     )
+    validation_status: str = Field(
+        default="INVALID",
+        alias="validationStatus",
+        serialization_alias="validationStatus",
+        description="Persisted validation status: VALID, WARNING, or INVALID.",
+        examples=["VALID"],
+    )
+    validation_report: dict[str, Any] = Field(
+        default_factory=dict,
+        alias="validationReport",
+        serialization_alias="validationReport",
+        description="Detailed validation report with checks, warnings, and errors.",
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Resolved strategy metadata.",
+    )
+    engine_version: str = Field(
+        default="python-execution-engine/0.3.0-alpha.1",
+        alias="engineVersion",
+        serialization_alias="engineVersion",
+        description="Python engine version used for compatibility validation.",
+    )

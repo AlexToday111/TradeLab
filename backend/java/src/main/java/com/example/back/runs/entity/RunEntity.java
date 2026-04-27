@@ -32,6 +32,12 @@ public class RunEntity {
     @Column(name = "strategy_id", nullable = false)
     private Long strategyId;
 
+    @Column(name = "strategy_version_id")
+    private Long strategyVersionId;
+
+    @Column(name = "parameter_preset_id")
+    private Long parameterPresetId;
+
     @Column(name = "strategy_name", nullable = false)
     private String strategyName;
 

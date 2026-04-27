@@ -60,6 +60,9 @@ class StrategyExecutionService:
                 "Starting strategy run",
                 extra={
                     "event": "run_started",
+                    "user_id": request.user_id,
+                    "strategy_id": request.strategy_id,
+                    "strategy_version_id": request.strategy_version_id,
                     "strategy_file": strategy_path.name,
                     "exchange": exchange,
                     "symbol": symbol,

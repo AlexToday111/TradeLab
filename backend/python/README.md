@@ -40,6 +40,8 @@ OpenAPI JSON: `http://localhost:8000/openapi.json`
 
 - `GET /health`
 - `POST /internal/import/candles`
+- `POST /internal/strategies/validate`
+- `POST /internal/runs/execute`
 
 Пример запроса:
 
@@ -81,6 +83,8 @@ uvicorn parser.main:app --host 0.0.0.0 --port 8000
 
 При старте сервис применяет `parser/schema.sql`.
 
+Strategy validation returns `validationStatus`, `validationReport`, extracted metadata, parameter schema, and `engineVersion`. It performs syntax and contract checks before importing the strategy module, but it is not a full sandbox.
+
 <h2 align="center">Локальный PostgreSQL (опционально)</h2>
 
 ```powershell
@@ -99,4 +103,3 @@ powershell -ExecutionPolicy Bypass -File .\run_local_postgres.ps1
 ```bash
 docker build -t tradelab-python ./backend/python
 ```
-

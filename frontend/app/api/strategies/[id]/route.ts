@@ -15,3 +15,21 @@ export async function GET(
     errorMessage: `Failed to reach backend /api/strategies/${id}`,
   });
 }
+
+export async function PATCH(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  const { id } = await context.params;
+  return proxyToBackend({
+    request,
+    path: `/api/strategies/${id}`,
+    method: "PATCH",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: await request.text(),
+    errorMessage: `Failed to reach backend /api/strategies/${id}`,
+  });
+}

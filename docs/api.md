@@ -104,6 +104,23 @@
 ### POST `/api/runs`
 
 Создает `Run`, immutable snapshot и `ExecutionJob` со статусом `QUEUED`.
+`strategyVersionId` и `parameterPresetId` опциональны. Если `strategyVersionId` не передан, backend использует latest version стратегии для совместимости и сохраняет выбранную версию в `runs.strategy_version_id` и `run_snapshots.strategy_version_id`.
+
+```json
+{
+  "strategyId": 42,
+  "strategyVersionId": 101,
+  "parameterPresetId": 7,
+  "exchange": "binance",
+  "symbol": "BTCUSDT",
+  "interval": "1h",
+  "from": "2024-01-01T00:00:00Z",
+  "to": "2024-01-03T00:00:00Z",
+  "params": {
+    "fastPeriod": 10
+  }
+}
+```
 
 ### GET `/api/runs/{id}/execution`
 
@@ -124,6 +141,88 @@
 ### GET `/api/execution-jobs/{id}`
 
 Возвращает execution job по id с ownership-проверкой.
+
+## Strategy management API
+
+Все endpoints требуют JWT-auth, кроме внутренних Python endpoints. User-owned resources возвращаются только текущему пользователю.
+
+### POST `/api/strategies`
+
+Создает draft strategy registry record без source version.
+
+### GET `/api/strategies`
+
+Возвращает стратегии текущего пользователя.
+
+### GET `/api/strategies/{id}`
+
+Возвращает одну owned strategy.
+
+### PATCH `/api/strategies/{id}`
+
+Обновляет editable metadata: `name`, `description`, `strategyType`, `lifecycleStatus`, `metadata`, `tags`.
+
+### POST `/api/strategies/{id}/archive`
+
+Переводит strategy lifecycle в `ARCHIVED`.
+
+### POST `/api/strategies/upload`
+
+Compatibility upload flow. Создает strategy registry record и initial immutable version из `.py` файла.
+
+### POST `/api/strategies/{id}/versions`
+
+Загружает новый `.py` файл как immutable strategy version. Version получает checksum, file metadata и persisted validation result.
+
+### GET `/api/strategies/{id}/versions`
+
+Возвращает version history стратегии.
+
+### GET `/api/strategy-versions/{versionId}`
+
+Возвращает одну owned strategy version.
+
+### POST `/api/strategy-versions/{versionId}/validate`
+
+Повторно запускает validation contract и сохраняет validation report.
+
+### POST `/api/strategy-versions/{versionId}/activate`
+
+Активирует только `VALID` или `WARNING` version. `INVALID` и `PENDING` версии не активируются.
+
+### GET `/api/strategy-templates`
+
+Возвращает system-owned starter templates.
+
+### GET `/api/strategy-templates/{id}`
+
+Возвращает один template.
+
+### POST `/api/strategies/{id}/presets`
+
+Создает owner-scoped parameter preset.
+
+```json
+{
+  "name": "BTC 1h default",
+  "presetPayload": {
+    "fastPeriod": 10,
+    "slowPeriod": 21
+  }
+}
+```
+
+### GET `/api/strategies/{id}/presets`
+
+Возвращает presets owned user для strategy.
+
+### PATCH `/api/strategy-presets/{presetId}`
+
+Обновляет preset name/payload.
+
+### DELETE `/api/strategy-presets/{presetId}`
+
+Удаляет owned preset.
 
 ## Run artifacts API
 

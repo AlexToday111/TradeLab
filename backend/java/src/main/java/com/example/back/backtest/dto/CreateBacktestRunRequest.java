@@ -18,6 +18,12 @@ public class CreateBacktestRunRequest {
     @Schema(description = "ID стратегии", example = "42", requiredMode = Schema.RequiredMode.REQUIRED)
     private Long strategyId;
 
+    @Schema(description = "ID конкретной версии стратегии", example = "101")
+    private Long strategyVersionId;
+
+    @Schema(description = "ID сохраненного набора параметров", example = "7")
+    private Long parameterPresetId;
+
     @Schema(description = "Человекочитаемое имя запуска", example = "EMA BTCUSDT Jan 2024")
     private String runName;
 

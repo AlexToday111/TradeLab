@@ -8,6 +8,8 @@
 
 - `id`
 - `strategy_id`
+- `strategy_version_id`
+- `parameter_preset_id`
 - `status`
 - `exchange`
 - `symbol`
@@ -27,6 +29,112 @@
 - хранит сериализованный запрос в `params_json`
 - хранит summary результата в `metrics_json`
 - хранит текст ошибки в `error_message`
+- связывает запуск с exact strategy version через `strategy_version_id`, если run создан через strategy management flow
+
+## `strategy_files`
+
+Root strategy registry table, сохраненная под историческим именем для совместимости с `runs.strategy_id`.
+
+Основные поля:
+
+- `id`
+- `user_id`
+- `strategy_key`
+- `name`
+- `description`
+- `strategy_type`
+- `lifecycle_status`
+- `latest_version`
+- `latest_version_id`
+- `filename`
+- `storage_path`
+- `status`
+- `validation_error`
+- `parameters_schema_json`
+- `metadata_json`
+- `tags_json`
+- `content_type`
+- `size_bytes`
+- `checksum`
+- `uploaded_at`
+- `created_at`
+- `updated_at`
+
+Связь:
+
+- `user_id -> users.id`
+- `latest_version_id -> strategy_versions.id` logically references the active/latest source version
+
+`lifecycle_status`: `DRAFT`, `ACTIVE`, `DEPRECATED`, `ARCHIVED`.
+`status`: latest validation status compatibility field, currently `PENDING`, `VALID`, `INVALID`.
+
+## `strategy_versions`
+
+Immutable source/version registry for strategies.
+
+Основные поля:
+
+- `id`
+- `strategy_id`
+- `version`
+- `file_path`
+- `filename`
+- `content_type`
+- `size_bytes`
+- `checksum`
+- `validation_status`
+- `validation_report`
+- `parameters_schema_json`
+- `metadata_json`
+- `execution_engine_version`
+- `created_at`
+- `created_by`
+
+Связь:
+
+- `strategy_id -> strategy_files.id`
+- `created_by -> users.id`
+
+`validation_status`: `PENDING`, `VALID`, `WARNING`, `INVALID`.
+Files are version-linked by checksum and storage path. The platform does not execute arbitrary uploaded files until validation passes and run creation resolves an executable version.
+
+## `strategy_templates`
+
+System-owned starter templates.
+
+Основные поля:
+
+- `id`
+- `template_key`
+- `name`
+- `description`
+- `strategy_type`
+- `category`
+- `default_parameters_json`
+- `template_reference`
+- `metadata_json`
+- `created_at`
+
+## `strategy_parameter_presets`
+
+Reusable owner-scoped parameter payloads for strategies.
+
+Основные поля:
+
+- `id`
+- `strategy_id`
+- `user_id`
+- `name`
+- `preset_payload`
+- `created_at`
+- `updated_at`
+
+Связь:
+
+- `strategy_id -> strategy_files.id`
+- `user_id -> users.id`
+
+Runs copy the effective preset payload into `run_snapshots.parameter_preset_snapshot_json`.
 
 ## `execution_jobs`
 

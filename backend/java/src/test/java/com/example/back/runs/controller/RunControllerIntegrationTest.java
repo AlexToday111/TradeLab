@@ -27,7 +27,9 @@ import com.example.back.runs.dto.PythonRunExecuteResponse;
 import com.example.back.runs.entity.RunEntity;
 import com.example.back.runs.repository.RunRepository;
 import com.example.back.strategies.entity.StrategyFileEntity;
+import com.example.back.strategies.entity.StrategyVersionEntity;
 import com.example.back.strategies.repository.StrategyFileRepository;
+import com.example.back.strategies.repository.StrategyVersionRepository;
 import com.example.back.support.TestAuth;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
@@ -78,6 +80,9 @@ class RunControllerIntegrationTest {
     private StrategyFileRepository strategyFileRepository;
 
     @Autowired
+    private StrategyVersionRepository strategyVersionRepository;
+
+    @Autowired
     private DatasetRepository datasetRepository;
 
     @MockBean
@@ -90,22 +95,45 @@ class RunControllerIntegrationTest {
     private CandleRepository candleRepository;
 
     private Long strategyId;
+    private Long strategyVersionId;
 
     @BeforeEach
     void setUp() {
         executionJobRepository.deleteAll();
         runArtifactRepository.deleteAll();
         runRepository.deleteAll();
+        strategyVersionRepository.deleteAll();
         strategyFileRepository.deleteAll();
         datasetRepository.deleteAll();
 
         StrategyFileEntity strategy = new StrategyFileEntity();
         strategy.setUserId(TestAuth.USER_ID);
+        strategy.setStrategyKey("ema");
         strategy.setName("EMA");
         strategy.setFileName("ema.py");
         strategy.setStoragePath("/tmp/ema.py");
         strategy.setStatus(StrategyFileEntity.StrategyStatus.VALID);
-        strategyId = strategyFileRepository.saveAndFlush(strategy).getId();
+        strategy.setLifecycleStatus(StrategyFileEntity.StrategyLifecycleStatus.ACTIVE);
+        StrategyFileEntity savedStrategy = strategyFileRepository.saveAndFlush(strategy);
+        strategyId = savedStrategy.getId();
+
+        StrategyVersionEntity version = new StrategyVersionEntity();
+        version.setStrategyId(strategyId);
+        version.setVersion("1");
+        version.setFilePath("/tmp/ema.py");
+        version.setFileName("ema.py");
+        version.setContentType("text/x-python");
+        version.setSizeBytes(100L);
+        version.setChecksum("abc123");
+        version.setValidationStatus(StrategyVersionEntity.ValidationStatus.VALID);
+        version.setValidationReport("{\"status\":\"VALID\"}");
+        version.setParametersSchemaJson("{\"fastPeriod\":{\"type\":\"integer\"}}");
+        version.setExecutionEngineVersion("python-execution-engine/0.3.0-alpha.1");
+        version.setCreatedBy(TestAuth.USER_ID);
+        strategyVersionId = strategyVersionRepository.saveAndFlush(version).getId();
+        savedStrategy.setLatestVersion("1");
+        savedStrategy.setLatestVersionId(strategyVersionId);
+        strategyFileRepository.saveAndFlush(savedStrategy);
 
         DatasetEntity dataset = new DatasetEntity();
         dataset.setId("dataset-1");
@@ -175,6 +203,7 @@ class RunControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(run.getId()))
                 .andExpect(jsonPath("$.strategyId").value(strategyId))
+                .andExpect(jsonPath("$.strategyVersionId").value(strategyVersionId))
                 .andExpect(jsonPath("$.status").value("SUCCEEDED"))
                 .andExpect(jsonPath("$.strategyName").value("EMA"))
                 .andExpect(jsonPath("$.correlationId").isString())
@@ -267,11 +296,14 @@ class RunControllerIntegrationTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").isNumber())
                 .andExpect(jsonPath("$.strategyId").value(strategyId))
+                .andExpect(jsonPath("$.strategyVersionId").value(strategyVersionId))
+                .andExpect(jsonPath("$.snapshot.strategyVersionId").value(strategyVersionId))
                 .andExpect(jsonPath("$.status").value("QUEUED"))
                 .andExpect(jsonPath("$.strategyName").value("EMA"))
                 .andExpect(jsonPath("$.correlationId").isString())
                 .andExpect(jsonPath("$.parameters.fastPeriod").value(10))
                 .andExpect(jsonPath("$.config.strategyId").value(strategyId))
+                .andExpect(jsonPath("$.config.strategyVersionId").value(strategyVersionId))
                 .andExpect(jsonPath("$.runId").doesNotExist())
                 .andExpect(jsonPath("$.result").doesNotExist())
                 .andReturn()
@@ -480,6 +512,7 @@ class RunControllerIntegrationTest {
                 .andExpect(jsonPath("$.id").isNumber())
                 .andExpect(jsonPath("$.id").isNotEmpty())
                 .andExpect(jsonPath("$.config.strategyId").value(strategyId))
+                .andExpect(jsonPath("$.config.strategyVersionId").value(strategyVersionId))
                 .andExpect(jsonPath("$.parameters.fastPeriod").value(10))
                 .andExpect(jsonPath("$.status").value("QUEUED"));
     }
@@ -522,6 +555,7 @@ class RunControllerIntegrationTest {
         RunEntity entity = new RunEntity();
         entity.setUserId(TestAuth.USER_ID);
         entity.setStrategyId(strategyId);
+        entity.setStrategyVersionId(strategyVersionId);
         entity.setStrategyName("EMA");
         entity.setCorrelationId("run-" + (runRepository.count() + 1));
         entity.setStatus(status);

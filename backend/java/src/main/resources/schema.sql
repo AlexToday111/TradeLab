@@ -56,6 +56,106 @@ CREATE INDEX IF NOT EXISTS idx_strategy_files_created_at
 CREATE INDEX IF NOT EXISTS idx_strategy_files_user_created_at
     ON strategy_files (user_id, created_at DESC);
 
+ALTER TABLE strategy_files
+    ADD COLUMN IF NOT EXISTS strategy_key VARCHAR(128);
+
+ALTER TABLE strategy_files
+    ADD COLUMN IF NOT EXISTS description TEXT;
+
+ALTER TABLE strategy_files
+    ADD COLUMN IF NOT EXISTS strategy_type VARCHAR(64);
+
+ALTER TABLE strategy_files
+    ADD COLUMN IF NOT EXISTS lifecycle_status VARCHAR(32) NOT NULL DEFAULT 'DRAFT';
+
+ALTER TABLE strategy_files
+    ADD COLUMN IF NOT EXISTS latest_version VARCHAR(128);
+
+ALTER TABLE strategy_files
+    ADD COLUMN IF NOT EXISTS latest_version_id BIGINT;
+
+ALTER TABLE strategy_files
+    ADD COLUMN IF NOT EXISTS content_type VARCHAR(128);
+
+ALTER TABLE strategy_files
+    ADD COLUMN IF NOT EXISTS size_bytes BIGINT;
+
+ALTER TABLE strategy_files
+    ADD COLUMN IF NOT EXISTS checksum VARCHAR(128);
+
+ALTER TABLE strategy_files
+    ADD COLUMN IF NOT EXISTS uploaded_at TIMESTAMPTZ;
+
+ALTER TABLE strategy_files
+    ADD COLUMN IF NOT EXISTS metadata_json TEXT;
+
+ALTER TABLE strategy_files
+    ADD COLUMN IF NOT EXISTS tags_json TEXT;
+
+ALTER TABLE strategy_files
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_strategy_files_user_strategy_key
+    ON strategy_files (user_id, strategy_key);
+
+CREATE INDEX IF NOT EXISTS idx_strategy_files_user_status
+    ON strategy_files (user_id, lifecycle_status, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS strategy_versions (
+                                                 id BIGSERIAL PRIMARY KEY,
+                                                 strategy_id BIGINT NOT NULL REFERENCES strategy_files(id) ON DELETE CASCADE,
+    version VARCHAR(128) NOT NULL,
+    file_path TEXT NOT NULL,
+    filename VARCHAR(255) NOT NULL,
+    content_type VARCHAR(128),
+    size_bytes BIGINT NOT NULL,
+    checksum VARCHAR(128) NOT NULL,
+    validation_status VARCHAR(32) NOT NULL,
+    validation_report TEXT,
+    parameters_schema_json TEXT,
+    metadata_json TEXT,
+    execution_engine_version VARCHAR(128),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    CONSTRAINT strategy_versions_strategy_version_key UNIQUE (strategy_id, version),
+    CONSTRAINT strategy_versions_strategy_checksum_key UNIQUE (strategy_id, checksum)
+    );
+
+CREATE INDEX IF NOT EXISTS idx_strategy_versions_strategy_created_at
+    ON strategy_versions (strategy_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_strategy_versions_validation_status
+    ON strategy_versions (validation_status);
+
+CREATE TABLE IF NOT EXISTS strategy_templates (
+                                                  id BIGSERIAL PRIMARY KEY,
+                                                  template_key VARCHAR(128) NOT NULL UNIQUE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    strategy_type VARCHAR(64),
+    category VARCHAR(64),
+    default_parameters_json TEXT NOT NULL,
+    template_reference TEXT NOT NULL,
+    metadata_json TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+CREATE TABLE IF NOT EXISTS strategy_parameter_presets (
+                                                          id BIGSERIAL PRIMARY KEY,
+                                                          strategy_id BIGINT NOT NULL REFERENCES strategy_files(id) ON DELETE CASCADE,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    preset_payload TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+CREATE INDEX IF NOT EXISTS idx_strategy_parameter_presets_strategy_user
+    ON strategy_parameter_presets (strategy_id, user_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_strategy_parameter_presets_user_created_at
+    ON strategy_parameter_presets (user_id, created_at DESC);
+
 
 CREATE TABLE IF NOT EXISTS candles (
                                         id BIGSERIAL PRIMARY KEY,
@@ -189,6 +289,15 @@ ALTER TABLE strategy_files
 ALTER TABLE runs
     ADD COLUMN IF NOT EXISTS user_id BIGINT REFERENCES users(id) ON DELETE CASCADE;
 
+ALTER TABLE runs
+    ADD COLUMN IF NOT EXISTS strategy_version_id BIGINT REFERENCES strategy_versions(id) ON DELETE RESTRICT;
+
+ALTER TABLE runs
+    ADD COLUMN IF NOT EXISTS parameter_preset_id BIGINT REFERENCES strategy_parameter_presets(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS idx_runs_strategy_version_id
+    ON runs (strategy_version_id);
+
 
 CREATE TABLE IF NOT EXISTS run_snapshots (
                                              run_id BIGINT PRIMARY KEY REFERENCES runs(id) ON DELETE CASCADE,
@@ -204,6 +313,15 @@ CREATE TABLE IF NOT EXISTS run_snapshots (
 
 ALTER TABLE run_snapshots
     ADD COLUMN IF NOT EXISTS dataset_snapshot_id BIGINT;
+
+ALTER TABLE run_snapshots
+    ADD COLUMN IF NOT EXISTS strategy_version_id BIGINT REFERENCES strategy_versions(id) ON DELETE RESTRICT;
+
+ALTER TABLE run_snapshots
+    ADD COLUMN IF NOT EXISTS parameter_preset_id BIGINT REFERENCES strategy_parameter_presets(id) ON DELETE SET NULL;
+
+ALTER TABLE run_snapshots
+    ADD COLUMN IF NOT EXISTS parameter_preset_snapshot_json TEXT;
 
 CREATE TABLE IF NOT EXISTS dataset_snapshots (
                                                  id BIGSERIAL PRIMARY KEY,

@@ -16,6 +16,12 @@ public class PythonRunExecuteRequest {
     @NotBlank(message = "Путь к файлу стратегии не может быть пустым")
     private String strategyFilePath;
 
+    private Long userId;
+
+    private Long strategyId;
+
+    private Long strategyVersionId;
+
     @NotBlank(message = "Биржа не может быть пустой")
     private String exchange;
 

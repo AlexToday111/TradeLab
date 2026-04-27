@@ -9,6 +9,8 @@ public record RunResponse(
         Long id,
         String runName,
         Long strategyId,
+        Long strategyVersionId,
+        Long parameterPresetId,
         String strategyName,
         String datasetId,
         String correlationId,

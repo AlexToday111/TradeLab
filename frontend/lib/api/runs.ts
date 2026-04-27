@@ -4,6 +4,8 @@ import { apiFetch } from "@/lib/api/client";
 type BackendRunResponse = {
   id: number;
   strategyId: number;
+  strategyVersionId?: number | null;
+  parameterPresetId?: number | null;
   status: string;
   startedAt?: string | null;
   exchange: string;
@@ -29,6 +31,8 @@ type BackendRunArtifactResponse = {
 
 export type CreateRunPayload = {
   strategyId: number;
+  strategyVersionId?: number | null;
+  parameterPresetId?: number | null;
   exchange: string;
   symbol: string;
   interval: string;
@@ -227,6 +231,10 @@ function normalizeBackendRun(payload: unknown): BackendRunResponse | null {
   return {
     id: candidate.id,
     strategyId: candidate.strategyId,
+    strategyVersionId:
+      typeof candidate.strategyVersionId === "number" ? candidate.strategyVersionId : null,
+    parameterPresetId:
+      typeof candidate.parameterPresetId === "number" ? candidate.parameterPresetId : null,
     status: candidate.status,
     exchange: candidate.exchange,
     symbol: candidate.symbol,
@@ -256,6 +264,9 @@ export function toFrontendRun(
 ): Run {
   const strategy = strategiesById?.get(backendRun.strategyId);
   const configPayload = {
+    strategyId: backendRun.strategyId,
+    strategyVersionId: backendRun.strategyVersionId ?? null,
+    parameterPresetId: backendRun.parameterPresetId ?? null,
     exchange: backendRun.exchange,
     symbol: backendRun.symbol,
     interval: backendRun.interval,
@@ -268,6 +279,8 @@ export function toFrontendRun(
     id: String(backendRun.id),
     backendRunId: backendRun.id,
     strategyId: backendRun.strategyId,
+    strategyVersionId: backendRun.strategyVersionId ?? null,
+    parameterPresetId: backendRun.parameterPresetId ?? null,
     strategy: toDisplayStrategyName(backendRun, strategiesById),
     datasetVersion: `${backendRun.exchange}:${backendRun.symbol}`,
     period: `${backendRun.from} -> ${backendRun.to}`,

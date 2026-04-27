@@ -211,6 +211,9 @@ def create_app() -> FastAPI:
                 "Incoming strategy run request",
                 extra={
                     "event": "run_request_received",
+                    "user_id": request.user_id,
+                    "strategy_id": request.strategy_id,
+                    "strategy_version_id": request.strategy_version_id,
                     "strategy_file": Path(request.strategy_file_path).name,
                     "exchange": request.exchange,
                     "symbol": request.symbol,

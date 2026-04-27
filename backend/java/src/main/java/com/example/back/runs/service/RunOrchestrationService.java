@@ -28,7 +28,11 @@ import com.example.back.runs.entity.RunSnapshotEntity;
 import com.example.back.runs.repository.RunRepository;
 import com.example.back.runs.repository.RunSnapshotRepository;
 import com.example.back.strategies.entity.StrategyFileEntity;
+import com.example.back.strategies.entity.StrategyParameterPresetEntity;
+import com.example.back.strategies.entity.StrategyVersionEntity;
 import com.example.back.strategies.repository.StrategyFileRepository;
+import com.example.back.strategies.repository.StrategyParameterPresetRepository;
+import com.example.back.strategies.repository.StrategyVersionRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.PrintWriter;
@@ -55,6 +59,8 @@ public class RunOrchestrationService {
     private final RunRepository runRepository;
     private final RunSnapshotRepository runSnapshotRepository;
     private final StrategyFileRepository strategyFileRepository;
+    private final StrategyVersionRepository strategyVersionRepository;
+    private final StrategyParameterPresetRepository presetRepository;
     private final DatasetRepository datasetRepository;
     private final DatasetSnapshotRepository datasetSnapshotRepository;
     private final BacktestTradeRepository backtestTradeRepository;
@@ -70,15 +76,31 @@ public class RunOrchestrationService {
     public Long createRun(CreateBacktestRunRequest request) {
         validateTimeRange(request);
         Long userId = AuthContext.requireUserId();
-        StrategyFileEntity strategy = getValidatedStrategy(request.getStrategyId(), userId);
-        RunEntity run = buildRunEntity(request, strategy, userId);
+        StrategyFileEntity strategy = getOwnedStrategy(request.getStrategyId(), userId);
+        StrategyVersionEntity strategyVersion = resolveExecutableVersion(request, strategy, userId);
+        StrategyParameterPresetEntity preset = resolvePreset(request, strategy.getId(), userId).orElse(null);
+        Map<String, Object> effectiveParams = resolveEffectiveParams(request, preset);
+        RunEntity run = buildRunEntity(request, strategy, strategyVersion, preset, userId, effectiveParams);
         RunEntity savedRun = runRepository.saveAndFlush(run);
-        runSnapshotRepository.save(buildSnapshot(savedRun, request, strategy, userId));
+        runSnapshotRepository.save(buildSnapshot(
+                savedRun,
+                request,
+                strategyVersion,
+                preset,
+                userId,
+                effectiveParams
+        ));
         try (LogContext.BoundContext ignored = LogContext.bind(
                 savedRun.getCorrelationId(),
                 String.valueOf(savedRun.getId()))
         ) {
-            log.info("Created run entity");
+            log.info(
+                    "Created run entity userId={} strategyId={} strategyVersionId={} parameterPresetId={}",
+                    savedRun.getUserId(),
+                    savedRun.getStrategyId(),
+                    savedRun.getStrategyVersionId(),
+                    savedRun.getParameterPresetId()
+            );
         }
         markQueued(savedRun.getId());
         executionJobService.createQueuedJob(savedRun);
@@ -88,7 +110,8 @@ public class RunOrchestrationService {
     public void executeJob(Long jobId) {
         ExecutionJobEntity job = executionJobService.findJob(jobId);
         RunEntity run = findRun(job.getRunId());
-        StrategyFileEntity strategy = getValidatedStrategy(run.getStrategyId(), run.getUserId());
+        StrategyFileEntity strategy = getOwnedStrategy(run.getStrategyId(), run.getUserId());
+        StrategyVersionEntity strategyVersion = resolveExecutableVersion(run, strategy);
 
         try (LogContext.BoundContext ignored = LogContext.bind(
                 run.getCorrelationId(),
@@ -104,7 +127,9 @@ public class RunOrchestrationService {
 
             long startedNanos = System.nanoTime();
             try {
-                PythonRunExecuteResponse response = pythonParserClient.executeRun(buildPythonRequest(run, strategy, job));
+                PythonRunExecuteResponse response = pythonParserClient.executeRun(
+                        buildPythonRequest(run, strategy, strategyVersion, job)
+                );
                 if (executionJobService.isCancelRequested(job.getId())) {
                     executionJobService.markCanceled(job.getId(), "Job was canceled while Python execution was running");
                     return;
@@ -155,21 +180,99 @@ public class RunOrchestrationService {
         }
     }
 
-    private StrategyFileEntity getValidatedStrategy(Long strategyId, Long userId) {
+    private StrategyFileEntity getOwnedStrategy(Long strategyId, Long userId) {
         StrategyFileEntity strategy = strategyFileRepository.findByIdAndUserId(strategyId, userId)
                 .orElseThrow(() -> new BacktestResourceNotFoundException("Strategy not found: " + strategyId));
+        if (strategy.getLifecycleStatus() == StrategyFileEntity.StrategyLifecycleStatus.ARCHIVED) {
+            throw new BacktestValidationException("Archived strategies cannot be executed");
+        }
+        return strategy;
+    }
+
+    private StrategyVersionEntity resolveExecutableVersion(
+            CreateBacktestRunRequest request,
+            StrategyFileEntity strategy,
+            Long userId
+    ) {
+        StrategyVersionEntity version = null;
+        if (request.getStrategyVersionId() != null) {
+            version = strategyVersionRepository.findOwnedById(request.getStrategyVersionId(), userId)
+                    .orElseThrow(() -> new BacktestResourceNotFoundException(
+                            "Strategy version not found: " + request.getStrategyVersionId()
+                    ));
+            if (!strategy.getId().equals(version.getStrategyId())) {
+                throw new BacktestValidationException("Strategy version does not belong to strategy");
+            }
+        } else if (strategy.getLatestVersionId() != null) {
+            version = strategyVersionRepository.findOwnedById(strategy.getLatestVersionId(), userId)
+                    .orElse(null);
+        } else {
+            version = strategyVersionRepository.findFirstByStrategyIdOrderByCreatedAtDesc(strategy.getId())
+                    .orElse(null);
+        }
+
+        if (version == null) {
+            validateLegacyStrategyStatus(strategy);
+            return null;
+        }
+
+        validateVersionStatus(version);
+        return version;
+    }
+
+    private StrategyVersionEntity resolveExecutableVersion(RunEntity run, StrategyFileEntity strategy) {
+        StrategyVersionEntity version = null;
+        if (run.getStrategyVersionId() != null) {
+            version = strategyVersionRepository.findById(run.getStrategyVersionId())
+                    .orElseThrow(() -> new BacktestResourceNotFoundException(
+                            "Strategy version not found: " + run.getStrategyVersionId()
+                    ));
+        } else if (strategy.getLatestVersionId() != null) {
+            version = strategyVersionRepository.findById(strategy.getLatestVersionId()).orElse(null);
+        }
+
+        if (version == null) {
+            validateLegacyStrategyStatus(strategy);
+            return null;
+        }
+        if (!strategy.getId().equals(version.getStrategyId())) {
+            throw new BacktestValidationException("Run strategy version does not belong to strategy");
+        }
+        validateVersionStatus(version);
+        return version;
+    }
+
+    private void validateVersionStatus(StrategyVersionEntity version) {
+        if (version.getValidationStatus() != StrategyVersionEntity.ValidationStatus.VALID
+                && version.getValidationStatus() != StrategyVersionEntity.ValidationStatus.WARNING) {
+            throw new BacktestValidationException(
+                    "Strategy version must be VALID before execution. Current status: "
+                            + version.getValidationStatus()
+            );
+        }
+    }
+
+    private void validateLegacyStrategyStatus(StrategyFileEntity strategy) {
         if (strategy.getStatus() != StrategyFileEntity.StrategyStatus.VALID) {
             throw new BacktestValidationException(
                     "Strategy must be VALID before execution. Current status: " + strategy.getStatus()
             );
         }
-        return strategy;
     }
 
-    private RunEntity buildRunEntity(CreateBacktestRunRequest request, StrategyFileEntity strategy, Long userId) {
+    private RunEntity buildRunEntity(
+            CreateBacktestRunRequest request,
+            StrategyFileEntity strategy,
+            StrategyVersionEntity strategyVersion,
+            StrategyParameterPresetEntity preset,
+            Long userId,
+            Map<String, Object> effectiveParams
+    ) {
         RunEntity run = new RunEntity();
         run.setUserId(userId);
         run.setStrategyId(strategy.getId());
+        run.setStrategyVersionId(strategyVersion == null ? null : strategyVersion.getId());
+        run.setParameterPresetId(preset == null ? null : preset.getId());
         run.setStrategyName(strategy.getName() == null || strategy.getName().isBlank()
                 ? strategy.getFileName()
                 : strategy.getName().trim());
@@ -182,7 +285,7 @@ public class RunOrchestrationService {
         run.setDateFrom(request.getFrom());
         run.setDateTo(request.getTo());
         run.setDatasetId(findDataset(request, userId).map(DatasetEntity::getId).orElse(null));
-        run.setParamsJson(writeJson(buildStoredConfig(request)));
+        run.setParamsJson(writeJson(buildStoredConfig(request, strategyVersion, preset, effectiveParams)));
         run.setSummaryJson(null);
         run.setMetricsJson(null);
         run.setArtifactsJson(null);
@@ -198,18 +301,23 @@ public class RunOrchestrationService {
     private RunSnapshotEntity buildSnapshot(
             RunEntity run,
             CreateBacktestRunRequest request,
-            StrategyFileEntity strategy,
-            Long userId
+            StrategyVersionEntity strategyVersion,
+            StrategyParameterPresetEntity preset,
+            Long userId,
+            Map<String, Object> effectiveParams
     ) {
         Optional<DatasetEntity> dataset = findDataset(request, userId);
 
         RunSnapshotEntity snapshot = new RunSnapshotEntity();
         DatasetEntity datasetEntity = dataset.orElse(null);
         snapshot.setRunId(run.getId());
-        snapshot.setStrategyVersion(resolveStrategyVersion(strategy));
+        snapshot.setStrategyVersion(resolveStrategyVersion(run, strategyVersion));
+        snapshot.setStrategyVersionId(strategyVersion == null ? null : strategyVersion.getId());
         snapshot.setDatasetVersion(resolveDatasetVersion(datasetEntity));
         snapshot.setDatasetSnapshotId(resolveDatasetSnapshotId(datasetEntity));
-        snapshot.setParamsSnapshotJson(writeJson(request.getParams()));
+        snapshot.setParamsSnapshotJson(writeJson(effectiveParams));
+        snapshot.setParameterPresetId(preset == null ? null : preset.getId());
+        snapshot.setParameterPresetSnapshotJson(preset == null ? null : preset.getPresetPayload());
         snapshot.setExecutionConfigSnapshotJson(writeJson(buildExecutionConfigSnapshot(request)));
         snapshot.setMarketAssumptionsSnapshotJson(writeJson(buildMarketAssumptionsSnapshot(request)));
         snapshot.setEngineVersion(DEFAULT_ENGINE_VERSION);
@@ -239,6 +347,34 @@ public class RunOrchestrationService {
                 );
     }
 
+    private Optional<StrategyParameterPresetEntity> resolvePreset(
+            CreateBacktestRunRequest request,
+            Long strategyId,
+            Long userId
+    ) {
+        if (request.getParameterPresetId() == null) {
+            return Optional.empty();
+        }
+        return Optional.of(presetRepository
+                .findByIdAndStrategyIdAndUserId(request.getParameterPresetId(), strategyId, userId)
+                .orElseThrow(() -> new BacktestResourceNotFoundException(
+                        "Strategy parameter preset not found: " + request.getParameterPresetId()
+                )));
+    }
+
+    private Map<String, Object> resolveEffectiveParams(
+            CreateBacktestRunRequest request,
+            StrategyParameterPresetEntity preset
+    ) {
+        if (request.getParams() != null && !request.getParams().isEmpty()) {
+            return request.getParams();
+        }
+        if (preset != null) {
+            return readJsonMap(preset.getPresetPayload());
+        }
+        return Map.of();
+    }
+
     private String resolveRunName(CreateBacktestRunRequest request, StrategyFileEntity strategy) {
         if (request.getRunName() != null && !request.getRunName().isBlank()) {
             return request.getRunName().trim();
@@ -251,12 +387,19 @@ public class RunOrchestrationService {
         );
     }
 
-    private String resolveStrategyVersion(StrategyFileEntity strategy) {
-        Instant createdAt = strategy.getCreatedAt();
-        if (createdAt == null) {
-            return "strategy-%d".formatted(strategy.getId());
+    private String resolveStrategyVersion(RunEntity run, StrategyVersionEntity strategyVersion) {
+        if (strategyVersion != null) {
+            return "strategy-%d/version-%s@sha256:%s".formatted(
+                    strategyVersion.getStrategyId(),
+                    strategyVersion.getVersion(),
+                    strategyVersion.getChecksum()
+            );
         }
-        return "strategy-%d@%s".formatted(strategy.getId(), createdAt.toString());
+        Instant createdAt = run.getCreatedAt();
+        if (createdAt == null) {
+            return "strategy-%d".formatted(run.getStrategyId());
+        }
+        return "strategy-%d@%s".formatted(run.getStrategyId(), createdAt.toString());
     }
 
     private String resolveDatasetVersion(DatasetEntity dataset) {
@@ -272,16 +415,25 @@ public class RunOrchestrationService {
         return dataset.getId();
     }
 
-    private Map<String, Object> buildStoredConfig(CreateBacktestRunRequest request) {
+    private Map<String, Object> buildStoredConfig(
+            CreateBacktestRunRequest request,
+            StrategyVersionEntity strategyVersion,
+            StrategyParameterPresetEntity preset,
+            Map<String, Object> effectiveParams
+    ) {
         Map<String, Object> config = new LinkedHashMap<>();
         config.put("strategyId", request.getStrategyId());
+        config.put("strategyVersionId", strategyVersion == null ? null : strategyVersion.getId());
+        config.put("strategyVersion", strategyVersion == null ? null : strategyVersion.getVersion());
+        config.put("strategyChecksum", strategyVersion == null ? null : strategyVersion.getChecksum());
+        config.put("parameterPresetId", preset == null ? null : preset.getId());
         config.put("runName", request.getRunName());
         config.put("exchange", request.getExchange().trim().toLowerCase());
         config.put("symbol", request.getSymbol().trim().toUpperCase());
         config.put("interval", request.getInterval().trim());
         config.put("from", request.getFrom());
         config.put("to", request.getTo());
-        config.put("params", request.getParams());
+        config.put("params", effectiveParams);
         config.put("initialCash", request.getInitialCash());
         config.put("feeRate", request.getFeeRate());
         config.put("slippageBps", request.getSlippageBps());
@@ -315,6 +467,7 @@ public class RunOrchestrationService {
     private PythonRunExecuteRequest buildPythonRequest(
             RunEntity run,
             StrategyFileEntity strategy,
+            StrategyVersionEntity strategyVersion,
             ExecutionJobEntity job
     ) {
         Map<String, Object> config = readJsonMap(run.getParamsJson());
@@ -327,7 +480,10 @@ public class RunOrchestrationService {
         }
 
         PythonRunExecuteRequest request = new PythonRunExecuteRequest();
-        request.setStrategyFilePath(strategy.getStoragePath());
+        request.setStrategyFilePath(strategyVersion == null ? strategy.getStoragePath() : strategyVersion.getFilePath());
+        request.setUserId(run.getUserId());
+        request.setStrategyId(run.getStrategyId());
+        request.setStrategyVersionId(strategyVersion == null ? null : strategyVersion.getId());
         request.setExchange(run.getExchange());
         request.setSymbol(run.getSymbol());
         request.setInterval(run.getInterval());
@@ -410,6 +566,8 @@ public class RunOrchestrationService {
         report.put("correlationId", run.getCorrelationId());
         report.put("status", run.getStatus());
         report.put("strategyId", run.getStrategyId());
+        report.put("strategyVersionId", run.getStrategyVersionId());
+        report.put("parameterPresetId", run.getParameterPresetId());
         report.put("strategyName", run.getStrategyName());
         report.put("datasetId", run.getDatasetId());
         report.put("exchange", run.getExchange());

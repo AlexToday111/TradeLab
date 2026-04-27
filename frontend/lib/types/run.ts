@@ -33,6 +33,8 @@ export type Run = {
   id: string;
   backendRunId?: number;
   strategyId?: number;
+  strategyVersionId?: number | null;
+  parameterPresetId?: number | null;
   strategy: string;
   datasetVersion: string;
   period: string;

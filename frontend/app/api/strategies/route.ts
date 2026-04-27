@@ -11,3 +11,17 @@ export async function GET(request: NextRequest) {
     errorMessage: "Failed to reach backend /api/strategies",
   });
 }
+
+export async function POST(request: NextRequest) {
+  return proxyToBackend({
+    request,
+    path: "/api/strategies",
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: await request.text(),
+    errorMessage: "Failed to reach backend /api/strategies",
+  });
+}
