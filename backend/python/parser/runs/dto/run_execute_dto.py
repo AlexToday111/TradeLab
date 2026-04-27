@@ -32,6 +32,21 @@ class RunExecuteRequest(BaseModel):
         description="Absolute or service-local path to the strategy file.",
         examples=["/app/strategies/ema_cross.py"],
     )
+    user_id: int | None = Field(
+        default=None,
+        alias="userId",
+        serialization_alias="userId",
+    )
+    strategy_id: int | None = Field(
+        default=None,
+        alias="strategyId",
+        serialization_alias="strategyId",
+    )
+    strategy_version_id: int | None = Field(
+        default=None,
+        alias="strategyVersionId",
+        serialization_alias="strategyVersionId",
+    )
     exchange: str = Field(description="Exchange code.", examples=["binance"])
     symbol: str = Field(description="Trading pair symbol.", examples=["BTCUSDT"])
     interval: str = Field(description="Candle interval.", examples=["1h"])
