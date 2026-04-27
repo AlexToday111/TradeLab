@@ -4,6 +4,47 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.7.0-alpha.1] - 2026-04-27
+
+### Strategy Management Foundation
+
+### Added
+
+* Strategy registry metadata on existing strategy records:
+
+  * stable `strategy_key`
+  * lifecycle status
+  * strategy type
+  * editable metadata/tags
+  * latest version pointers
+* Explicit immutable strategy version registry with:
+
+  * version number
+  * source file path
+  * filename/content type/size/checksum
+  * validation status and persisted validation report
+  * execution engine version
+* Strategy validation persistence per version.
+* System strategy templates for Mean Reversion, Momentum, Breakout, and Trend Following.
+* Strategy parameter presets with owner-scoped CRUD APIs.
+* Strategy management APIs for registry, versions, validation, activation, templates, and presets.
+* Minimal frontend strategy management views for strategy list, detail, version status, validation, activation, templates, and presets.
+
+### Changed
+
+* Uploaded strategy files now create a first-class strategy record plus an initial strategy version.
+* Runs can reference `strategy_version_id` and `parameter_preset_id`.
+* Run snapshots now persist exact `strategy_version_id` and parameter preset snapshot data when used.
+* Python validation now performs syntax/contract checks and returns validation report, metadata, and engine compatibility fields.
+* Java/Python execution logs include strategy and strategy version identifiers where available.
+
+### Notes
+
+* Existing `strategy_files` remains the root strategy registry table for compatibility with current `runs.strategy_id` references.
+* Python validation still imports strategy modules to inspect runtime metadata; this is not a full execution sandbox.
+
+---
+
 ## [0.6.0-alpha.1] - 2026-04-25
 
 ### Paper Trading Foundation
