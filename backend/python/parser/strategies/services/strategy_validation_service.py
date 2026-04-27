@@ -56,11 +56,17 @@ class StrategyValidationService:
 
             parameters_method = getattr(strategy_class, "parameters", None)
             if not callable(parameters_method):
-                return self._invalid("Strategy.parameters method not found", validation_report=syntax_report)
+                return self._invalid(
+                    "Strategy.parameters method not found",
+                    validation_report=syntax_report,
+                )
 
             run_method = getattr(strategy_class, "run", None)
             if not callable(run_method):
-                return self._invalid("Strategy.run method not found", validation_report=syntax_report)
+                return self._invalid(
+                    "Strategy.run method not found",
+                    validation_report=syntax_report,
+                )
 
             try:
                 parameters_schema = parameters_method()
@@ -184,14 +190,20 @@ class StrategyValidationService:
 
     @staticmethod
     def _has_method(strategy_class: ast.ClassDef, method_name: str) -> bool:
-        return any(isinstance(node, ast.FunctionDef) and node.name == method_name for node in strategy_class.body)
+        return any(
+            isinstance(node, ast.FunctionDef) and node.name == method_name
+            for node in strategy_class.body
+        )
 
     @staticmethod
     def _has_string_class_attr(strategy_class: ast.ClassDef, attr_name: str) -> bool:
         for node in strategy_class.body:
             if not isinstance(node, ast.Assign):
                 continue
-            if not any(isinstance(target, ast.Name) and target.id == attr_name for target in node.targets):
+            if not any(
+                isinstance(target, ast.Name) and target.id == attr_name
+                for target in node.targets
+            ):
                 continue
             if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
                 return bool(node.value.value.strip())
@@ -213,8 +225,12 @@ class StrategyValidationService:
                 getattr(strategy_class, "symbol_constraints", None)
             ),
             "expectedInputs": ["candles", "params"],
-            "tags": StrategyValidationService._coerce_string_list(getattr(strategy_class, "tags", [])),
-            "notes": StrategyValidationService._coerce_optional_string(getattr(strategy_class, "notes", None)),
+            "tags": StrategyValidationService._coerce_string_list(
+                getattr(strategy_class, "tags", [])
+            ),
+            "notes": StrategyValidationService._coerce_optional_string(
+                getattr(strategy_class, "notes", None)
+            ),
         }
 
     @staticmethod
