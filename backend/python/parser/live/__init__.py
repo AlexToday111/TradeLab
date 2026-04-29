@@ -1,0 +1,1 @@
+"""Live trading adapter foundation."""
