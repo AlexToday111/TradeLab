@@ -4,6 +4,45 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.8.0-alpha.1] - 2026-04-29
+
+### Live Trading Foundation
+
+### Added
+
+* Live exchange adapter foundation with a replaceable `LiveExchangeAdapter` contract and Binance REST adapter foundation.
+* Secure live exchange credential handling with encrypted API key/secret persistence and response masking.
+* Owner-scoped live sessions, live orders, live positions, risk events, circuit breaker state, and kill switch state.
+* Live order lifecycle with `CREATED`, `SUBMITTED`, `ACCEPTED`, `PARTIALLY_FILLED`, `FILLED`, `CANCELED`, `REJECTED`, and `FAILED`.
+* Mandatory live risk checks before exchange submission:
+  * enabled live session
+  * active kill switch/circuit breaker gates
+  * exchange connectivity and credential checks
+  * positive quantity and limit price validation
+  * symbol whitelist
+  * max order/position notional
+  * duplicate open order prevention
+  * balance guard when adapter balance data is available
+* Manual emergency stop APIs for kill switch activate/reset.
+* Circuit breaker framework for repeated failed/rejected live orders with manual reset.
+* Position sync endpoint and local live position visibility.
+* Minimal Live Trading frontend page for credentials, sessions, orders, positions, risk state, health, circuit breaker visibility, and kill switch.
+* Python live exchange adapter contract and Binance adapter foundation tests.
+
+### Safety Notes
+
+* Real order submission is disabled by default through `LIVE_TRADING_REAL_ORDER_SUBMISSION_ENABLED=false`.
+* Rejected orders are persisted with explicit `rejectedReason` and do not reach an exchange.
+* API secrets are encrypted at rest and never returned through API responses.
+* The Binance adapter uses public REST connectivity and testnet signed-order wiring when real submission is explicitly enabled.
+
+### Known Limitations
+
+* Advanced portfolio risk, websocket order/position sync, multi-exchange failover, multi-account execution, and production exchange certification remain future work.
+* Current position and balance sync is adapter-contract ready; Binance signed account snapshots are intentionally not completed in this alpha.
+
+---
+
 ## [0.7.0-alpha.1] - 2026-04-27
 
 ### Strategy Management Foundation
