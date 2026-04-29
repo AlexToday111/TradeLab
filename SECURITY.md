@@ -57,6 +57,14 @@ Trade360Lab is designed with security and isolation in mind:
 - controlled handling of exchange credentials  
 - basic dependency review and updates  
 
+## Live Trading Security Boundary
+
+Live exchange credentials are stored encrypted at rest and API responses only expose a masked `keyReference`. Raw API keys and secrets must not be logged, returned through REST responses, or committed through environment files.
+
+Live order submission is guarded by an enabled session, active credentials, exchange health, mandatory risk validation, circuit breakers, and the manual kill switch. Rejected orders are persisted with explicit reasons and do not reach an exchange adapter.
+
+Real exchange order submission is disabled by default with `LIVE_TRADING_REAL_ORDER_SUBMISSION_ENABLED=false`. Operators must set a strong `LIVE_TRADING_CREDENTIAL_ENCRYPTION_KEY` and validate exchange/testnet behavior before enabling live signed submission.
+
 ## Strategy Execution Boundary
 
 Uploaded strategy files are owner-scoped and validated before activation. The current Python validation flow checks syntax, required entrypoints, metadata, and parameter schema, but it still imports the Python module to inspect runtime metadata. This is not a full sandbox. Do not run untrusted strategy source in shared environments until process/container sandboxing is added.

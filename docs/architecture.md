@@ -95,7 +95,21 @@ Paper trading реализован в Java control plane как безопасн
 
 Risk checks выполняются до acceptance/fill: session must be `RUNNING`, quantity must be positive, symbol must match the session, BUY requires sufficient quote balance, SELL requires sufficient long position, and order notional is capped.
 
-Live exchange order placement is intentionally not implemented in this layer.
+## Live Trading Layer
+
+Live trading extends the paper architecture with a separate Java control-plane module. It does not reuse paper orders for live execution and does not bypass the paper simulation boundary.
+
+- `LiveExchangeAdapter` defines the replaceable live adapter contract.
+- `BinanceLiveExchangeAdapter` provides the first real REST adapter foundation.
+- `live_exchange_credentials` stores encrypted credential material and masked key references.
+- `live_trading_sessions` define manually enabled account/session boundaries and risk caps.
+- `live_orders` persists the complete live order lifecycle, including rejected and failed orders.
+- `live_positions` stores local live position snapshots.
+- `risk_events`, `circuit_breaker_state`, and `kill_switch_state` preserve auditability and operational safety state.
+
+Before a live order can reach an adapter, `LiveTradingService` requires an enabled session, inactive kill switch, inactive circuit breaker, active credentials, adapter health, positive quantity, valid limit price, symbol whitelist match, notional limits, duplicate-order protection, and available balance when the adapter supplies balance data.
+
+Real order submission is disabled by default with `LIVE_TRADING_REAL_ORDER_SUBMISSION_ENABLED=false`. This keeps the foundation production-safe until an operator explicitly enables signed exchange submission in a controlled environment.
 
 ## Границы ответственности
 
@@ -103,6 +117,7 @@ Live exchange order placement is intentionally not implemented in this layer.
 - `RunOrchestrationService` отвечает за queued run execution.
 - `ExecutionJobService` отвечает за job lifecycle, retry, cancel, claim, and ownership-aware job APIs.
 - `PaperTradingService` отвечает за paper session lifecycle, risk checks, simulated orders/fills, balances, positions and ownership-aware paper APIs.
+- `LiveTradingService` отвечает за encrypted credentials, guarded live sessions, live order risk gates, adapter submission, position sync, circuit breakers, and kill switch.
 - `BacktestService` сохраняет legacy synchronous `/backtests` flow.
 - Репозитории работают только с persistence.
 - Python engine не знает о REST и БД Java backend.

@@ -345,6 +345,128 @@ Returns balance, PnL, equity, order count, fill count, and open position count f
 
 No endpoint in this release places real exchange orders.
 
+## Live trading API
+
+Все endpoints требуют JWT-auth и возвращают только ресурсы текущего пользователя.
+
+### POST `/api/live/credentials`
+
+Stores encrypted live exchange credentials. API key and secret are never returned in responses.
+
+```json
+{
+  "exchange": "binance",
+  "apiKey": "******",
+  "apiSecret": "******",
+  "active": true
+}
+```
+
+### GET `/api/live/credentials/status`
+
+Returns masked credential status: `id`, `exchange`, `keyReference`, `active`, `createdAt`, `updatedAt`.
+
+### POST `/api/live/sessions`
+
+Creates an owner-scoped guarded live trading session with explicit risk limits.
+
+```json
+{
+  "name": "BTC live guarded",
+  "exchange": "binance",
+  "symbol": "BTCUSDT",
+  "baseCurrency": "BTC",
+  "quoteCurrency": "USDT",
+  "maxOrderNotional": 100,
+  "maxPositionNotional": 500,
+  "maxDailyNotional": 1000,
+  "symbolWhitelist": "BTCUSDT"
+}
+```
+
+### GET `/api/live/sessions`
+
+Returns live sessions for the authenticated user.
+
+### POST `/api/live/sessions/{id}/enable`
+
+Enables a live session only when active credentials exist.
+
+### POST `/api/live/sessions/{id}/disable`
+
+Disables a live session and blocks new live order placement through that session.
+
+### POST `/api/live/orders`
+
+Creates a live order. Mandatory risk checks run before adapter submission. Rejected orders are persisted and never reach the exchange.
+
+```json
+{
+  "sessionId": 1,
+  "strategyId": 12,
+  "strategyVersionId": 44,
+  "side": "BUY",
+  "type": "MARKET",
+  "quantity": 0.001,
+  "sourceRunId": 55
+}
+```
+
+### GET `/api/live/orders`
+
+Returns live orders owned by the current user.
+
+### GET `/api/live/orders/{id}`
+
+Returns one owned live order.
+
+### POST `/api/live/orders/{id}/cancel`
+
+Cancels an open live order. Ownership is enforced before adapter cancellation.
+
+### GET `/api/live/positions`
+
+Returns local live position state.
+
+### POST `/api/live/positions/sync`
+
+Synchronizes positions from configured exchange adapters where supported.
+
+### GET `/api/live/balances`
+
+Returns adapter balance snapshots where supported.
+
+### GET `/api/live/risk/status`
+
+Returns kill switch and circuit breaker state.
+
+### GET `/api/live/risk/events`
+
+Returns recent live risk and safety events.
+
+### POST `/api/live/kill-switch/activate`
+
+Activates manual emergency stop and blocks new live orders.
+
+```json
+{
+  "reason": "Manual emergency stop",
+  "cancelOpenOrders": false
+}
+```
+
+### POST `/api/live/kill-switch/reset`
+
+Manually resets the kill switch.
+
+### POST `/api/live/circuit-breakers/reset`
+
+Manually resets circuit breaker state for the current user.
+
+### GET `/api/live/exchange/health?exchange=binance`
+
+Checks adapter connectivity, credential presence/validity, and whether real order submission is enabled.
+
 ## Ошибки
 
 Все ошибки возвращаются в JSON:
