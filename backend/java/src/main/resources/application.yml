@@ -65,3 +65,16 @@ python:
   backtest:
     executable: ${PYTHON_BACKTEST_EXECUTABLE:python}
     script: ${PYTHON_BACKTEST_SCRIPT:../python/backtesting/run_backtest.py}
+
+live:
+  trading:
+    real-order-submission-enabled: ${LIVE_TRADING_REAL_ORDER_SUBMISSION_ENABLED:false}
+    credential-encryption-key: ${LIVE_TRADING_CREDENTIAL_ENCRYPTION_KEY:change-me-live-credential-encryption-key}
+    default-max-order-notional: ${LIVE_TRADING_DEFAULT_MAX_ORDER_NOTIONAL:100.00000000}
+    default-max-position-notional: ${LIVE_TRADING_DEFAULT_MAX_POSITION_NOTIONAL:500.00000000}
+    default-max-daily-notional: ${LIVE_TRADING_DEFAULT_MAX_DAILY_NOTIONAL:1000.00000000}
+    max-failed-orders-before-circuit-breaker: ${LIVE_TRADING_MAX_FAILED_ORDERS_BEFORE_CIRCUIT_BREAKER:3}
+    max-rejected-orders-before-circuit-breaker: ${LIVE_TRADING_MAX_REJECTED_ORDERS_BEFORE_CIRCUIT_BREAKER:10}
+    binance:
+      base-url: ${LIVE_BINANCE_BASE_URL:https://api.binance.com}
+      testnet-base-url: ${LIVE_BINANCE_TESTNET_BASE_URL:https://testnet.binance.vision}

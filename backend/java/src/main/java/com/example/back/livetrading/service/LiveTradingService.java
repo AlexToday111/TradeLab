@@ -1,0 +1,540 @@
+package com.example.back.livetrading.service;
+
+import com.example.back.auth.security.AuthContext;
+import com.example.back.backtest.exception.BacktestResourceNotFoundException;
+import com.example.back.livetrading.dto.CreateLiveCredentialRequest;
+import com.example.back.livetrading.dto.CreateLiveOrderRequest;
+import com.example.back.livetrading.dto.CreateLiveSessionRequest;
+import com.example.back.livetrading.dto.ExchangeHealthResponse;
+import com.example.back.livetrading.dto.KillSwitchRequest;
+import com.example.back.livetrading.dto.LiveBalanceResponse;
+import com.example.back.livetrading.dto.LiveCredentialStatusResponse;
+import com.example.back.livetrading.dto.LiveOrderResponse;
+import com.example.back.livetrading.dto.LivePositionResponse;
+import com.example.back.livetrading.dto.LiveRiskEventResponse;
+import com.example.back.livetrading.dto.LiveRiskStatusResponse;
+import com.example.back.livetrading.dto.LiveSessionResponse;
+import com.example.back.livetrading.config.LiveTradingProperties;
+import com.example.back.livetrading.entity.CircuitBreakerStateEntity;
+import com.example.back.livetrading.entity.KillSwitchStateEntity;
+import com.example.back.livetrading.entity.LiveExchangeCredentialEntity;
+import com.example.back.livetrading.entity.LiveOrderEntity;
+import com.example.back.livetrading.entity.LiveOrderSide;
+import com.example.back.livetrading.entity.LiveOrderStatus;
+import com.example.back.livetrading.entity.LiveOrderType;
+import com.example.back.livetrading.entity.LivePositionEntity;
+import com.example.back.livetrading.entity.LivePositionSyncStatus;
+import com.example.back.livetrading.entity.LiveRiskEventEntity;
+import com.example.back.livetrading.entity.LiveRiskEventType;
+import com.example.back.livetrading.entity.LiveSessionStatus;
+import com.example.back.livetrading.entity.LiveTradingSessionEntity;
+import com.example.back.livetrading.repository.CircuitBreakerStateRepository;
+import com.example.back.livetrading.repository.KillSwitchStateRepository;
+import com.example.back.livetrading.repository.LiveExchangeCredentialRepository;
+import com.example.back.livetrading.repository.LiveOrderRepository;
+import com.example.back.livetrading.repository.LivePositionRepository;
+import com.example.back.livetrading.repository.LiveRiskEventRepository;
+import com.example.back.livetrading.repository.LiveTradingSessionRepository;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.Instant;
+import java.util.List;
+import java.util.Set;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class LiveTradingService {
+
+    private static final int MONEY_SCALE = 8;
+    private static final Set<LiveOrderStatus> OPEN_STATUSES = Set.of(
+            LiveOrderStatus.CREATED,
+            LiveOrderStatus.SUBMITTED,
+            LiveOrderStatus.ACCEPTED,
+            LiveOrderStatus.PARTIALLY_FILLED
+    );
+
+    private final LiveTradingProperties properties;
+    private final LiveExchangeCredentialRepository credentialRepository;
+    private final LiveTradingSessionRepository sessionRepository;
+    private final LiveOrderRepository orderRepository;
+    private final LivePositionRepository positionRepository;
+    private final CircuitBreakerStateRepository circuitBreakerRepository;
+    private final KillSwitchStateRepository killSwitchRepository;
+    private final LiveRiskEventRepository riskEventRepository;
+    private final LiveCredentialCryptoService cryptoService;
+    private final LiveExchangeAdapterRegistry adapterRegistry;
+    private final LiveTradingMapper mapper;
+
+    @Transactional
+    public LiveCredentialStatusResponse storeCredentials(CreateLiveCredentialRequest request) {
+        Long userId = AuthContext.requireUserId();
+        String exchange = normalizeExchange(request.exchange());
+        LiveExchangeCredentialEntity credential = new LiveExchangeCredentialEntity();
+        credential.setUserId(userId);
+        credential.setExchange(exchange);
+        credential.setKeyReference(maskReference(request.apiKey()));
+        credential.setEncryptedApiKey(cryptoService.encrypt(request.apiKey()));
+        credential.setEncryptedApiSecret(cryptoService.encrypt(request.apiSecret()));
+        credential.setActive(request.active());
+        LiveExchangeCredentialEntity saved = credentialRepository.save(credential);
+        log.info("Live credential stored user_id={} credential_id={} exchange={}", userId, saved.getId(), exchange);
+        return mapper.toCredentialResponse(saved);
+    }
+
+    public List<LiveCredentialStatusResponse> credentialStatus() {
+        Long userId = AuthContext.requireUserId();
+        return credentialRepository.findAllByUserIdOrderByCreatedAtDesc(userId).stream()
+                .map(mapper::toCredentialResponse)
+                .toList();
+    }
+
+    @Transactional
+    public LiveSessionResponse createSession(CreateLiveSessionRequest request) {
+        Long userId = AuthContext.requireUserId();
+        LiveTradingSessionEntity session = new LiveTradingSessionEntity();
+        session.setUserId(userId);
+        session.setName(request.name().trim());
+        session.setExchange(normalizeExchange(request.exchange()));
+        session.setSymbol(request.symbol().trim().toUpperCase());
+        session.setBaseCurrency(request.baseCurrency().trim().toUpperCase());
+        session.setQuoteCurrency(request.quoteCurrency().trim().toUpperCase());
+        session.setStatus(LiveSessionStatus.CREATED);
+        session.setMaxOrderNotional(scale(request.maxOrderNotional()));
+        session.setMaxPositionNotional(scale(request.maxPositionNotional()));
+        session.setMaxDailyNotional(scale(request.maxDailyNotional()));
+        session.setSymbolWhitelist(request.symbolWhitelist());
+        LiveTradingSessionEntity saved = sessionRepository.save(session);
+        log.info("Live session created user_id={} session_id={} exchange={} symbol={}",
+                userId, saved.getId(), saved.getExchange(), saved.getSymbol());
+        return mapper.toSessionResponse(saved);
+    }
+
+    public List<LiveSessionResponse> listSessions() {
+        Long userId = AuthContext.requireUserId();
+        return sessionRepository.findAllByUserIdOrderByCreatedAtDesc(userId).stream()
+                .map(mapper::toSessionResponse)
+                .toList();
+    }
+
+    @Transactional
+    public LiveSessionResponse enableSession(Long id) {
+        LiveTradingSessionEntity session = requireOwnedSession(id);
+        requireActiveCredentials(session.getUserId(), session.getExchange());
+        session.setStatus(LiveSessionStatus.ENABLED);
+        LiveTradingSessionEntity saved = sessionRepository.save(session);
+        log.info("Live session enabled user_id={} session_id={} exchange={} symbol={}",
+                saved.getUserId(), saved.getId(), saved.getExchange(), saved.getSymbol());
+        return mapper.toSessionResponse(saved);
+    }
+
+    @Transactional
+    public LiveSessionResponse disableSession(Long id) {
+        LiveTradingSessionEntity session = requireOwnedSession(id);
+        session.setStatus(LiveSessionStatus.DISABLED);
+        LiveTradingSessionEntity saved = sessionRepository.save(session);
+        log.info("Live session disabled user_id={} session_id={}", saved.getUserId(), saved.getId());
+        return mapper.toSessionResponse(saved);
+    }
+
+    @Transactional
+    public LiveOrderResponse placeOrder(CreateLiveOrderRequest request) {
+        LiveTradingSessionEntity session = requireOwnedSession(request.sessionId());
+        LiveOrderEntity order = buildOrder(session, request);
+        String rejection = validateRisk(session, order);
+        if (rejection != null) {
+            return rejectOrder(order, rejection);
+        }
+        LiveExchangeCredentialEntity credential = requireActiveCredentials(session.getUserId(), session.getExchange());
+        ExchangeCredentials credentials = decrypt(credential);
+        LiveExchangeAdapter adapter = adapterRegistry.requireAdapter(session.getExchange());
+        try {
+            order.setStatus(LiveOrderStatus.SUBMITTED);
+            order.setSubmittedAt(Instant.now());
+            orderRepository.save(order);
+            LiveOrderResult result = adapter.placeOrder(toAdapterRequest(order), credentials);
+            order.setExchangeOrderId(result.exchangeOrderId());
+            order.setExecutedPrice(result.executedPrice());
+            order.setStatus(result.status());
+            order.setRejectedReason(result.rejectedReason());
+            if (result.status() == LiveOrderStatus.FILLED) {
+                order.setFilledAt(Instant.now());
+            }
+            LiveOrderEntity saved = orderRepository.save(order);
+            recordEvent(saved, LiveRiskEventType.ORDER_ACCEPTED, "Live order submitted");
+            log.info("Live order submitted user_id={} strategy_id={} order_id={} exchange={} symbol={} status={}",
+                    saved.getUserId(), saved.getStrategyId(), saved.getId(), saved.getExchange(), saved.getSymbol(),
+                    saved.getStatus());
+            return mapper.toOrderResponse(saved);
+        } catch (Exception exception) {
+            order.setStatus(LiveOrderStatus.FAILED);
+            order.setRejectedReason("Exchange submission failed");
+            LiveOrderEntity saved = orderRepository.save(order);
+            maybeTriggerCircuitBreaker(saved, "Exchange submission failed");
+            log.warn("Live order failed user_id={} order_id={} exchange={} symbol={} error={}",
+                    saved.getUserId(), saved.getId(), saved.getExchange(), saved.getSymbol(), exception.getMessage());
+            return mapper.toOrderResponse(saved);
+        }
+    }
+
+    public List<LiveOrderResponse> listOrders() {
+        Long userId = AuthContext.requireUserId();
+        return orderRepository.findAllByUserIdOrderByCreatedAtDesc(userId).stream()
+                .map(mapper::toOrderResponse)
+                .toList();
+    }
+
+    public LiveOrderResponse getOrder(Long id) {
+        Long userId = AuthContext.requireUserId();
+        return orderRepository.findByIdAndUserId(id, userId)
+                .map(mapper::toOrderResponse)
+                .orElseThrow(() -> new BacktestResourceNotFoundException("Live order not found: " + id));
+    }
+
+    @Transactional
+    public LiveOrderResponse cancelOrder(Long id) {
+        Long userId = AuthContext.requireUserId();
+        LiveOrderEntity order = orderRepository.findByIdAndUserId(id, userId)
+                .orElseThrow(() -> new BacktestResourceNotFoundException("Live order not found: " + id));
+        if (!OPEN_STATUSES.contains(order.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only open live orders can be canceled");
+        }
+        if (order.getExchangeOrderId() != null) {
+            LiveExchangeCredentialEntity credential = requireActiveCredentials(userId, order.getExchange());
+            adapterRegistry.requireAdapter(order.getExchange())
+                    .cancelOrder(order.getExchangeOrderId(), order.getSymbol(), decrypt(credential));
+        }
+        order.setStatus(LiveOrderStatus.CANCELED);
+        LiveOrderEntity saved = orderRepository.save(order);
+        log.info("Live order canceled user_id={} order_id={} exchange={} symbol={}",
+                userId, saved.getId(), saved.getExchange(), saved.getSymbol());
+        return mapper.toOrderResponse(saved);
+    }
+
+    @Transactional
+    public List<LivePositionResponse> syncPositions() {
+        Long userId = AuthContext.requireUserId();
+        List<LiveTradingSessionEntity> sessions = sessionRepository.findAllByUserIdOrderByCreatedAtDesc(userId);
+        for (LiveTradingSessionEntity session : sessions) {
+            try {
+                LiveExchangeCredentialEntity credential = requireActiveCredentials(userId, session.getExchange());
+                List<ExchangePositionSnapshot> snapshots = adapterRegistry.requireAdapter(session.getExchange())
+                        .getPositions(decrypt(credential));
+                for (ExchangePositionSnapshot snapshot : snapshots) {
+                    LivePositionEntity position = positionRepository
+                            .findByUserIdAndExchangeAndSymbol(userId, session.getExchange(), snapshot.symbol())
+                            .orElseGet(LivePositionEntity::new);
+                    position.setUserId(userId);
+                    position.setExchange(session.getExchange());
+                    position.setSymbol(snapshot.symbol());
+                    position.setQuantity(scale(snapshot.quantity()));
+                    position.setAverageEntryPrice(scale(snapshot.averageEntryPrice()));
+                    position.setRealizedPnl(scale(snapshot.realizedPnl()));
+                    position.setUnrealizedPnl(scale(snapshot.unrealizedPnl()));
+                    position.setSyncStatus(LivePositionSyncStatus.SYNCED);
+                    positionRepository.save(position);
+                }
+            } catch (Exception exception) {
+                recordEvent(userId, null, null, session.getExchange(), session.getSymbol(),
+                        LiveRiskEventType.POSITION_SYNC_FAILED, "Position sync failed");
+                log.warn("Live position sync failed user_id={} exchange={} error={}",
+                        userId, session.getExchange(), exception.getMessage());
+            }
+        }
+        return listPositions();
+    }
+
+    public List<LivePositionResponse> listPositions() {
+        Long userId = AuthContext.requireUserId();
+        return positionRepository.findAllByUserIdOrderByExchangeAscSymbolAsc(userId).stream()
+                .map(mapper::toPositionResponse)
+                .toList();
+    }
+
+    public List<LiveBalanceResponse> getBalances() {
+        Long userId = AuthContext.requireUserId();
+        return sessionRepository.findAllByUserIdOrderByCreatedAtDesc(userId).stream()
+                .findFirst()
+                .flatMap(session -> credentialRepository.findFirstByUserIdAndExchangeAndActiveTrueOrderByUpdatedAtDesc(
+                        userId, session.getExchange()))
+                .map(credential -> adapterRegistry.requireAdapter(credential.getExchange()).getBalances(decrypt(credential))
+                        .stream().map(mapper::toBalanceResponse).toList())
+                .orElse(List.of());
+    }
+
+    public LiveRiskStatusResponse riskStatus() {
+        Long userId = AuthContext.requireUserId();
+        KillSwitchStateEntity killSwitch = killSwitchRepository.findByUserId(userId).orElse(null);
+        return new LiveRiskStatusResponse(
+                killSwitch != null && killSwitch.isActive(),
+                killSwitch == null ? null : killSwitch.getReason(),
+                killSwitch == null ? null : killSwitch.getActivatedAt(),
+                circuitBreakerRepository.findAllByUserIdOrderByUpdatedAtDesc(userId).stream()
+                        .map(mapper::toCircuitBreakerResponse)
+                        .toList()
+        );
+    }
+
+    public List<LiveRiskEventResponse> riskEvents() {
+        Long userId = AuthContext.requireUserId();
+        return riskEventRepository.findTop50ByUserIdOrderByCreatedAtDesc(userId).stream()
+                .map(mapper::toRiskEventResponse)
+                .toList();
+    }
+
+    @Transactional
+    public LiveRiskStatusResponse activateKillSwitch(KillSwitchRequest request) {
+        Long userId = AuthContext.requireUserId();
+        KillSwitchStateEntity state = killSwitchRepository.findByUserId(userId).orElseGet(KillSwitchStateEntity::new);
+        state.setUserId(userId);
+        state.setActive(true);
+        state.setReason(request.reason() == null || request.reason().isBlank() ? "Manual emergency stop" : request.reason());
+        state.setActivatedAt(Instant.now());
+        killSwitchRepository.save(state);
+        recordEvent(userId, null, null, "all", null, LiveRiskEventType.KILL_SWITCH_ACTIVATED, state.getReason());
+        log.warn("Live kill switch activated user_id={} reason={}", userId, state.getReason());
+        return riskStatus();
+    }
+
+    @Transactional
+    public LiveRiskStatusResponse resetKillSwitch() {
+        Long userId = AuthContext.requireUserId();
+        KillSwitchStateEntity state = killSwitchRepository.findByUserId(userId).orElseGet(KillSwitchStateEntity::new);
+        state.setUserId(userId);
+        state.setActive(false);
+        state.setReason(null);
+        state.setActivatedAt(null);
+        killSwitchRepository.save(state);
+        recordEvent(userId, null, null, "all", null, LiveRiskEventType.KILL_SWITCH_RESET, "Manual reset");
+        log.info("Live kill switch reset user_id={}", userId);
+        return riskStatus();
+    }
+
+    @Transactional
+    public LiveRiskStatusResponse resetCircuitBreakers() {
+        Long userId = AuthContext.requireUserId();
+        for (CircuitBreakerStateEntity state : circuitBreakerRepository.findAllByUserIdOrderByUpdatedAtDesc(userId)) {
+            state.setActive(false);
+            state.setReason(null);
+            state.setTriggeredAt(null);
+            circuitBreakerRepository.save(state);
+            recordEvent(userId, null, null, state.getExchange(), null,
+                    LiveRiskEventType.CIRCUIT_BREAKER_RESET, "Manual reset");
+        }
+        return riskStatus();
+    }
+
+    public ExchangeHealthResponse exchangeHealth(String exchange) {
+        Long userId = AuthContext.requireUserId();
+        String normalizedExchange = normalizeExchange(exchange == null ? "binance" : exchange);
+        LiveExchangeAdapter adapter = adapterRegistry.requireAdapter(normalizedExchange);
+        boolean connected = adapter.pingConnection();
+        boolean credentialsValid = credentialRepository
+                .findFirstByUserIdAndExchangeAndActiveTrueOrderByUpdatedAtDesc(userId, normalizedExchange)
+                .map(credential -> adapter.validateCredentials(decrypt(credential)))
+                .orElse(false);
+        return new ExchangeHealthResponse(
+                normalizedExchange,
+                connected,
+                credentialsValid,
+                properties.realOrderSubmissionEnabled(),
+                connected ? "Exchange ping completed" : "Exchange ping failed"
+        );
+    }
+
+    private String validateRisk(LiveTradingSessionEntity session, LiveOrderEntity order) {
+        if (killSwitchRepository.findByUserId(session.getUserId()).filter(KillSwitchStateEntity::isActive).isPresent()) {
+            return "Kill switch is active";
+        }
+        if (circuitBreakerRepository.findByUserIdAndExchange(session.getUserId(), session.getExchange())
+                .filter(CircuitBreakerStateEntity::isActive).isPresent()) {
+            return "Circuit breaker is active for exchange " + session.getExchange();
+        }
+        if (session.getStatus() != LiveSessionStatus.ENABLED) {
+            return "Live session must be ENABLED";
+        }
+        LiveExchangeCredentialEntity credential = credentialRepository
+                .findFirstByUserIdAndExchangeAndActiveTrueOrderByUpdatedAtDesc(session.getUserId(), session.getExchange())
+                .orElse(null);
+        if (credential == null) {
+            return "Active exchange credentials are required";
+        }
+        LiveExchangeAdapter adapter = adapterRegistry.requireAdapter(session.getExchange());
+        if (!adapter.pingConnection()) {
+            return "Exchange connectivity check failed";
+        }
+        if (!adapter.validateCredentials(decrypt(credential))) {
+            return "Exchange credentials are invalid";
+        }
+        if (order.getQuantity() == null || order.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
+            return "Quantity must be positive";
+        }
+        if (order.getType() == LiveOrderType.LIMIT
+                && (order.getRequestedPrice() == null || order.getRequestedPrice().compareTo(BigDecimal.ZERO) <= 0)) {
+            return "Limit price must be positive";
+        }
+        if (session.getSymbolWhitelist() != null && !session.getSymbolWhitelist().isBlank()
+                && !List.of(session.getSymbolWhitelist().split(",")).contains(order.getSymbol())) {
+            return "Symbol is not whitelisted for live trading";
+        }
+        BigDecimal price = order.getType() == LiveOrderType.LIMIT
+                ? order.getRequestedPrice()
+                : adapter.getLatestPrice(order.getSymbol()).orElse(null);
+        if (price == null || price.compareTo(BigDecimal.ZERO) <= 0) {
+            return "Latest market price is unavailable";
+        }
+        BigDecimal notional = scale(order.getQuantity().multiply(price));
+        if (notional.compareTo(session.getMaxOrderNotional()) > 0) {
+            return "Order notional exceeds session max order limit " + session.getMaxOrderNotional();
+        }
+        if (notional.compareTo(session.getMaxPositionNotional()) > 0) {
+            return "Order would exceed max position limit " + session.getMaxPositionNotional();
+        }
+        if (orderRepository.existsByUserIdAndExchangeAndSymbolAndSideAndTypeAndQuantityAndStatusInAndIdNot(
+                order.getUserId(), order.getExchange(), order.getSymbol(), order.getSide(), order.getType(),
+                order.getQuantity(), OPEN_STATUSES, order.getId())) {
+            return "Duplicate open live order is already present";
+        }
+        if (order.getSide() == LiveOrderSide.BUY) {
+            List<ExchangeBalanceSnapshot> balances = adapter.getBalances(decrypt(credential));
+            BigDecimal available = balances.stream()
+                    .filter(balance -> session.getQuoteCurrency().equalsIgnoreCase(balance.asset()))
+                    .map(ExchangeBalanceSnapshot::free)
+                    .findFirst()
+                    .orElse(BigDecimal.ZERO);
+            if (!balances.isEmpty() && available.compareTo(notional) < 0) {
+                return "Available balance is below order notional";
+            }
+        }
+        return null;
+    }
+
+    private LiveOrderResponse rejectOrder(LiveOrderEntity order, String reason) {
+        order.setStatus(LiveOrderStatus.REJECTED);
+        order.setRejectedReason(reason);
+        LiveOrderEntity saved = orderRepository.save(order);
+        recordEvent(saved, LiveRiskEventType.ORDER_REJECTED, reason);
+        maybeTriggerCircuitBreaker(saved, reason);
+        log.warn("Live order rejected user_id={} strategy_id={} order_id={} exchange={} symbol={} reason={}",
+                saved.getUserId(), saved.getStrategyId(), saved.getId(), saved.getExchange(), saved.getSymbol(), reason);
+        return mapper.toOrderResponse(saved);
+    }
+
+    private void maybeTriggerCircuitBreaker(LiveOrderEntity order, String reason) {
+        long failedCount = orderRepository.countByUserIdAndExchangeAndStatus(
+                order.getUserId(), order.getExchange(), LiveOrderStatus.FAILED);
+        long rejectedCount = orderRepository.countByUserIdAndExchangeAndStatus(
+                order.getUserId(), order.getExchange(), LiveOrderStatus.REJECTED);
+        if (failedCount >= properties.maxFailedOrdersBeforeCircuitBreaker()
+                || rejectedCount >= properties.maxRejectedOrdersBeforeCircuitBreaker()) {
+            CircuitBreakerStateEntity state = circuitBreakerRepository
+                    .findByUserIdAndExchange(order.getUserId(), order.getExchange())
+                    .orElseGet(CircuitBreakerStateEntity::new);
+            state.setUserId(order.getUserId());
+            state.setExchange(order.getExchange());
+            state.setActive(true);
+            state.setReason(reason);
+            state.setTriggeredAt(Instant.now());
+            circuitBreakerRepository.save(state);
+            recordEvent(order, LiveRiskEventType.CIRCUIT_BREAKER_TRIGGERED, reason);
+            log.warn("Live circuit breaker triggered user_id={} exchange={} reason={}",
+                    order.getUserId(), order.getExchange(), reason);
+        }
+    }
+
+    private LiveOrderEntity buildOrder(LiveTradingSessionEntity session, CreateLiveOrderRequest request) {
+        LiveOrderEntity order = new LiveOrderEntity();
+        order.setUserId(session.getUserId());
+        order.setSessionId(session.getId());
+        order.setStrategyId(request.strategyId());
+        order.setStrategyVersionId(request.strategyVersionId());
+        order.setExchange(session.getExchange());
+        order.setSymbol(session.getSymbol());
+        order.setSide(request.side());
+        order.setType(request.type());
+        order.setQuantity(scale(request.quantity()));
+        order.setRequestedPrice(request.requestedPrice() == null ? null : scale(request.requestedPrice()));
+        order.setStatus(LiveOrderStatus.CREATED);
+        order.setSourceRunId(request.sourceRunId());
+        return orderRepository.save(order);
+    }
+
+    private LiveOrderRequest toAdapterRequest(LiveOrderEntity order) {
+        return new LiveOrderRequest(
+                order.getExchange(),
+                order.getSymbol(),
+                order.getSide(),
+                order.getType(),
+                order.getQuantity(),
+                order.getRequestedPrice()
+        );
+    }
+
+    private LiveTradingSessionEntity requireOwnedSession(Long id) {
+        Long userId = AuthContext.requireUserId();
+        return sessionRepository.findByIdAndUserId(id, userId)
+                .orElseThrow(() -> new BacktestResourceNotFoundException("Live session not found: " + id));
+    }
+
+    private LiveExchangeCredentialEntity requireActiveCredentials(Long userId, String exchange) {
+        return credentialRepository.findFirstByUserIdAndExchangeAndActiveTrueOrderByUpdatedAtDesc(userId, exchange)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Active live exchange credentials are required"
+                ));
+    }
+
+    private ExchangeCredentials decrypt(LiveExchangeCredentialEntity credential) {
+        return new ExchangeCredentials(
+                cryptoService.decrypt(credential.getEncryptedApiKey()),
+                cryptoService.decrypt(credential.getEncryptedApiSecret())
+        );
+    }
+
+    private void recordEvent(LiveOrderEntity order, LiveRiskEventType type, String reason) {
+        recordEvent(order.getUserId(), order.getId(), order.getStrategyId(), order.getExchange(),
+                order.getSymbol(), type, reason);
+    }
+
+    private void recordEvent(
+            Long userId,
+            Long orderId,
+            Long strategyId,
+            String exchange,
+            String symbol,
+            LiveRiskEventType type,
+            String reason
+    ) {
+        LiveRiskEventEntity event = new LiveRiskEventEntity();
+        event.setUserId(userId);
+        event.setOrderId(orderId);
+        event.setStrategyId(strategyId);
+        event.setExchange(exchange);
+        event.setSymbol(symbol);
+        event.setEventType(type);
+        event.setReason(reason);
+        riskEventRepository.save(event);
+    }
+
+    private String normalizeExchange(String exchange) {
+        return exchange.trim().toLowerCase();
+    }
+
+    private String maskReference(String apiKey) {
+        String trimmed = apiKey.trim();
+        if (trimmed.length() <= 8) {
+            return "****";
+        }
+        return trimmed.substring(0, 4) + "..." + trimmed.substring(trimmed.length() - 4);
+    }
+
+    private BigDecimal scale(BigDecimal value) {
+        return value.setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+    }
+}
