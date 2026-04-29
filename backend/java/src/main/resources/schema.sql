@@ -471,3 +471,129 @@ CREATE TABLE IF NOT EXISTS backtest_equity_points (
 
 CREATE INDEX IF NOT EXISTS idx_backtest_equity_points_run_id_timestamp
     ON backtest_equity_points (run_id, timestamp);
+
+CREATE TABLE IF NOT EXISTS live_exchange_credentials (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    exchange VARCHAR(64) NOT NULL,
+    key_reference VARCHAR(128) NOT NULL,
+    encrypted_api_key TEXT NOT NULL,
+    encrypted_api_secret TEXT NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_live_exchange_credentials_user_exchange
+    ON live_exchange_credentials (user_id, exchange, is_active, updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS live_trading_sessions (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    exchange VARCHAR(64) NOT NULL,
+    symbol VARCHAR(64) NOT NULL,
+    base_currency VARCHAR(32) NOT NULL,
+    quote_currency VARCHAR(32) NOT NULL,
+    status VARCHAR(32) NOT NULL,
+    max_order_notional NUMERIC(28, 8) NOT NULL,
+    max_position_notional NUMERIC(28, 8) NOT NULL,
+    max_daily_notional NUMERIC(28, 8) NOT NULL,
+    symbol_whitelist TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_live_trading_sessions_user_created_at
+    ON live_trading_sessions (user_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_live_trading_sessions_user_status
+    ON live_trading_sessions (user_id, status);
+
+CREATE TABLE IF NOT EXISTS live_orders (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    session_id BIGINT NOT NULL REFERENCES live_trading_sessions(id) ON DELETE CASCADE,
+    strategy_id BIGINT REFERENCES strategy_files(id) ON DELETE SET NULL,
+    strategy_version_id BIGINT REFERENCES strategy_versions(id) ON DELETE SET NULL,
+    exchange VARCHAR(64) NOT NULL,
+    symbol VARCHAR(64) NOT NULL,
+    side VARCHAR(16) NOT NULL,
+    type VARCHAR(16) NOT NULL,
+    quantity NUMERIC(28, 8) NOT NULL,
+    requested_price NUMERIC(28, 8),
+    executed_price NUMERIC(28, 8),
+    status VARCHAR(32) NOT NULL,
+    exchange_order_id VARCHAR(128),
+    submitted_at TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    filled_at TIMESTAMPTZ,
+    rejected_reason TEXT,
+    source_run_id BIGINT REFERENCES runs(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_live_orders_user_created_at
+    ON live_orders (user_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_live_orders_user_status
+    ON live_orders (user_id, status, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_live_orders_exchange_order_id
+    ON live_orders (exchange, exchange_order_id);
+
+CREATE TABLE IF NOT EXISTS live_positions (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    exchange VARCHAR(64) NOT NULL,
+    symbol VARCHAR(64) NOT NULL,
+    quantity NUMERIC(28, 8) NOT NULL,
+    average_entry_price NUMERIC(28, 8) NOT NULL,
+    realized_pnl NUMERIC(28, 8) NOT NULL,
+    unrealized_pnl NUMERIC(28, 8) NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    sync_status VARCHAR(32) NOT NULL,
+    CONSTRAINT live_positions_user_exchange_symbol_key UNIQUE (user_id, exchange, symbol)
+);
+
+CREATE INDEX IF NOT EXISTS idx_live_positions_user_exchange
+    ON live_positions (user_id, exchange, symbol);
+
+CREATE TABLE IF NOT EXISTS risk_events (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    order_id BIGINT REFERENCES live_orders(id) ON DELETE SET NULL,
+    strategy_id BIGINT REFERENCES strategy_files(id) ON DELETE SET NULL,
+    exchange VARCHAR(64) NOT NULL,
+    symbol VARCHAR(64),
+    event_type VARCHAR(64) NOT NULL,
+    reason TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_risk_events_user_created_at
+    ON risk_events (user_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS circuit_breaker_state (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    exchange VARCHAR(64) NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT FALSE,
+    reason TEXT,
+    triggered_at TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT circuit_breaker_state_user_exchange_key UNIQUE (user_id, exchange)
+);
+
+CREATE INDEX IF NOT EXISTS idx_circuit_breaker_state_user_active
+    ON circuit_breaker_state (user_id, active);
+
+CREATE TABLE IF NOT EXISTS kill_switch_state (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    active BOOLEAN NOT NULL DEFAULT FALSE,
+    reason TEXT,
+    activated_at TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT kill_switch_state_user_key UNIQUE (user_id)
+);
