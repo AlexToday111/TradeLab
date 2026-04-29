@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, FileCode2, Rocket, Settings } from "lucide-react";
+import { Activity, FileCode2, RadioTower, Rocket, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LogoPlaceholder } from "@/components/shell/logo-placeholder";
 
@@ -39,6 +39,11 @@ export const navItems = [
     label: "Paper",
     href: "/paper",
     icon: Activity,
+  },
+  {
+    label: "Live",
+    href: "/live",
+    icon: RadioTower,
   },
   {
     label: "\u0418\u0441\u0441\u043b\u0435\u0434\u043e\u0432\u0430\u043d\u0438\u044f",
