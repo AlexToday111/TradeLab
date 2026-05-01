@@ -4,6 +4,36 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.9.0-alpha.1] - 2026-05-04
+
+### Release Hardening & Testnet Safety
+
+### Added
+
+- Release workflow for tagged alpha builds.
+- Docker Compose smoke validation in CI.
+- OpenAPI artifacts for Java API and Python engine.
+- Root `.env.example` and release environment template.
+- Service health dashboard in frontend.
+- Binance testnet account/order snapshot certification checks.
+- Live trading risk/audit visibility.
+- Playwright smoke tests for core UI flows.
+- Java/Python contract tests for internal execution APIs.
+- Runbooks for testnet drill, kill switch drill, and rollback.
+
+### Changed
+
+- Aligned project versions to `0.9.0-alpha.1`.
+- Explicit demo mode labeling for frontend demo data.
+- Hardened startup checks for unsafe default secrets when live trading is enabled.
+
+### Safety Notes
+
+- Real order submission remains disabled by default.
+- Testnet certification does not imply production readiness.
+
+---
+
 ## [0.8.0-alpha.1] - 2026-04-29
 
 ### Live Trading Foundation
