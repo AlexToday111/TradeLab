@@ -1,5 +1,6 @@
 package com.example.back.common.config;
 
+import com.example.back.release.ReleaseInfo;
 import io.swagger.v3.oas.models.ExternalDocumentation;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Contact;
@@ -18,7 +19,7 @@ public class OpenApiConfig {
                 .info(new Info()
                         .title("TradeLab Java API")
                         .description("API для стратегий, датасетов, свечей и локального запуска backtest flow.")
-                        .version("1.0.0")
+                        .version(ReleaseInfo.VERSION)
                         .contact(new Contact()
                                 .name("TradeLab")
                                 .email("ernestkudakaev6@mail.ru"))
