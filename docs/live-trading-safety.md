@@ -1,12 +1,14 @@
 # Live Trading Safety Model
 
-Target release: `v0.8.0-alpha.1` — Live Trading Foundation.
+Target release: `v0.9.0-alpha.1` — Release Hardening & Testnet Safety.
 
 ## Default Boundary
 
 Live trading is safe by default:
 
 - real order submission is disabled unless `LIVE_TRADING_REAL_ORDER_SUBMISSION_ENABLED=true`
+- startup rejects `change-me` secrets when real order submission is enabled
+- Binance certification is testnet-only and read-only
 - credentials must be stored through `/api/live/credentials`
 - sessions must be manually enabled
 - every order passes mandatory risk checks before adapter submission
@@ -17,6 +19,11 @@ Live trading is safe by default:
 
 1. Configure `LIVE_TRADING_CREDENTIAL_ENCRYPTION_KEY` with a strong environment-specific value.
 2. Keep `LIVE_TRADING_REAL_ORDER_SUBMISSION_ENABLED=false` for local and staging validation.
+3. Run the testnet drill before any release candidate is promoted.
+
+## Testnet Certification
+
+The Binance testnet certification endpoint checks read-only account and open-order snapshots against the configured testnet base URL. It does not submit production orders and does not certify production readiness.
 3. Store exchange credentials through the live credentials API.
 4. Create a live session with conservative notional limits and a symbol whitelist.
 5. Enable the session only after exchange health and credential status are valid.
