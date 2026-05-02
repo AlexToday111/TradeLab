@@ -1,11 +1,9 @@
-name: CI
+name: Alpha Release
 
 on:
   push:
-    branches:
-      - main
-      - master
-  pull_request:
+    tags:
+      - "v*"
 
 jobs:
   frontend:
@@ -27,6 +25,11 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run test:smoke
       - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-next-build
+          path: frontend/.next
+          if-no-files-found: error
 
   python:
     runs-on: ubuntu-latest
@@ -60,6 +63,12 @@ jobs:
           java-version: "17"
           cache: maven
       - run: mvn -B test
+      - run: mvn -B package -DskipTests
+      - uses: actions/upload-artifact@v4
+        with:
+          name: java-api-jar
+          path: backend/java/target/*.jar
+          if-no-files-found: error
 
   docker-smoke:
     runs-on: ubuntu-latest
@@ -70,3 +79,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker compose config -q
+      - run: scripts/docker-compose-smoke.sh
+      - run: scripts/export-openapi-artifacts.sh "${GITHUB_REF_NAME#v}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: openapi-release-artifacts
+          path: artifacts/*.json
+          if-no-files-found: error
