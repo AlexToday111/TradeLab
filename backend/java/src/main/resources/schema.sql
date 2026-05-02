@@ -31,6 +31,12 @@ CREATE TABLE IF NOT EXISTS datasets (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
+ALTER TABLE datasets
+    ADD COLUMN IF NOT EXISTS user_id BIGINT REFERENCES users(id) ON DELETE CASCADE;
+
+ALTER TABLE datasets
+    ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
 CREATE INDEX IF NOT EXISTS idx_datasets_created_at
     ON datasets (created_at DESC);
 
@@ -49,6 +55,12 @@ CREATE TABLE IF NOT EXISTS strategy_files (
     parameters_schema_json TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+ALTER TABLE strategy_files
+    ADD COLUMN IF NOT EXISTS user_id BIGINT REFERENCES users(id) ON DELETE CASCADE;
+
+ALTER TABLE strategy_files
+    ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
 CREATE INDEX IF NOT EXISTS idx_strategy_files_created_at
     ON strategy_files (created_at DESC);
@@ -202,6 +214,12 @@ CREATE TABLE IF NOT EXISTS runs (
     finished_at TIMESTAMPTZ
     );
 
+ALTER TABLE runs
+    ADD COLUMN IF NOT EXISTS user_id BIGINT REFERENCES users(id) ON DELETE CASCADE;
+
+ALTER TABLE runs
+    ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
 CREATE INDEX IF NOT EXISTS idx_runs_status
     ON runs (status);
 
@@ -233,6 +251,12 @@ CREATE TABLE IF NOT EXISTS execution_jobs (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+ALTER TABLE execution_jobs
+    ADD COLUMN IF NOT EXISTS user_id BIGINT REFERENCES users(id) ON DELETE CASCADE;
+
+ALTER TABLE execution_jobs
+    ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
 CREATE INDEX IF NOT EXISTS idx_execution_jobs_user_created_at
     ON execution_jobs (user_id, created_at DESC);
@@ -279,9 +303,6 @@ ALTER TABLE runs
 
 ALTER TABLE runs
     ADD COLUMN IF NOT EXISTS execution_duration_ms BIGINT;
-
-ALTER TABLE datasets
-    ADD COLUMN IF NOT EXISTS user_id BIGINT REFERENCES users(id) ON DELETE CASCADE;
 
 ALTER TABLE strategy_files
     ADD COLUMN IF NOT EXISTS user_id BIGINT REFERENCES users(id) ON DELETE CASCADE;
