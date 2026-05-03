@@ -5,6 +5,7 @@ import com.example.back.backtest.exception.BacktestResourceNotFoundException;
 import com.example.back.livetrading.dto.CreateLiveCredentialRequest;
 import com.example.back.livetrading.dto.CreateLiveOrderRequest;
 import com.example.back.livetrading.dto.CreateLiveSessionRequest;
+import com.example.back.livetrading.dto.BinanceTestnetCertificationResponse;
 import com.example.back.livetrading.dto.ExchangeHealthResponse;
 import com.example.back.livetrading.dto.KillSwitchRequest;
 import com.example.back.livetrading.dto.LiveBalanceResponse;
@@ -346,6 +347,34 @@ public class LiveTradingService {
                 properties.realOrderSubmissionEnabled(),
                 connected ? "Exchange ping completed" : "Exchange ping failed"
         );
+    }
+
+    public BinanceTestnetCertificationResponse certifyBinanceTestnet() {
+        Long userId = AuthContext.requireUserId();
+        LiveExchangeCredentialEntity credential = credentialRepository
+                .findFirstByUserIdAndExchangeAndActiveTrueOrderByUpdatedAtDesc(userId, "binance")
+                .orElse(null);
+        if (credential == null) {
+            return new BinanceTestnetCertificationResponse(
+                    "binance",
+                    true,
+                    properties.realOrderSubmissionEnabled(),
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    null,
+                    null,
+                    "Active Binance testnet credentials are required",
+                    Instant.now()
+            );
+        }
+        LiveExchangeAdapter adapter = adapterRegistry.requireAdapter("binance");
+        if (!(adapter instanceof BinanceLiveExchangeAdapter binanceAdapter)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Binance adapter is not available");
+        }
+        return binanceAdapter.certifyTestnetReadOnly(decrypt(credential));
     }
 
     private String validateRisk(LiveTradingSessionEntity session, LiveOrderEntity order) {

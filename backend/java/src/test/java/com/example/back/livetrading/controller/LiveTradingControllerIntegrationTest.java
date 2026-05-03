@@ -213,6 +213,19 @@ class LiveTradingControllerIntegrationTest {
                 .andExpect(status().isNotFound());
     }
 
+    @Test
+    void binanceTestnetCertificationRequiresActiveCredentialsAndStaysTestnetOnly() throws Exception {
+        mockMvc.perform(post("/api/live/exchange/binance/testnet-certification")
+                        .with(TestAuth.authenticatedRequest()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.exchange").value("binance"))
+                .andExpect(jsonPath("$.testnetOnly").value(true))
+                .andExpect(jsonPath("$.realOrderSubmissionEnabled").value(false))
+                .andExpect(jsonPath("$.credentialsPresent").value(false))
+                .andExpect(jsonPath("$.certified").value(false))
+                .andExpect(jsonPath("$.message").value("Active Binance testnet credentials are required"));
+    }
+
     private Long createEnabledSession() throws Exception {
         mockMvc.perform(post("/api/live/credentials")
                         .with(TestAuth.authenticatedRequest())

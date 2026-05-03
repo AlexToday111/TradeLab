@@ -1,5 +1,6 @@
 package com.example.back.livetrading.controller;
 
+import com.example.back.livetrading.dto.BinanceTestnetCertificationResponse;
 import com.example.back.livetrading.dto.CreateLiveCredentialRequest;
 import com.example.back.livetrading.dto.CreateLiveOrderRequest;
 import com.example.back.livetrading.dto.CreateLiveSessionRequest;
@@ -130,5 +131,10 @@ public class LiveTradingController {
     @GetMapping("/exchange/health")
     public ExchangeHealthResponse exchangeHealth(@RequestParam(defaultValue = "binance") String exchange) {
         return liveTradingService.exchangeHealth(exchange);
+    }
+
+    @PostMapping("/exchange/binance/testnet-certification")
+    public BinanceTestnetCertificationResponse certifyBinanceTestnet() {
+        return liveTradingService.certifyBinanceTestnet();
     }
 }

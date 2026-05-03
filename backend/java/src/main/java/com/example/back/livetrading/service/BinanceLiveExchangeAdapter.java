@@ -1,6 +1,7 @@
 package com.example.back.livetrading.service;
 
 import com.example.back.livetrading.config.LiveTradingProperties;
+import com.example.back.livetrading.dto.BinanceTestnetCertificationResponse;
 import com.example.back.livetrading.entity.LiveOrderStatus;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -141,6 +142,84 @@ public class BinanceLiveExchangeAdapter implements LiveExchangeAdapter {
                 && credentials.apiSecret() != null
                 && credentials.apiKey().length() >= 8
                 && credentials.apiSecret().length() >= 8;
+    }
+
+    public BinanceTestnetCertificationResponse certifyTestnetReadOnly(ExchangeCredentials credentials) {
+        boolean credentialsValid = validateCredentials(credentials);
+        if (!credentialsValid) {
+            return certification(false, false, false, false, null, null, "Testnet credentials are invalid");
+        }
+
+        boolean accountReachable = false;
+        boolean ordersReachable = false;
+        String accountSummary = null;
+        String ordersSummary = null;
+        String message = "Binance testnet certification checks failed";
+
+        try {
+            JsonNode account = signedRequest(
+                    "/api/v3/account",
+                    "GET",
+                    "timestamp=" + System.currentTimeMillis(),
+                    credentials
+            );
+            accountReachable = true;
+            accountSummary = "canTrade=" + account.path("canTrade").asBoolean(false)
+                    + ", balances=" + account.path("balances").size();
+        } catch (Exception exception) {
+            message = "Testnet account snapshot failed: " + exception.getMessage();
+        }
+
+        try {
+            JsonNode openOrders = signedRequest(
+                    "/api/v3/openOrders",
+                    "GET",
+                    "timestamp=" + System.currentTimeMillis(),
+                    credentials
+            );
+            ordersReachable = true;
+            ordersSummary = "openOrders=" + openOrders.size();
+        } catch (Exception exception) {
+            message = "Testnet open orders snapshot failed: " + exception.getMessage();
+        }
+
+        if (accountReachable && ordersReachable) {
+            message = "Binance testnet account and open-order snapshots completed";
+        }
+        return certification(
+                credentialsValid,
+                accountReachable,
+                ordersReachable,
+                accountReachable && ordersReachable,
+                accountSummary,
+                ordersSummary,
+                message
+        );
+    }
+
+    private BinanceTestnetCertificationResponse certification(
+            boolean credentialsValid,
+            boolean accountReachable,
+            boolean ordersReachable,
+            boolean certified,
+            String accountSummary,
+            String ordersSummary,
+            String message
+    ) {
+        return new BinanceTestnetCertificationResponse(
+                exchange(),
+                true,
+                properties.realOrderSubmissionEnabled(),
+                true,
+                credentialsValid,
+                accountReachable,
+                ordersReachable,
+                certified,
+                accountSummary,
+                ordersSummary,
+                message,
+                Instant.now()
+        );
     }
 
     private JsonNode signedRequest(String path, String method, String query, ExchangeCredentials credentials) {
