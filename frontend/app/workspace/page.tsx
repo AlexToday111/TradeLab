@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SurfaceCard } from "@/components/shared/surface-card";
 import { useRuns } from "@/features/runs/store/run-store";
@@ -151,6 +152,11 @@ export default function WorkspacePage() {
   return (
     <div className="flex min-h-full flex-col gap-5">
       <SurfaceCard>
+        <div className="mb-4">
+          <Badge variant="outline" className="rounded-full border-status-warning/35 bg-status-warning/12 text-status-warning">
+            Demo data
+          </Badge>
+        </div>
         <div className="relative">
           {canGoPrev ? (
             <Button

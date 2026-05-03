@@ -1733,6 +1733,11 @@ export default function DataPage() {
     <div className="flex min-h-full flex-col gap-5">
       <PageHeader
         title="Данные"
+        actions={
+          <Badge variant="outline" className="rounded-full border-status-warning/35 bg-status-warning/12 text-status-warning">
+            Demo data visible
+          </Badge>
+        }
       />
 
       <div className="overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">

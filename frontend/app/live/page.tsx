@@ -1,7 +1,15 @@
 "use client";
 
-import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Plus, Power, RefreshCw, ShieldCheck, Square } from "lucide-react";
+import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  AlertTriangle,
+  ClipboardCheck,
+  Plus,
+  Power,
+  RefreshCw,
+  ShieldCheck,
+  Square,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -91,12 +99,37 @@ type LiveRiskStatus = {
   circuitBreakers: { exchange: string; active: boolean; reason?: string | null }[];
 };
 
+type LiveRiskEvent = {
+  id: number;
+  orderId?: number | null;
+  exchange: string;
+  symbol?: string | null;
+  eventType: string;
+  reason?: string | null;
+  createdAt: string;
+};
+
 type ExchangeHealth = {
   exchange: string;
   connected: boolean;
   credentialsValid: boolean;
   realOrderSubmissionEnabled: boolean;
   message: string;
+};
+
+type BinanceCertification = {
+  exchange: string;
+  testnetOnly: boolean;
+  realOrderSubmissionEnabled: boolean;
+  credentialsPresent: boolean;
+  credentialsValid: boolean;
+  accountSnapshotReachable: boolean;
+  openOrdersSnapshotReachable: boolean;
+  certified: boolean;
+  accountSnapshotSummary?: string | null;
+  openOrdersSnapshotSummary?: string | null;
+  message: string;
+  checkedAt: string;
 };
 
 const statusTone: Record<string, string> = {
@@ -145,7 +178,9 @@ export default function LiveTradingPage() {
   const [orders, setOrders] = useState<LiveOrder[]>([]);
   const [positions, setPositions] = useState<LivePosition[]>([]);
   const [risk, setRisk] = useState<LiveRiskStatus | null>(null);
+  const [riskEvents, setRiskEvents] = useState<LiveRiskEvent[]>([]);
   const [health, setHealth] = useState<ExchangeHealth | null>(null);
+  const [certification, setCertification] = useState<BinanceCertification | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [credentialForm, setCredentialForm] = useState({
@@ -177,17 +212,18 @@ export default function LiveTradingPage() {
     [selectedSessionId, sessions]
   );
 
-  async function refreshAll() {
+  const refreshAll = useCallback(async () => {
     setIsLoading(true);
     setErrorMessage(null);
     try {
-      const [credentialData, sessionData, orderData, positionData, riskData, healthData] =
+      const [credentialData, sessionData, orderData, positionData, riskData, riskEventData, healthData] =
         await Promise.all([
           readJson<LiveCredential[]>(await apiFetch("/api/live/credentials/status")),
           readJson<LiveSession[]>(await apiFetch("/api/live/sessions")),
           readJson<LiveOrder[]>(await apiFetch("/api/live/orders")),
           readJson<LivePosition[]>(await apiFetch("/api/live/positions")),
           readJson<LiveRiskStatus>(await apiFetch("/api/live/risk/status")),
+          readJson<LiveRiskEvent[]>(await apiFetch("/api/live/risk/events")),
           readJson<ExchangeHealth>(await apiFetch("/api/live/exchange/health?exchange=binance")),
         ]);
       setCredentials(credentialData);
@@ -195,6 +231,7 @@ export default function LiveTradingPage() {
       setOrders(orderData);
       setPositions(positionData);
       setRisk(riskData);
+      setRiskEvents(riskEventData);
       setHealth(healthData);
       if (!selectedSessionId && sessionData.length > 0) {
         setSelectedSessionId(sessionData[0].id);
@@ -204,11 +241,11 @@ export default function LiveTradingPage() {
     } finally {
       setIsLoading(false);
     }
-  }
+  }, [selectedSessionId]);
 
   useEffect(() => {
     refreshAll();
-  }, []);
+  }, [refreshAll]);
 
   async function submitCredentials(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -289,6 +326,13 @@ export default function LiveTradingPage() {
   async function resetKillSwitch() {
     await readJson<LiveRiskStatus>(await apiFetch("/api/live/kill-switch/reset", { method: "POST" }));
     await refreshAll();
+  }
+
+  async function certifyBinanceTestnet() {
+    const result = await readJson<BinanceCertification>(
+      await apiFetch("/api/live/exchange/binance/testnet-certification", { method: "POST" })
+    );
+    setCertification(result);
   }
 
   return (
@@ -392,6 +436,34 @@ export default function LiveTradingPage() {
               <Metric label="Credentials" value={health?.credentialsValid ? "Valid" : "Missing"} />
               <Metric label="Submission" value={health?.realOrderSubmissionEnabled ? "Enabled" : "Disabled"} />
             </div>
+            <div className="mt-4 rounded-[16px] border border-status-warning/30 bg-status-warning/10 px-4 py-3 text-xs text-status-warning">
+              Real order submission remains disabled by default. Testnet certification does not imply production readiness.
+            </div>
+          </SurfaceCard>
+
+          <SurfaceCard
+            title="Binance testnet certification"
+            subtitle="Read-only account and open-order snapshots"
+            actions={
+              <Button size="sm" variant="secondary" onClick={certifyBinanceTestnet}>
+                <ClipboardCheck className="mr-2 h-4 w-4" />
+                Certify
+              </Button>
+            }
+          >
+            <div className="grid gap-3 md:grid-cols-4">
+              <Metric label="Scope" value={certification?.testnetOnly ? "Testnet only" : "Not checked"} />
+              <Metric label="Account" value={certification?.accountSnapshotReachable ? "Reachable" : "Not verified"} />
+              <Metric label="Open orders" value={certification?.openOrdersSnapshotReachable ? "Reachable" : "Not verified"} />
+              <Metric label="Result" value={certification?.certified ? "Certified" : "Pending"} />
+            </div>
+            {certification ? (
+              <div className="mt-4 rounded-[16px] border border-border/70 bg-panel-subtle px-4 py-3 text-xs text-muted-foreground">
+                {certification.message}
+                {certification.accountSnapshotSummary ? `; ${certification.accountSnapshotSummary}` : ""}
+                {certification.openOrdersSnapshotSummary ? `; ${certification.openOrdersSnapshotSummary}` : ""}
+              </div>
+            ) : null}
           </SurfaceCard>
 
           <SurfaceCard
@@ -470,6 +542,20 @@ export default function LiveTradingPage() {
                   {order.rejectedReason ? (
                     <span className="text-xs text-status-error">{order.rejectedReason}</span>
                   ) : order.exchangeOrderId ?? "-"}
+                </TableCell>
+              </TableRow>
+            ))}
+          </LiveTable>
+
+          <LiveTable title="Risk audit" empty="No live risk events yet.">
+            {riskEvents.map((event) => (
+              <TableRow key={event.id}>
+                <TableCell><StatusBadge value={event.eventType.includes("REJECTED") ? "REJECTED" : "ACCEPTED"} /></TableCell>
+                <TableCell>{event.symbol ?? event.exchange}</TableCell>
+                <TableCell>{event.eventType}</TableCell>
+                <TableCell>{event.orderId ?? "-"}</TableCell>
+                <TableCell>
+                  <span className="text-xs text-muted-foreground">{event.reason ?? "-"}</span>
                 </TableCell>
               </TableRow>
             ))}
