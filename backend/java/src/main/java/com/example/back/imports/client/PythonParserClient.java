@@ -19,6 +19,7 @@ import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
@@ -33,8 +34,13 @@ public class PythonParserClient {
     private final RestClient restClient;
     private final String internalSecret;
 
+    @Autowired
     public PythonParserClient(PythonClientConfig config) {
-        this.restClient = RestClient.builder()
+        this(config, RestClient.builder());
+    }
+
+    PythonParserClient(PythonClientConfig config, RestClient.Builder restClientBuilder) {
+        this.restClient = restClientBuilder
                 .baseUrl(config.getBaseUrl())
                 .build();
         this.internalSecret = config.getInternalSecret();
