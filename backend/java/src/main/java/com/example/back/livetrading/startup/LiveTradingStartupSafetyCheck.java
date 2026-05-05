@@ -45,8 +45,16 @@ public class LiveTradingStartupSafetyCheck implements ApplicationRunner {
     }
 
     private void collectUnsafe(Map<String, String> unsafeValues, String name, String value) {
-        if (value == null || value.isBlank() || value.toLowerCase().contains("change-me")) {
+        if (isUnsafeSecret(value)) {
             unsafeValues.put(name, value);
         }
+    }
+
+    private boolean isUnsafeSecret(String value) {
+        if (value == null || value.isBlank()) {
+            return true;
+        }
+        String normalized = value.trim().toLowerCase();
+        return normalized.equals("change-me") || normalized.startsWith("change-me-");
     }
 }

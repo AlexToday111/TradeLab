@@ -20,6 +20,14 @@ class LiveTradingStartupSafetyCheckTest {
     }
 
     @Test
+    void allowsBlankLocalDefaultsWhenRealSubmissionIsDisabled() {
+        LiveTradingStartupSafetyCheck check = check(false, "", "", "");
+
+        assertThatCode(() -> check.run(new DefaultApplicationArguments()))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
     void rejectsChangeMeSecretsWhenRealSubmissionIsEnabled() {
         LiveTradingStartupSafetyCheck check = check(true, "change-me-key", "release-jwt", "release-python");
 
@@ -29,10 +37,33 @@ class LiveTradingStartupSafetyCheckTest {
     }
 
     @Test
+    void rejectsBlankSharedSecretsWhenRealSubmissionIsEnabled() {
+        LiveTradingStartupSafetyCheck check = check(true, "release-live-key", "", "");
+
+        assertThatThrownBy(() -> check.run(new DefaultApplicationArguments()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("SECURITY_JWT_SECRET")
+                .hasMessageContaining("PYTHON_PARSER_INTERNAL_SECRET");
+    }
+
+    @Test
     void allowsRealSubmissionOnlyWithNonDefaultSecrets() {
         LiveTradingStartupSafetyCheck check = check(
                 true,
                 "release-live-key-32-characters-minimum",
+                "release-jwt-secret",
+                "release-python-secret"
+        );
+
+        assertThatCode(() -> check.run(new DefaultApplicationArguments()))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void allowsNonPlaceholderSecretThatContainsChangeMeSubstring() {
+        LiveTradingStartupSafetyCheck check = check(
+                true,
+                "release-change-method-secret",
                 "release-jwt-secret",
                 "release-python-secret"
         );
