@@ -63,6 +63,7 @@ jobs:
 
   docker-smoke:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     needs:
       - frontend
       - python
@@ -70,3 +71,4 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker compose config -q
+      - run: scripts/docker-compose-smoke.sh
