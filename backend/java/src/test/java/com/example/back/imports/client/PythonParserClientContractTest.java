@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.ExpectedCount.once;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.headerDoesNotExist;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withBadRequest;
@@ -59,12 +60,30 @@ class PythonParserClientContractTest {
     }
 
     @Test
+    void healthUsesPublicEndpointWithoutInternalSharedSecret() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        PythonParserClient client = new PythonParserClient(config(), builder);
+
+        server.expect(once(), requestTo("http://python-parser/health"))
+                .andExpect(headerDoesNotExist("X-Internal-Auth"))
+                .andRespond(withSuccess("{\"status\":\"ok\",\"service\":\"python-parser\"}", MediaType.APPLICATION_JSON));
+
+        assertThat(client.getHealth().getStatus()).isEqualTo("ok");
+        server.verify();
+    }
+
+    @Test
     void executeRunSurfacesPythonErrorContract() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         PythonParserClient client = new PythonParserClient(config(), builder);
 
         server.expect(once(), requestTo("http://python-parser/internal/runs/execute"))
+                .andExpect(header("X-Internal-Auth", "release-shared-secret"))
+                .andExpect(header("X-Correlation-Id", "corr-1"))
+                .andExpect(header("X-Run-Id", "run-1"))
+                .andExpect(header("X-Job-Id", "job-1"))
                 .andRespond(withBadRequest()
                         .contentType(MediaType.APPLICATION_JSON)
                         .body("{\"status\":\"error\",\"message\":\"Unauthorized internal request\"}"));
