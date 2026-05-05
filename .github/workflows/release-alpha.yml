@@ -5,6 +5,9 @@ on:
     tags:
       - "v*"
 
+permissions:
+  contents: write
+
 jobs:
   frontend:
     runs-on: ubuntu-latest
@@ -95,3 +98,13 @@ jobs:
           name: openapi-release-artifacts
           path: artifacts/*.json
           if-no-files-found: error
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          prerelease: true
+          files: artifacts/*.json
+          body: |
+            v0.9.1-alpha.1 is a patch release focused on stabilizing the v0.9.0-alpha.1 release hardening work. It fixes CI release workflow issues, Docker Compose smoke check readiness, OpenAPI artifact export reliability, frontend health dashboard fallback states, live trading safety validation edge cases, Playwright smoke test flakiness, Java/Python contract test setup, demo mode labeling consistency, and release runbook/checklist inaccuracies.
+
+            Real order submission remains disabled by default. This release does not certify production live trading.
