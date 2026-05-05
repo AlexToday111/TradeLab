@@ -5,8 +5,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DemoModeBadge } from "@/components/shared/demo-mode-badge";
 import { SurfaceCard } from "@/components/shared/surface-card";
 import { useRuns } from "@/features/runs/store/run-store";
 import { datasetVersions } from "@/lib/demo-data/datasets";
@@ -153,9 +153,7 @@ export default function WorkspacePage() {
     <div className="flex min-h-full flex-col gap-5">
       <SurfaceCard>
         <div className="mb-4">
-          <Badge variant="outline" className="rounded-full border-status-warning/35 bg-status-warning/12 text-status-warning">
-            Demo data
-          </Badge>
+          <DemoModeBadge label="Demo data" />
         </div>
         <div className="relative">
           {canGoPrev ? (

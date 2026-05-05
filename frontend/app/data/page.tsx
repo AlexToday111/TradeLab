@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Database, Download, Plus, UploadCloud } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DemoModeBadge } from "@/components/shared/demo-mode-badge";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -1734,9 +1735,7 @@ export default function DataPage() {
       <PageHeader
         title="Данные"
         actions={
-          <Badge variant="outline" className="rounded-full border-status-warning/35 bg-status-warning/12 text-status-warning">
-            Demo data visible
-          </Badge>
+          <DemoModeBadge label="Demo data visible" />
         }
       />
 
