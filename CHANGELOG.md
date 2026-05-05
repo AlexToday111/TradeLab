@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.9.1-alpha.1] - 2026-05-05
+
+### Bug Fixes & Alpha Stabilization
+
+### Fixed
+
+- Stabilized tagged alpha release workflow.
+- Fixed Docker Compose smoke validation readiness issues.
+- Fixed OpenAPI artifact export reliability.
+- Fixed frontend health dashboard behavior when backend services are unavailable.
+- Fixed live trading unsafe secret validation edge cases.
+- Fixed Playwright smoke test flakiness.
+- Fixed Java/Python internal API contract test setup.
+- Fixed demo mode labeling consistency.
+- Fixed release checklist and runbook inaccuracies.
+
+### Safety Notes
+
+- Real order submission remains disabled by default.
+- This patch release does not certify production live trading.
+- Testnet validation remains separate from production readiness.
+
+---
+
 ## [0.9.0-alpha.1] - 2026-05-04
 
 ### Release Hardening & Testnet Safety
