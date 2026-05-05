@@ -53,7 +53,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class RunOrchestrationService {
 
-    private static final String DEFAULT_ENGINE_VERSION = "python-execution-engine/0.9.0-alpha.1";
+    private static final String DEFAULT_ENGINE_VERSION = "python-execution-engine/0.9.1-alpha.1";
     private static final String PYTHON_EXECUTE_ENDPOINT = "/internal/runs/execute";
 
     private final RunRepository runRepository;

@@ -77,5 +77,5 @@ test("live trading safety and service health pages render", async ({ page }) => 
 
   await page.goto("/settings");
   await expect(page.getByText("Service Health")).toBeVisible();
-  await expect(page.getByText("v0.9.0-alpha.1").first()).toBeVisible();
+  await expect(page.getByText("v0.9.1-alpha.1").first()).toBeVisible();
 });

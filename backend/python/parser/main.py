@@ -47,7 +47,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="TradeLab Python Parser API",
-        version="0.9.0-alpha.1",
+        version="0.9.1-alpha.1",
         description="Internal API for candle imports, strategy validation, and strategy execution.",
         docs_url="/docs",
         redoc_url="/redoc",

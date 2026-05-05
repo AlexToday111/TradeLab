@@ -42,7 +42,7 @@ class PythonParserClientContractTest {
                           "trades": [],
                           "equityCurve": [],
                           "artifacts": null,
-                          "engineVersion": "python-execution-engine/0.9.0-alpha.1",
+                          "engineVersion": "python-execution-engine/0.9.1-alpha.1",
                           "runId": "run-1",
                           "jobId": "job-1",
                           "correlationId": "corr-1",
