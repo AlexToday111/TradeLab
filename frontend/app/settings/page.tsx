@@ -37,6 +37,12 @@ type ExchangeHealth = {
 };
 
 type ServiceState = "ok" | "warn" | "error";
+type ServiceKey = "java" | "python" | "risk" | "exchange";
+
+type ServiceResult<T> = {
+  data: T | null;
+  error: string | null;
+};
 
 async function readJson<T>(response: Response): Promise<T> {
   const payload = await response.json();
@@ -46,33 +52,48 @@ async function readJson<T>(response: Response): Promise<T> {
   return payload as T;
 }
 
+async function readService<T>(path: string): Promise<ServiceResult<T>> {
+  try {
+    return {
+      data: await readJson<T>(await apiFetch(path)),
+      error: null,
+    };
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : "Service check failed",
+    };
+  }
+}
+
 export default function SettingsPage() {
   const [javaHealth, setJavaHealth] = useState<JavaHealth | null>(null);
   const [pythonHealth, setPythonHealth] = useState<PythonHealth | null>(null);
   const [liveRisk, setLiveRisk] = useState<LiveRiskStatus | null>(null);
   const [exchangeHealth, setExchangeHealth] = useState<ExchangeHealth | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [healthErrors, setHealthErrors] = useState<Partial<Record<ServiceKey, string>>>({});
   const [isLoading, setIsLoading] = useState(false);
 
   async function refresh() {
     setIsLoading(true);
-    setErrorMessage(null);
-    try {
-      const [javaData, pythonData, riskData, exchangeData] = await Promise.all([
-        readJson<JavaHealth>(await apiFetch("/api/health")),
-        readJson<PythonHealth>(await apiFetch("/api/python/health")),
-        readJson<LiveRiskStatus>(await apiFetch("/api/live/risk/status")),
-        readJson<ExchangeHealth>(await apiFetch("/api/live/exchange/health?exchange=binance")),
-      ]);
-      setJavaHealth(javaData);
-      setPythonHealth(pythonData);
-      setLiveRisk(riskData);
-      setExchangeHealth(exchangeData);
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Service health check failed");
-    } finally {
-      setIsLoading(false);
-    }
+    const [javaResult, pythonResult, riskResult, exchangeResult] = await Promise.all([
+      readService<JavaHealth>("/api/health"),
+      readService<PythonHealth>("/api/python/health"),
+      readService<LiveRiskStatus>("/api/live/risk/status"),
+      readService<ExchangeHealth>("/api/live/exchange/health?exchange=binance"),
+    ]);
+
+    setJavaHealth(javaResult.data);
+    setPythonHealth(pythonResult.data);
+    setLiveRisk(riskResult.data);
+    setExchangeHealth(exchangeResult.data);
+    setHealthErrors({
+      java: javaResult.error ?? undefined,
+      python: pythonResult.error ?? undefined,
+      risk: riskResult.error ?? undefined,
+      exchange: exchangeResult.error ?? undefined,
+    });
+    setIsLoading(false);
   }
 
   useEffect(() => {
@@ -83,6 +104,7 @@ export default function SettingsPage() {
     () => liveRisk?.circuitBreakers.some((breaker) => breaker.active) ?? false,
     [liveRisk]
   );
+  const outageMessages = Object.entries(healthErrors).filter((entry): entry is [ServiceKey, string] => Boolean(entry[1]));
 
   return (
     <div className="flex min-h-full flex-col gap-5">
@@ -98,9 +120,9 @@ export default function SettingsPage() {
         }
       />
 
-      {errorMessage ? (
-        <div className="rounded-[16px] border border-status-error/35 bg-status-error/10 px-4 py-3 text-sm text-status-error">
-          {errorMessage}
+      {outageMessages.length > 0 ? (
+        <div className="rounded-[16px] border border-status-warning/35 bg-status-warning/10 px-4 py-3 text-sm text-status-warning">
+          Partial outage detected: {outageMessages.map(([service]) => service).join(", ")}
         </div>
       ) : null}
 
@@ -129,14 +151,14 @@ export default function SettingsPage() {
             />
             <ServiceTile
               title={javaHealth?.service ?? "java-api"}
-              detail={javaHealth?.status ?? "unknown"}
-              state={javaHealth?.status === "ok" ? "ok" : "error"}
+              detail={healthErrors.java ?? javaHealth?.status ?? (isLoading ? "checking" : "unavailable")}
+              state={healthErrors.java ? "error" : javaHealth?.status === "ok" ? "ok" : isLoading ? "warn" : "error"}
               icon={<CheckCircle2 className="h-4 w-4" />}
             />
             <ServiceTile
               title={pythonHealth?.service ?? "python-parser"}
-              detail={pythonHealth?.status ?? "unknown"}
-              state={pythonHealth?.status === "ok" ? "ok" : "error"}
+              detail={healthErrors.python ?? pythonHealth?.status ?? (isLoading ? "checking" : "unavailable")}
+              state={healthErrors.python ? "error" : pythonHealth?.status === "ok" ? "ok" : isLoading ? "warn" : "error"}
               icon={<CheckCircle2 className="h-4 w-4" />}
             />
           </div>
@@ -147,23 +169,29 @@ export default function SettingsPage() {
         <div className="grid gap-3 md:grid-cols-4">
           <Metric
             label="Kill switch"
-            value={liveRisk?.killSwitchActive ? "ACTIVE" : "Clear"}
-            state={liveRisk?.killSwitchActive ? "error" : "ok"}
+            value={healthErrors.risk ? "Unavailable" : liveRisk?.killSwitchActive ? "ACTIVE" : "Clear"}
+            state={healthErrors.risk || liveRisk?.killSwitchActive ? "error" : "ok"}
           />
           <Metric
             label="Circuit breaker"
-            value={circuitBreakerActive ? "ACTIVE" : "Clear"}
-            state={circuitBreakerActive ? "error" : "ok"}
+            value={healthErrors.risk ? "Unavailable" : circuitBreakerActive ? "ACTIVE" : "Clear"}
+            state={healthErrors.risk || circuitBreakerActive ? "error" : "ok"}
           />
           <Metric
             label="Credentials"
-            value={exchangeHealth?.credentialsValid ? "Valid" : "Missing or invalid"}
-            state={exchangeHealth?.credentialsValid ? "ok" : "warn"}
+            value={healthErrors.exchange ? "Unavailable" : exchangeHealth?.credentialsValid ? "Valid" : "Missing or invalid"}
+            state={healthErrors.exchange ? "error" : exchangeHealth?.credentialsValid ? "ok" : "warn"}
           />
           <Metric
             label="Submission"
-            value={exchangeHealth?.realOrderSubmissionEnabled ? "Enabled" : "Disabled by default"}
-            state={exchangeHealth?.realOrderSubmissionEnabled ? "warn" : "ok"}
+            value={
+              healthErrors.exchange
+                ? "Unavailable"
+                : exchangeHealth?.realOrderSubmissionEnabled
+                  ? "Enabled"
+                  : "Disabled by default"
+            }
+            state={healthErrors.exchange ? "error" : exchangeHealth?.realOrderSubmissionEnabled ? "warn" : "ok"}
           />
         </div>
         {liveRisk?.killSwitchReason ? (
