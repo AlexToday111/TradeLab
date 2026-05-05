@@ -1,6 +1,6 @@
 <h1 align="center">Модель безопасности Live Trading</h1>
 
-Целевой релиз: `v0.9.0-alpha.1` — release hardening и testnet safety.
+Целевой релиз: `v0.9.1-alpha.1` — bugfix stabilization для release hardening и testnet safety.
 
 <h2 align="center">Граница по умолчанию</h2>
 
@@ -8,6 +8,7 @@ Live trading безопасен по умолчанию:
 
 - real order submission отключен, если явно не задано `LIVE_TRADING_REAL_ORDER_SUBMISSION_ENABLED=true`
 - startup отклоняет `change-me` secrets, когда real order submission включен
+- startup допускает local placeholder secrets только пока real order submission отключен
 - Binance certification работает только для testnet и read-only
 - credentials должны сохраняться через `/api/live/credentials`
 - sessions включаются только вручную

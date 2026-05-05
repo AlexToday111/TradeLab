@@ -1,6 +1,6 @@
 <h1 align="center">Testnet Drill для Live Trading</h1>
 
-Целевой релиз: `v0.9.0-alpha.1`
+Целевой релиз: `v0.9.1-alpha.1`
 
 <h2 align="center">Предусловия</h2>
 
@@ -30,3 +30,4 @@
 
 - Real order submission остается выключенным по умолчанию.
 - Testnet certification не означает production readiness.
+- Любое включение production submission требует отдельного approval вне этого patch-релиза.

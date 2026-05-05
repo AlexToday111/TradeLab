@@ -1,12 +1,12 @@
 <h1 align="center">Kill Switch Drill</h1>
 
-Целевой релиз: `v0.9.0-alpha.1`
+Целевой релиз: `v0.9.1-alpha.1`
 
 <h2 align="center">Предусловия</h2>
 
 - Пользователь может авторизоваться во frontend.
 - Существует хотя бы одна live trading session.
-- Real order submission остается отключенным, если нет отдельного production approval.
+- Real order submission остается отключенным. Этот patch-релиз не сертифицирует production live trading.
 
 <h2 align="center">Порядок drill</h2>
 
@@ -18,6 +18,7 @@
 6. Открыть `/settings` и убедиться, что safety dashboard показывает активный kill switch.
 7. Нажать `Reset`.
 8. Убедиться, что `/live` и `/settings` вернулись к чистому состоянию kill switch.
+9. Если dashboard показывает partial outage, зафиксировать недоступный сервис и повторить drill после восстановления health checks.
 
 <h2 align="center">Свидетельства выполнения</h2>
 
