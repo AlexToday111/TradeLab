@@ -2,6 +2,9 @@
 set -euo pipefail
 
 cleanup() {
+  if [ "${COMPOSE_SMOKE_KEEP_RUNNING:-false}" = "true" ]; then
+    return
+  fi
   docker compose down --remove-orphans
 }
 trap cleanup EXIT

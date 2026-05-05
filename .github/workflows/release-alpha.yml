@@ -85,7 +85,11 @@ jobs:
       - uses: actions/checkout@v4
       - run: docker compose config -q
       - run: scripts/docker-compose-smoke.sh
+        env:
+          COMPOSE_SMOKE_KEEP_RUNNING: "true"
       - run: scripts/export-openapi-artifacts.sh "${GITHUB_REF_NAME#v}"
+      - if: always()
+        run: docker compose down --remove-orphans
       - uses: actions/upload-artifact@v4
         with:
           name: openapi-release-artifacts
