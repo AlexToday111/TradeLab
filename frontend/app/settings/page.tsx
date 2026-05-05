@@ -97,7 +97,11 @@ export default function SettingsPage() {
   }
 
   useEffect(() => {
-    refresh();
+    const initialRefresh = window.setTimeout(() => {
+      void refresh();
+    }, 0);
+
+    return () => window.clearTimeout(initialRefresh);
   }, []);
 
   const circuitBreakerActive = useMemo(
