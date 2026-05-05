@@ -1,32 +1,32 @@
-# Live Trading Testnet Drill
+<h1 align="center">Testnet Drill для Live Trading</h1>
 
-Target release: `v0.9.0-alpha.1`
+Целевой релиз: `v0.9.0-alpha.1`
 
-## Preconditions
+<h2 align="center">Предусловия</h2>
 
 - `LIVE_TRADING_REAL_ORDER_SUBMISSION_ENABLED=false`.
-- Binance testnet credentials are stored through the Live Trading UI or API.
-- `LIVE_TRADING_CREDENTIAL_ENCRYPTION_KEY`, `SECURITY_JWT_SECRET`, and `PYTHON_PARSER_INTERNAL_SECRET` are not `change-me` values outside local development.
+- Учетные данные Binance testnet сохранены через UI или API Live Trading.
+- `LIVE_TRADING_CREDENTIAL_ENCRYPTION_KEY`, `SECURITY_JWT_SECRET` и `PYTHON_PARSER_INTERNAL_SECRET` не равны `change-me` вне локальной разработки.
 
-## Drill
+<h2 align="center">Порядок drill</h2>
 
-1. Start the stack with `docker compose up --build -d`.
-2. Open `/settings` and verify Java API, Python parser, and frontend health.
-3. Open `/live` and verify submission is shown as disabled.
-4. Store active Binance testnet credentials.
-5. Run Binance testnet certification.
-6. Confirm the response says testnet only and includes account/open-orders snapshot status.
-7. Create a live session with a strict symbol whitelist and low notional caps.
-8. Enable the session and submit a small guarded test order.
-9. Confirm no production submission is enabled and rejected reasons are visible when risk gates block an order.
+1. Запустить стек командой `docker compose up --build -d`.
+2. Открыть `/settings` и проверить health для Java API, Python parser и frontend.
+3. Открыть `/live` и убедиться, что отправка real orders показана как отключенная.
+4. Сохранить активные учетные данные Binance testnet.
+5. Запустить Binance testnet certification.
+6. Проверить, что ответ помечен как testnet-only и содержит статус account/open-orders snapshot.
+7. Создать live session со строгим symbol whitelist и низкими notional caps.
+8. Включить session и отправить небольшой guarded test order.
+9. Убедиться, что production submission не включен, а причины rejection видны при блокировке risk gates.
 
-## Exit Criteria
+<h2 align="center">Критерии завершения</h2>
 
-- Testnet certification completed or produced an explicit operator-facing failure reason.
-- Kill switch and circuit breaker state are visible.
-- No production order submission was enabled.
+- Testnet certification завершилась успешно или вернула понятную оператору причину отказа.
+- Состояния kill switch и circuit breaker видны в UI/API.
+- Production order submission не включался.
 
-## Safety Notes
+<h2 align="center">Заметки по безопасности</h2>
 
-- Real order submission remains disabled by default.
-- Testnet certification does not imply production readiness.
+- Real order submission остается выключенным по умолчанию.
+- Testnet certification не означает production readiness.

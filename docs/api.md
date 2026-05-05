@@ -1,10 +1,10 @@
-# REST API
+<h1 align="center">REST API</h1>
 
-## POST `/backtests`
+<h2 align="center">POST `/backtests`</h2>
 
 Создает запуск и синхронно выполняет бэктест.
 
-### Пример запроса
+<h3 align="center">Пример запроса</h3>
 
 ```json
 {
@@ -25,7 +25,7 @@
 }
 ```
 
-### Пример ответа
+<h3 align="center">Пример ответа</h3>
 
 ```json
 {
@@ -33,11 +33,11 @@
 }
 ```
 
-## GET `/backtests/{id}`
+<h2 align="center">GET `/backtests/{id}`</h2>
 
 Возвращает состояние запуска.
 
-### Пример ответа
+<h3 align="center">Пример ответа</h3>
 
 ```json
 {
@@ -64,11 +64,11 @@
 }
 ```
 
-## GET `/backtests/{id}/trades`
+<h2 align="center">GET `/backtests/{id}/trades`</h2>
 
 Возвращает сделки запуска.
 
-### Пример ответа
+<h3 align="center">Пример ответа</h3>
 
 ```json
 [
@@ -84,11 +84,11 @@
 ]
 ```
 
-## GET `/backtests/{id}/equity`
+<h2 align="center">GET `/backtests/{id}/equity`</h2>
 
 Возвращает кривую капитала.
 
-### Пример ответа
+<h3 align="center">Пример ответа</h3>
 
 ```json
 [
@@ -99,12 +99,12 @@
 ]
 ```
 
-## Scalable runs API
+<h2 align="center">API масштабируемых запусков</h2>
 
-### POST `/api/runs`
+<h3 align="center">POST `/api/runs`</h3>
 
 Создает `Run`, immutable snapshot и `ExecutionJob` со статусом `QUEUED`.
-`strategyVersionId` и `parameterPresetId` опциональны. Если `strategyVersionId` не передан, backend использует latest version стратегии для совместимости и сохраняет выбранную версию в `runs.strategy_version_id` и `run_snapshots.strategy_version_id`.
+`strategyVersionId` и `parameterPresetId` опциональны. Если `strategyVersionId` не передан, backend использует latest version стратегии для совместимости и сохраняет выбранную version в `runs.strategy_version_id` и `run_snapshots.strategy_version_id`.
 
 ```json
 {
@@ -122,83 +122,83 @@
 }
 ```
 
-### GET `/api/runs/{id}/execution`
+<h3 align="center">GET `/api/runs/{id}/execution`</h3>
 
 Возвращает latest execution job текущего пользователя для запуска.
 
-### POST `/api/runs/{id}/retry`
+<h3 align="center">POST `/api/runs/{id}/retry`</h3>
 
 Повторно ставит failed job в очередь, если лимит `maxAttempts` не исчерпан. Canceled jobs не retry-ятся.
 
-### POST `/api/runs/{id}/cancel`
+<h3 align="center">POST `/api/runs/{id}/cancel`</h3>
 
 Отменяет queued job сразу. Для running job выставляет `cancelRequested=true`; Python interruption будет добавлен позже.
 
-### GET `/api/execution-jobs`
+<h3 align="center">GET `/api/execution-jobs`</h3>
 
 Возвращает execution jobs текущего пользователя.
 
-### GET `/api/execution-jobs/{id}`
+<h3 align="center">GET `/api/execution-jobs/{id}`</h3>
 
 Возвращает execution job по id с ownership-проверкой.
 
-## Strategy management API
+<h2 align="center">API управления стратегиями</h2>
 
 Все endpoints требуют JWT-auth, кроме внутренних Python endpoints. User-owned resources возвращаются только текущему пользователю.
 
-### POST `/api/strategies`
+<h3 align="center">POST `/api/strategies`</h3>
 
 Создает draft strategy registry record без source version.
 
-### GET `/api/strategies`
+<h3 align="center">GET `/api/strategies`</h3>
 
 Возвращает стратегии текущего пользователя.
 
-### GET `/api/strategies/{id}`
+<h3 align="center">GET `/api/strategies/{id}`</h3>
 
 Возвращает одну owned strategy.
 
-### PATCH `/api/strategies/{id}`
+<h3 align="center">PATCH `/api/strategies/{id}`</h3>
 
 Обновляет editable metadata: `name`, `description`, `strategyType`, `lifecycleStatus`, `metadata`, `tags`.
 
-### POST `/api/strategies/{id}/archive`
+<h3 align="center">POST `/api/strategies/{id}/archive`</h3>
 
 Переводит strategy lifecycle в `ARCHIVED`.
 
-### POST `/api/strategies/upload`
+<h3 align="center">POST `/api/strategies/upload`</h3>
 
 Compatibility upload flow. Создает strategy registry record и initial immutable version из `.py` файла.
 
-### POST `/api/strategies/{id}/versions`
+<h3 align="center">POST `/api/strategies/{id}/versions`</h3>
 
 Загружает новый `.py` файл как immutable strategy version. Version получает checksum, file metadata и persisted validation result.
 
-### GET `/api/strategies/{id}/versions`
+<h3 align="center">GET `/api/strategies/{id}/versions`</h3>
 
 Возвращает version history стратегии.
 
-### GET `/api/strategy-versions/{versionId}`
+<h3 align="center">GET `/api/strategy-versions/{versionId}`</h3>
 
 Возвращает одну owned strategy version.
 
-### POST `/api/strategy-versions/{versionId}/validate`
+<h3 align="center">POST `/api/strategy-versions/{versionId}/validate`</h3>
 
 Повторно запускает validation contract и сохраняет validation report.
 
-### POST `/api/strategy-versions/{versionId}/activate`
+<h3 align="center">POST `/api/strategy-versions/{versionId}/activate`</h3>
 
-Активирует только `VALID` или `WARNING` version. `INVALID` и `PENDING` версии не активируются.
+Активирует только `VALID` или `WARNING` version. `INVALID` и `PENDING` versions не активируются.
 
-### GET `/api/strategy-templates`
+<h3 align="center">GET `/api/strategy-templates`</h3>
 
 Возвращает system-owned starter templates.
 
-### GET `/api/strategy-templates/{id}`
+<h3 align="center">GET `/api/strategy-templates/{id}`</h3>
 
 Возвращает один template.
 
-### POST `/api/strategies/{id}/presets`
+<h3 align="center">POST `/api/strategies/{id}/presets`</h3>
 
 Создает owner-scoped parameter preset.
 
@@ -212,55 +212,55 @@ Compatibility upload flow. Создает strategy registry record и initial im
 }
 ```
 
-### GET `/api/strategies/{id}/presets`
+<h3 align="center">GET `/api/strategies/{id}/presets`</h3>
 
 Возвращает presets owned user для strategy.
 
-### PATCH `/api/strategy-presets/{presetId}`
+<h3 align="center">PATCH `/api/strategy-presets/{presetId}`</h3>
 
 Обновляет preset name/payload.
 
-### DELETE `/api/strategy-presets/{presetId}`
+<h3 align="center">DELETE `/api/strategy-presets/{presetId}`</h3>
 
 Удаляет owned preset.
 
-## Run artifacts API
+<h2 align="center">API артефактов запусков</h2>
 
-### GET `/api/runs/{id}/artifacts`
+<h3 align="center">GET `/api/runs/{id}/artifacts`</h3>
 
 Возвращает metadata артефактов запуска, доступных текущему пользователю.
 
-### GET `/api/runs/{id}/artifacts/{artifactId}`
+<h3 align="center">GET `/api/runs/{id}/artifacts/{artifactId}`</h3>
 
 Возвращает metadata и JSON payload конкретного артефакта.
 
-### GET `/api/runs/{id}/artifacts/{artifactId}/download`
+<h3 align="center">GET `/api/runs/{id}/artifacts/{artifactId}/download`</h3>
 
 Возвращает содержимое артефакта как downloadable file.
 
-## Dataset platform API
+<h2 align="center">API платформы датасетов</h2>
 
-### GET `/api/datasets/{id}`
+<h3 align="center">GET `/api/datasets/{id}`</h3>
 
 Возвращает dataset payload, latest snapshot и latest quality report.
 
-### GET `/api/datasets/{id}/versions`
+<h3 align="center">GET `/api/datasets/{id}/versions`</h3>
 
 Возвращает snapshot/version history dataset.
 
-### GET `/api/datasets/{id}/quality`
+<h3 align="center">GET `/api/datasets/{id}/quality`</h3>
 
 Возвращает сохраненные quality reports dataset.
 
-### GET `/api/dataset-snapshots/{snapshotId}`
+<h3 align="center">GET `/api/dataset-snapshots/{snapshotId}`</h3>
 
 Возвращает metadata конкретного dataset snapshot с ownership-проверкой через parent dataset.
 
-## Paper trading API
+<h2 align="center">API Paper Trading</h2>
 
 Все endpoints требуют JWT-auth и возвращают только ресурсы текущего пользователя.
 
-### POST `/api/paper/sessions`
+<h3 align="center">POST `/api/paper/sessions`</h3>
 
 Создает paper trading session со статусом `CREATED`.
 
@@ -276,29 +276,29 @@ Compatibility upload flow. Создает strategy registry record и initial im
 }
 ```
 
-### GET `/api/paper/sessions`
+<h3 align="center">GET `/api/paper/sessions`</h3>
 
 Возвращает sessions текущего пользователя.
 
-### GET `/api/paper/sessions/{id}`
+<h3 align="center">GET `/api/paper/sessions/{id}`</h3>
 
 Возвращает одну owned session.
 
-### POST `/api/paper/sessions/{id}/start`
+<h3 align="center">POST `/api/paper/sessions/{id}/start`</h3>
 
 Переводит session в `RUNNING`.
 
-### POST `/api/paper/sessions/{id}/pause`
+<h3 align="center">POST `/api/paper/sessions/{id}/pause`</h3>
 
 Переводит running session в `PAUSED`.
 
-### POST `/api/paper/sessions/{id}/stop`
+<h3 align="center">POST `/api/paper/sessions/{id}/stop`</h3>
 
 Переводит session в `STOPPED`.
 
-### POST `/api/paper/sessions/{id}/orders`
+<h3 align="center">POST `/api/paper/sessions/{id}/orders`</h3>
 
-Создает simulated order. Market orders fill immediately at the latest stored candle close. Limit orders are accepted and fill at submission time only when the latest close crosses the limit.
+Создает simulated order. Market orders исполняются сразу по latest stored candle close. Limit orders принимаются и исполняются в момент submission только если latest close пересекает limit.
 
 ```json
 {
@@ -317,41 +317,41 @@ Compatibility upload flow. Создает strategy registry record и initial im
 }
 ```
 
-Rejected orders are persisted with `status=REJECTED` and `rejectedReason`; no fill is created.
+Rejected orders сохраняются со `status=REJECTED` и `rejectedReason`; fill не создается.
 
-### GET `/api/paper/sessions/{id}/orders`
+<h3 align="center">GET `/api/paper/sessions/{id}/orders`</h3>
 
-Returns orders for an owned session.
+Возвращает orders для owned session.
 
-### GET `/api/paper/orders/{orderId}`
+<h3 align="center">GET `/api/paper/orders/{orderId}`</h3>
 
-Returns one owned paper order.
+Возвращает один owned paper order.
 
-### POST `/api/paper/orders/{orderId}/cancel`
+<h3 align="center">POST `/api/paper/orders/{orderId}/cancel`</h3>
 
-Cancels a `NEW` or `ACCEPTED` paper order.
+Отменяет paper order в статусе `NEW` или `ACCEPTED`.
 
-### GET `/api/paper/sessions/{id}/positions`
+<h3 align="center">GET `/api/paper/sessions/{id}/positions`</h3>
 
-Returns paper positions for an owned session.
+Возвращает paper positions для owned session.
 
-### GET `/api/paper/sessions/{id}/fills`
+<h3 align="center">GET `/api/paper/sessions/{id}/fills`</h3>
 
-Returns simulated fills for an owned session.
+Возвращает simulated fills для owned session.
 
-### GET `/api/paper/sessions/{id}/summary`
+<h3 align="center">GET `/api/paper/sessions/{id}/summary`</h3>
 
-Returns balance, PnL, equity, order count, fill count, and open position count for an owned session.
+Возвращает balance, PnL, equity, order count, fill count и open position count для owned session.
 
-No endpoint in this release places real exchange orders.
+Ни один endpoint в этом релизе не размещает real exchange orders.
 
-## Live trading API
+<h2 align="center">API Live Trading</h2>
 
 Все endpoints требуют JWT-auth и возвращают только ресурсы текущего пользователя.
 
-### POST `/api/live/credentials`
+<h3 align="center">POST `/api/live/credentials`</h3>
 
-Stores encrypted live exchange credentials. API key and secret are never returned in responses.
+Сохраняет encrypted live exchange credentials. API key и secret никогда не возвращаются в responses.
 
 ```json
 {
@@ -362,13 +362,13 @@ Stores encrypted live exchange credentials. API key and secret are never returne
 }
 ```
 
-### GET `/api/live/credentials/status`
+<h3 align="center">GET `/api/live/credentials/status`</h3>
 
-Returns masked credential status: `id`, `exchange`, `keyReference`, `active`, `createdAt`, `updatedAt`.
+Возвращает masked credential status: `id`, `exchange`, `keyReference`, `active`, `createdAt`, `updatedAt`.
 
-### POST `/api/live/sessions`
+<h3 align="center">POST `/api/live/sessions`</h3>
 
-Creates an owner-scoped guarded live trading session with explicit risk limits.
+Создает owner-scoped guarded live trading session с явными risk limits.
 
 ```json
 {
@@ -384,21 +384,21 @@ Creates an owner-scoped guarded live trading session with explicit risk limits.
 }
 ```
 
-### GET `/api/live/sessions`
+<h3 align="center">GET `/api/live/sessions`</h3>
 
-Returns live sessions for the authenticated user.
+Возвращает live sessions для authenticated user.
 
-### POST `/api/live/sessions/{id}/enable`
+<h3 align="center">POST `/api/live/sessions/{id}/enable`</h3>
 
-Enables a live session only when active credentials exist.
+Включает live session только при наличии active credentials.
 
-### POST `/api/live/sessions/{id}/disable`
+<h3 align="center">POST `/api/live/sessions/{id}/disable`</h3>
 
-Disables a live session and blocks new live order placement through that session.
+Отключает live session и блокирует размещение новых live orders через эту session.
 
-### POST `/api/live/orders`
+<h3 align="center">POST `/api/live/orders`</h3>
 
-Creates a live order. Mandatory risk checks run before adapter submission. Rejected orders are persisted and never reach the exchange.
+Создает live order. Mandatory risk checks выполняются до adapter submission. Rejected orders сохраняются и никогда не доходят до exchange.
 
 ```json
 {
@@ -412,41 +412,41 @@ Creates a live order. Mandatory risk checks run before adapter submission. Rejec
 }
 ```
 
-### GET `/api/live/orders`
+<h3 align="center">GET `/api/live/orders`</h3>
 
-Returns live orders owned by the current user.
+Возвращает live orders текущего пользователя.
 
-### GET `/api/live/orders/{id}`
+<h3 align="center">GET `/api/live/orders/{id}`</h3>
 
-Returns one owned live order.
+Возвращает один owned live order.
 
-### POST `/api/live/orders/{id}/cancel`
+<h3 align="center">POST `/api/live/orders/{id}/cancel`</h3>
 
-Cancels an open live order. Ownership is enforced before adapter cancellation.
+Отменяет open live order. Ownership проверяется до adapter cancellation.
 
-### GET `/api/live/positions`
+<h3 align="center">GET `/api/live/positions`</h3>
 
-Returns local live position state.
+Возвращает local live position state.
 
-### POST `/api/live/positions/sync`
+<h3 align="center">POST `/api/live/positions/sync`</h3>
 
-Synchronizes positions from configured exchange adapters where supported.
+Синхронизирует positions из configured exchange adapters, где это поддержано.
 
-### GET `/api/live/balances`
+<h3 align="center">GET `/api/live/balances`</h3>
 
-Returns adapter balance snapshots where supported.
+Возвращает adapter balance snapshots, где это поддержано.
 
-### GET `/api/live/risk/status`
+<h3 align="center">GET `/api/live/risk/status`</h3>
 
-Returns kill switch and circuit breaker state.
+Возвращает состояния kill switch и circuit breaker.
 
-### GET `/api/live/risk/events`
+<h3 align="center">GET `/api/live/risk/events`</h3>
 
-Returns recent live risk and safety events.
+Возвращает последние live risk и safety events.
 
-### POST `/api/live/kill-switch/activate`
+<h3 align="center">POST `/api/live/kill-switch/activate`</h3>
 
-Activates manual emergency stop and blocks new live orders.
+Активирует manual emergency stop и блокирует новые live orders.
 
 ```json
 {
@@ -455,19 +455,19 @@ Activates manual emergency stop and blocks new live orders.
 }
 ```
 
-### POST `/api/live/kill-switch/reset`
+<h3 align="center">POST `/api/live/kill-switch/reset`</h3>
 
-Manually resets the kill switch.
+Вручную сбрасывает kill switch.
 
-### POST `/api/live/circuit-breakers/reset`
+<h3 align="center">POST `/api/live/circuit-breakers/reset`</h3>
 
-Manually resets circuit breaker state for the current user.
+Вручную сбрасывает circuit breaker state текущего пользователя.
 
-### GET `/api/live/exchange/health?exchange=binance`
+<h3 align="center">GET `/api/live/exchange/health?exchange=binance`</h3>
 
-Checks adapter connectivity, credential presence/validity, and whether real order submission is enabled.
+Проверяет adapter connectivity, наличие/валидность credentials и то, включен ли real order submission.
 
-## Ошибки
+<h2 align="center">Ошибки</h2>
 
 Все ошибки возвращаются в JSON:
 

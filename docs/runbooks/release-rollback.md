@@ -1,28 +1,28 @@
-# Release Rollback
+<h1 align="center">Rollback релиза</h1>
 
-Target release: `v0.9.0-alpha.1`
+Целевой релиз: `v0.9.0-alpha.1`
 
-## Triggers
+<h2 align="center">Триггеры</h2>
 
-- CI release workflow fails after tag creation.
-- Docker smoke validation fails.
-- OpenAPI artifacts are missing or malformed.
-- Live trading safety guard blocks startup in the target environment.
+- Рабочий процесс релиза в CI падает после создания тега.
+- Docker smoke validation завершается ошибкой.
+- OpenAPI artifacts отсутствуют или имеют некорректный формат.
+- Live trading safety guard блокирует старт в целевом окружении.
 
-## Rollback Flow
+<h2 align="center">Порядок rollback</h2>
 
-1. Keep `LIVE_TRADING_REAL_ORDER_SUBMISSION_ENABLED=false`.
-2. Announce rollback in the release channel.
-3. Stop the current stack with `docker compose down`.
-4. Redeploy the last known good tag, currently `v0.8.0-alpha.1`.
-5. Run `docker compose config -q`.
-6. Run `scripts/docker-compose-smoke.sh`.
-7. Verify:
+1. Оставить `LIVE_TRADING_REAL_ORDER_SUBMISSION_ENABLED=false`.
+2. Объявить rollback в release channel.
+3. Остановить текущий стек командой `docker compose down`.
+4. Повторно развернуть последний известный исправный тег, сейчас это `v0.8.0-alpha.1`.
+5. Выполнить `docker compose config -q`.
+6. Выполнить `scripts/docker-compose-smoke.sh`.
+7. Проверить:
    - `http://localhost:3000`
    - `http://localhost:18080/api/health`
    - `http://localhost:18000/health`
-8. Document the failed artifact, workflow, or safety gate in a GitHub issue.
+8. Задокументировать проблемный artifact, workflow или safety gate в GitHub issue.
 
-## Data Notes
+<h2 align="center">Заметки по данным</h2>
 
-This alpha does not include destructive migrations. If a future release adds migrations, capture database backup ID and restore point before rollback.
+Этот alpha-релиз не содержит destructive migrations. Если будущий релиз добавит migrations, перед rollback нужно зафиксировать database backup ID и restore point.

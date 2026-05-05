@@ -1,15 +1,15 @@
-# OpenAPI Release Artifacts
+<h1 align="center">OpenAPI-артефакты релиза</h1>
 
-Release `v0.9.0-alpha.1` exports API contracts as build artifacts after the Java API and Python parser are running.
+Релиз `v0.9.0-alpha.1` экспортирует API-контракты как build artifacts после запуска Java API и Python parser.
 
 ```bash
 docker compose up --build -d
 scripts/export-openapi-artifacts.sh 0.9.0-alpha.1
 ```
 
-Artifact path convention:
+Принятое расположение артефактов:
 
 - `artifacts/openapi-java-v0.9.0-alpha.1.json`
 - `artifacts/openapi-python-v0.9.0-alpha.1.json`
 
-The script reads `JAVA_OPENAPI_URL` and `PYTHON_OPENAPI_URL` when non-default hosts are needed.
+Скрипт читает `JAVA_OPENAPI_URL` и `PYTHON_OPENAPI_URL`, если нужны нестандартные host/port.

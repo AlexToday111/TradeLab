@@ -1,78 +1,78 @@
-# Security Policy
+<h1 align="center">Политика безопасности</h1>
 
-## Supported Versions
+<h2 align="center">Поддерживаемые версии</h2>
 
-Trade360Lab is under active development.  
-Security fixes are applied to the latest version of the main branch.
-
----
-
-## Reporting a Vulnerability
-
-If you discover a security vulnerability, **do not open a public GitHub issue**.
-
-Instead, report it privately via Telegram: **@ba6kir**
-
-Please include as much detail as possible:
-
-- short description of the issue  
-- affected component(s)  
-- steps to reproduce  
-- expected vs actual behavior  
-- potential impact  
-- logs, screenshots, or proof of concept (if available)
+Trade360Lab находится в активной разработке.  
+Исправления безопасности применяются к последней версии основной ветки.
 
 ---
 
-## Disclosure Policy
+<h2 align="center">Сообщение об уязвимости</h2>
 
-Please report vulnerabilities responsibly and avoid public disclosure until the issue has been reviewed and addressed.
+Если вы нашли уязвимость безопасности, **не открывайте публичный GitHub issue**.
 
-All valid reports will be investigated based on severity and potential impact.
+Сообщите о проблеме приватно через Telegram: **@ba6kir**.
 
----
+По возможности приложите:
 
-## Scope
-
-Security reports are especially relevant for:
-
-- authentication and authorization issues  
-- exposure of API keys or secrets  
-- insecure communication between services  
-- unsafe execution of trading strategies  
-- injection vulnerabilities (SQL, command, etc.)  
-- database access control issues  
-- sensitive data leakage (logs, API responses)  
-- vulnerable dependencies with real impact  
+- краткое описание проблемы
+- затронутые компоненты
+- шаги воспроизведения
+- ожидаемое и фактическое поведение
+- возможное влияние
+- logs, screenshots или proof of concept, если они доступны
 
 ---
 
-## Security Practices
+<h2 align="center">Политика раскрытия</h2>
 
-Trade360Lab is designed with security and isolation in mind:
+Сообщайте об уязвимостях ответственно и избегайте публичного раскрытия до тех пор, пока проблема не будет изучена и исправлена.
 
-- no hardcoded secrets  
-- environment-based configuration  
-- separation of frontend, orchestration, execution, and database layers  
-- controlled handling of exchange credentials  
-- basic dependency review and updates  
-
-## Live Trading Security Boundary
-
-Live exchange credentials are stored encrypted at rest and API responses only expose a masked `keyReference`. Raw API keys and secrets must not be logged, returned through REST responses, or committed through environment files.
-
-Live order submission is guarded by an enabled session, active credentials, exchange health, mandatory risk validation, circuit breakers, and the manual kill switch. Rejected orders are persisted with explicit reasons and do not reach an exchange adapter.
-
-Real exchange order submission is disabled by default with `LIVE_TRADING_REAL_ORDER_SUBMISSION_ENABLED=false`. Operators must set a strong `LIVE_TRADING_CREDENTIAL_ENCRYPTION_KEY` and validate exchange/testnet behavior before enabling live signed submission.
-
-## Strategy Execution Boundary
-
-Uploaded strategy files are owner-scoped and validated before activation. The current Python validation flow checks syntax, required entrypoints, metadata, and parameter schema, but it still imports the Python module to inspect runtime metadata. This is not a full sandbox. Do not run untrusted strategy source in shared environments until process/container sandboxing is added.
+Все валидные сообщения будут рассмотрены с учетом severity и potential impact.
 
 ---
 
-## Notes
+<h2 align="center">Область проверки</h2>
 
-Please avoid reporting vulnerabilities through public GitHub issues.
+Сообщения о безопасности особенно важны для:
 
-Responsible disclosure helps protect users, infrastructure, and research systems.
+- проблем authentication и authorization
+- раскрытия API keys или secrets
+- небезопасной коммуникации между сервисами
+- небезопасного выполнения торговых стратегий
+- injection-уязвимостей: SQL, command и подобных
+- проблем контроля доступа к базе данных
+- утечек sensitive data через logs или API responses
+- уязвимых dependencies с реальным impact
+
+---
+
+<h2 align="center">Практики безопасности</h2>
+
+Trade360Lab проектируется с учетом security и isolation:
+
+- нет hardcoded secrets
+- конфигурация задается через environment
+- frontend, orchestration, execution и database layers разделены
+- exchange credentials обрабатываются контролируемо
+- выполняется базовый dependency review и updates
+
+<h2 align="center">Граница безопасности Live Trading</h2>
+
+Live exchange credentials хранятся encrypted at rest, а API responses возвращают только masked `keyReference`. Raw API keys и secrets нельзя логировать, возвращать через REST responses или коммитить через environment files.
+
+Live order submission защищен enabled session, active credentials, exchange health, mandatory risk validation, circuit breakers и manual kill switch. Rejected orders сохраняются с явными причинами и не доходят до exchange adapter.
+
+Real exchange order submission отключен по умолчанию через `LIVE_TRADING_REAL_ORDER_SUBMISSION_ENABLED=false`. Операторы должны задать сильный `LIVE_TRADING_CREDENTIAL_ENCRYPTION_KEY` и проверить exchange/testnet behavior перед включением live signed submission.
+
+<h2 align="center">Граница выполнения стратегий</h2>
+
+Uploaded strategy files привязаны к owner и проходят validation перед activation. Текущий Python validation flow проверяет syntax, required entrypoints, metadata и parameter schema, но все еще импортирует Python module для анализа runtime metadata. Это не полноценный sandbox. Не запускайте untrusted strategy source в shared environments, пока не добавлен process/container sandboxing.
+
+---
+
+<h2 align="center">Заметки</h2>
+
+Не сообщайте об уязвимостях через публичные GitHub issues.
+
+Responsible disclosure помогает защищать пользователей, инфраструктуру и исследовательские системы.

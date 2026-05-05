@@ -1,26 +1,26 @@
-# Kill Switch Drill
+<h1 align="center">Kill Switch Drill</h1>
 
-Target release: `v0.9.0-alpha.1`
+Целевой релиз: `v0.9.0-alpha.1`
 
-## Preconditions
+<h2 align="center">Предусловия</h2>
 
-- A user can authenticate to the frontend.
-- At least one live trading session exists.
-- Real order submission remains disabled unless a separate production approval exists.
+- Пользователь может авторизоваться во frontend.
+- Существует хотя бы одна live trading session.
+- Real order submission остается отключенным, если нет отдельного production approval.
 
-## Drill
+<h2 align="center">Порядок drill</h2>
 
-1. Open `/live`.
-2. Click `Kill switch`.
-3. Verify `/live` shows kill switch `ACTIVE`.
-4. Submit a guarded live order.
-5. Confirm the order is rejected with `Kill switch is active`.
-6. Open `/settings` and confirm the safety dashboard shows the active kill switch.
-7. Click `Reset`.
-8. Confirm `/live` and `/settings` return to clear kill switch state.
+1. Открыть `/live`.
+2. Нажать `Kill switch`.
+3. Убедиться, что `/live` показывает kill switch в состоянии `ACTIVE`.
+4. Отправить guarded live order.
+5. Проверить, что order отклонен с причиной `Kill switch is active`.
+6. Открыть `/settings` и убедиться, что safety dashboard показывает активный kill switch.
+7. Нажать `Reset`.
+8. Убедиться, что `/live` и `/settings` вернулись к чистому состоянию kill switch.
 
-## Evidence
+<h2 align="center">Свидетельства выполнения</h2>
 
-- Screenshot of `/live` safety state before and after reset.
-- Risk audit row for `KILL_SWITCH_ACTIVATED`.
-- Rejected order reason for the blocked order.
+- Скриншот safety state на `/live` до и после reset.
+- Строка risk audit для `KILL_SWITCH_ACTIVATED`.
+- Причина rejected order для заблокированной заявки.
